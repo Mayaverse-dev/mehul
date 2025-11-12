@@ -1,0 +1,36 @@
+# Environment variables (IMPORTANT - contains API keys and secrets)
+.env
+
+# Database (contains customer data)
+database.db
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# CSV data files (may contain personal information)
+*.csv
+
+# Images (can be large)
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Temporary files
+*.tmp
+.cache/

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Thank You - MAYA Pledge Manager</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div>
+                <h1>MAYA Pledge Manager</h1>
+                <p>Order Complete</p>
+            </div>
+            <div class="user-info">
+                <a href="/logout" style="color: white;">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-narrow">
+        <!-- Progress Bar -->
+        <div class="progress-bar">
+            <div class="progress-step completed">
+                <div class="progress-circle">✓</div>
+                <div class="progress-label">Login</div>
+            </div>
+            <div class="progress-step completed">
+                <div class="progress-circle">✓</div>
+                <div class="progress-label">Your Order</div>
+            </div>
+            <div class="progress-step completed">
+                <div class="progress-circle">✓</div>
+                <div class="progress-label">Add-ons</div>
+            </div>
+            <div class="progress-step completed">
+                <div class="progress-circle">✓</div>
+                <div class="progress-label">Shipping</div>
+            </div>
+            <div class="progress-step completed">
+                <div class="progress-circle">✓</div>
+                <div class="progress-label">Payment</div>
+            </div>
+        </div>
+
+        <!-- Success Message -->
+        <div class="card" style="text-align: center; padding: 60px 40px;">
+            <div style="font-size: 80px; margin-bottom: 20px;">🎉</div>
+            
+            <h1 style="color: var(--primary-red); font-size: 32px; margin-bottom: 15px;">
+                Thank You!
+            </h1>
+            
+            <p style="font-size: 18px; color: var(--text-dark); margin-bottom: 30px;">
+                Your order has been successfully completed.
+            </p>
+
+            <div class="alert alert-success" style="text-align: left; margin-bottom: 30px;">
+                <strong>✓ Payment Confirmed</strong><br>
+                <span style="font-size: 14px;">
+                    A confirmation email has been sent to your email address with all the order details.
+                </span>
+            </div>
+
+            <div style="background-color: var(--neutral-beige-light); padding: 30px; border-radius: 8px; margin-bottom: 30px; text-align: left;">
+                <h3 style="color: var(--primary-red); margin-bottom: 15px;">What happens next?</h3>
+                <ul style="list-style: none; padding: 0;">
+                    <li style="padding: 10px 0; border-bottom: 1px solid var(--border-color);">
+                        📧 <strong>Step 1:</strong> Check your email for order confirmation
+                    </li>
+                    <li style="padding: 10px 0; border-bottom: 1px solid var(--border-color);">
+                        📦 <strong>Step 2:</strong> Your items will be prepared for shipping
+                    </li>
+                    <li style="padding: 10px 0; border-bottom: 1px solid var(--border-color);">
+                        🚚 <strong>Step 3:</strong> You'll receive a tracking number when shipped
+                    </li>
+                    <li style="padding: 10px 0;">
+                        🎁 <strong>Step 4:</strong> Enjoy your MAYA collection!
+                    </li>
+                </ul>
+            </div>
+
+            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                <a href="/dashboard" class="btn btn-primary">
+                    Return to Dashboard
+                </a>
+                <a href="/logout" class="btn btn-secondary">
+                    Logout
+                </a>
+            </div>
+        </div>
+
+        <!-- Support Info -->
+        <div class="card" style="background-color: var(--neutral-beige-light); border: none;">
+            <h4 style="margin-bottom: 10px; color: var(--text-dark);">Need Help?</h4>
+            <p style="color: var(--text-muted); font-size: 14px;">
+                If you have any questions about your order, please contact us at 
+                <a href="mailto:support@entermaya.com" style="color: var(--primary-red);">support@entermaya.com</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Clear any remaining session data
+        sessionStorage.clear();
+    </script>
+</body>
+</html>
+

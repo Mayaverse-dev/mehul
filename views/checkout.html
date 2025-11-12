@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Checkout - MAYA Pledge Manager</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div>
+                <h1>MAYA Pledge Manager</h1>
+                <p>Complete Your Payment</p>
+            </div>
+            <div class="user-info">
+                <a href="/logout" style="color: white;">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Progress Bar -->
+        <div class="progress-bar">
+            <div class="progress-step completed clickable" onclick="window.location.href='/dashboard'">
+                <div class="progress-circle">✓</div>
+                <div class="progress-label">Your Order</div>
+            </div>
+            <div class="progress-step completed clickable" onclick="window.location.href='/addons'">
+                <div class="progress-circle">✓</div>
+                <div class="progress-label">Add-ons</div>
+            </div>
+            <div class="progress-step completed clickable" onclick="window.location.href='/shipping'">
+                <div class="progress-circle">✓</div>
+                <div class="progress-label">Shipping</div>
+            </div>
+            <div class="progress-step active">
+                <div class="progress-circle">4</div>
+                <div class="progress-label">Payment</div>
+            </div>
+        </div>
+
+        <div class="checkout-layout" style="display: grid; grid-template-columns: 1fr 400px; gap: 30px;">
+            <!-- Payment Form -->
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Payment Information</h2>
+                        <p class="card-subtitle">Secure payment powered by Stripe</p>
+                    </div>
+
+                    <div id="error-message" class="alert alert-error hidden"></div>
+                    <div id="success-message" class="alert alert-success hidden"></div>
+
+                    <form id="payment-form">
+                        <div class="form-group">
+                            <label class="form-label">Card Details</label>
+                            <div id="card-element" style="padding: 12px; border: 2px solid var(--border-color); border-radius: 6px; background: white;">
+                                <div style="text-align: center; padding: 20px; color: var(--text-muted);">
+                                    <div class="spinner" style="margin: 0 auto 10px;"></div>
+                                    Loading payment form...
+                                </div>
+                            </div>
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            id="pay-button" 
+                            class="btn btn-primary btn-block btn-large">
+                            Pay $<span id="payment-amount">0.00</span>
+                        </button>
+                    </form>
+
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button class="btn btn-secondary" onclick="window.location.href='/shipping'">
+                            ← Back to Shipping
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Order Summary -->
+            <div>
+                <div class="cart-summary">
+                    <h3 style="margin-bottom: 20px; color: var(--primary-red);">Final Order Summary</h3>
+                    
+                    <h4 style="margin-bottom: 10px;">Items:</h4>
+                    <div id="order-items"></div>
+
+                    <h4 style="margin: 20px 0 10px;">Shipping To:</h4>
+                    <div id="shipping-address" style="font-size: 14px; color: var(--text-muted);"></div>
+
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid var(--border-color);">
+                        <div class="cart-item">
+                            <span>Add-ons Subtotal:</span>
+                            <span>$<span id="addons-subtotal">0.00</span></span>
+                        </div>
+                        <div class="cart-item">
+                            <span>Shipping:</span>
+                            <span>$<span id="shipping-cost">0.00</span></span>
+                        </div>
+                        <div class="cart-total">
+                            <span>Total:</span>
+                            <span>$<span id="grand-total">0.00</span></span>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info" style="margin-top: 15px; font-size: 12px;">
+                        🔒 Your payment is secure and encrypted
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let stripe;
+        let elements;
+        let cardElement;
+
+        // Initialize Stripe after getting the publishable key
+        async function initializeStripe() {
+            try {
+                const response = await fetch('/api/stripe-key');
+                const data = await response.json();
+                
+                // Check if we have a valid Stripe key
+                if (!data.publishableKey || data.publishableKey.includes('YOUR_KEY_HERE')) {
+                    throw new Error('Stripe not configured');
+                }
+                
+                stripe = Stripe(data.publishableKey);
+                elements = stripe.elements();
+                cardElement = elements.create('card', {
+                    style: {
+                        base: {
+                            fontSize: '16px',
+                            color: '#1a1a1a',
+                            '::placeholder': {
+                                color: '#999'
+                            }
+                        }
+                    }
+                });
+                cardElement.mount('#card-element');
+            } catch (error) {
+                console.error('Error initializing Stripe:', error);
+                document.getElementById('card-element').innerHTML = `
+                    <div style="padding: 20px; text-align: center; color: #ef4444; background: #fee2e2; border: 1px solid #ef4444; border-radius: 6px;">
+                        <h4 style="margin: 0 0 10px 0; color: #991b1b;">Payment Form Not Available</h4>
+                        <p style="margin: 0 0 15px 0; font-size: 14px;">Stripe payment processing is not configured yet.</p>
+                        <div style="background: white; padding: 15px; border-radius: 4px; font-size: 12px; text-align: left;">
+                            <strong>To enable payments:</strong><br>
+                            1. Get Stripe keys from <a href="https://dashboard.stripe.com/test/apikeys" target="_blank" style="color: #dc2626;">Stripe Dashboard</a><br>
+                            2. Update .env file with your keys<br>
+                            3. Restart the server
+                        </div>
+                        <button onclick="window.location.href='/shipping'" class="btn btn-secondary" style="margin-top: 15px;">
+                            ← Back to Shipping
+                        </button>
+                    </div>
+                `;
+                
+                // Disable the pay button
+                const payButton = document.getElementById('pay-button');
+                if (payButton) {
+                    payButton.disabled = true;
+                    payButton.textContent = 'Payment Not Available';
+                }
+            }
+        }
+
+        let cart = JSON.parse(sessionStorage.getItem('cart')) || [];
+        let shippingAddress = JSON.parse(sessionStorage.getItem('shippingAddress')) || {};
+        let shippingCost = parseFloat(sessionStorage.getItem('shippingCost')) || 0;
+        let paymentIntentId = null;
+
+        function loadCheckoutData() {
+            // Load shipping address from sessionStorage if not already loaded
+            if (!shippingAddress.fullName) {
+                const savedAddress = sessionStorage.getItem('shippingAddress');
+                if (savedAddress) {
+                    shippingAddress = JSON.parse(savedAddress);
+                } else {
+                    window.location.href = '/shipping';
+                    return;
+                }
+            }
+
+            // Display items
+            const itemsDiv = document.getElementById('order-items');
+            let subtotal = 0;
+            let html = '';
+
+            if (cart.length === 0) {
+                html = `
+                    <div class="cart-item" style="color: var(--text-muted); font-style: italic;">
+                        No add-ons selected
+                    </div>
+                `;
+            } else {
+                cart.forEach(item => {
+                    const itemTotal = item.price * item.quantity;
+                    subtotal += itemTotal;
+                    html += `
+                        <div class="cart-item">
+                            <div>
+                                <strong>${item.name}</strong><br>
+                                <small style="color: var(--text-muted);">Qty: ${item.quantity}</small>
+                            </div>
+                            <div>$${itemTotal.toFixed(2)}</div>
+                        </div>
+                    `;
+                });
+            }
+
+            itemsDiv.innerHTML = html;
+
+            // Display shipping address
+            document.getElementById('shipping-address').innerHTML = `
+                ${shippingAddress.fullName}<br>
+                ${shippingAddress.addressLine1}<br>
+                ${shippingAddress.addressLine2 ? shippingAddress.addressLine2 + '<br>' : ''}
+                ${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.postalCode}<br>
+                ${shippingAddress.country}<br>
+                Phone: ${shippingAddress.phone}
+            `;
+
+            // Display totals
+            document.getElementById('addons-subtotal').textContent = subtotal.toFixed(2);
+            document.getElementById('shipping-cost').textContent = shippingCost.toFixed(2);
+            const total = subtotal + shippingCost;
+            document.getElementById('grand-total').textContent = total.toFixed(2);
+            document.getElementById('payment-amount').textContent = total.toFixed(2);
+
+            // Only create payment intent if total > 0
+            if (total > 0) {
+                createPaymentIntent(total);
+            } else {
+                // If total is $0, we might want to skip payment or handle differently
+                // For now, still show the form but they won't be charged
+                createPaymentIntent(0.50); // Stripe minimum is $0.50
+            }
+        }
+
+        async function createPaymentIntent(amount) {
+            try {
+                const response = await fetch('/api/create-payment-intent', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        amount: amount,
+                        cartItems: cart,
+                        shippingAddress: shippingAddress,
+                        shippingCost: shippingCost
+                    })
+                });
+
+                const data = await response.json();
+                paymentIntentId = data.clientSecret;
+            } catch (error) {
+                console.error('Error creating payment intent:', error);
+                showError('Failed to initialize payment. Please refresh the page.');
+            }
+        }
+
+        const form = document.getElementById('payment-form');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Check if Stripe is configured
+            if (!stripe || !cardElement) {
+                showError('Payment processing is not available. Please configure Stripe keys.');
+                return;
+            }
+
+            const payButton = document.getElementById('pay-button');
+            payButton.disabled = true;
+            payButton.textContent = 'Processing...';
+
+            try {
+                const { error, paymentIntent } = await stripe.confirmCardPayment(paymentIntentId, {
+                    payment_method: {
+                        card: cardElement,
+                        billing_details: {
+                            name: shippingAddress.fullName,
+                            email: sessionStorage.getItem('userEmail'),
+                            address: {
+                                line1: shippingAddress.addressLine1,
+                                line2: shippingAddress.addressLine2,
+                                city: shippingAddress.city,
+                                state: shippingAddress.state,
+                                postal_code: shippingAddress.postalCode,
+                                country: shippingAddress.country
+                            }
+                        }
+                    }
+                });
+
+                if (error) {
+                    showError(error.message);
+                    payButton.disabled = false;
+                    payButton.innerHTML = 'Pay $<span id="payment-amount">' + document.getElementById('payment-amount').textContent + '</span>';
+                } else if (paymentIntent.status === 'succeeded') {
+                    // Confirm payment in database
+                    await fetch('/api/confirm-payment', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            paymentIntentId: paymentIntent.id
+                        })
+                    });
+
+                    // Clear session storage
+                    sessionStorage.removeItem('cart');
+                    sessionStorage.removeItem('shippingAddress');
+                    sessionStorage.removeItem('shippingCost');
+
+                    // Redirect to thank you page
+                    window.location.href = '/thankyou';
+                }
+            } catch (error) {
+                console.error('Payment error:', error);
+                showError('Payment failed. Please try again.');
+                payButton.disabled = false;
+                payButton.innerHTML = 'Pay $<span id="payment-amount">' + document.getElementById('payment-amount').textContent + '</span>';
+            }
+        });
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+            setTimeout(() => {
+                errorDiv.classList.add('hidden');
+            }, 5000);
+        }
+
+        loadCheckoutData();
+        initializeStripe();
+    </script>
+</body>
+</html>
+

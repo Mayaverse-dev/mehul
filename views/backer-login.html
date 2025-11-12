@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backer Login - MAYA Pledge Manager</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div>
+                <h1>MAYA Pledge Manager</h1>
+                <p>Kickstarter Backer Portal</p>
+            </div>
+            <div class="user-info">
+                <a href="/" style="color: white;">← Back to Store</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" style="max-width: 500px; margin: 60px auto;">
+        <div class="card">
+            <div class="card-header" style="text-align: center;">
+                <h2 class="card-title">Kickstarter Backer Login</h2>
+                <p class="card-subtitle">Access your pledge and add more items</p>
+            </div>
+
+            <div id="error-message" class="alert alert-error hidden"></div>
+
+            <form id="login-form">
+                <div class="form-group">
+                    <label class="form-label" for="email">Email Address</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        class="form-input" 
+                        placeholder="your@email.com"
+                        required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        class="form-input" 
+                        placeholder="Enter your password"
+                        required>
+                    <small style="color: var(--text-muted); font-size: 12px;">
+                        Password was sent to your email when you backed the project
+                    </small>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block btn-large">
+                    Login to View My Pledge
+                </button>
+            </form>
+
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid var(--border-color); text-align: center;">
+                <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 15px;">
+                    Not a Kickstarter backer?
+                </p>
+                <a href="/" class="btn btn-secondary btn-block">
+                    Continue Shopping
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('login-form');
+        const errorDiv = document.getElementById('error-message');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    window.location.href = data.redirect || '/dashboard';
+                } else {
+                    errorDiv.textContent = data.error || 'Login failed';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Network error. Please try again.';
+                errorDiv.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
+

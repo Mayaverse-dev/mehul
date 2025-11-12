@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Add-ons - MAYA Pledge Manager</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div>
+                <h1>MAYA Pledge Manager</h1>
+                <p>Select Additional Add-ons</p>
+            </div>
+            <div class="user-info">
+                <a href="/logout" style="color: white;">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Progress Bar -->
+        <div class="progress-bar">
+            <div class="progress-step completed clickable" onclick="window.location.href='/dashboard'">
+                <div class="progress-circle">✓</div>
+                <div class="progress-label">Your Order</div>
+            </div>
+            <div class="progress-step active">
+                <div class="progress-circle">2</div>
+                <div class="progress-label">Add-ons</div>
+            </div>
+            <div class="progress-step clickable" onclick="window.location.href='/shipping'">
+                <div class="progress-circle">3</div>
+                <div class="progress-label">Shipping</div>
+            </div>
+            <div class="progress-step clickable" onclick="window.location.href='/checkout'">
+                <div class="progress-circle">4</div>
+                <div class="progress-label">Payment</div>
+            </div>
+        </div>
+
+        <div class="addons-layout" style="display: grid; grid-template-columns: 1fr 350px; gap: 30px;">
+            <!-- Add-ons List -->
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Available Add-ons</h2>
+                        <p class="card-subtitle">Enhance your MAYA collection</p>
+                    </div>
+                </div>
+
+                <div class="addons-grid" id="addons-grid">
+                    <!-- Add-ons will be loaded here -->
+                    <div style="text-align: center; padding: 40px; grid-column: 1 / -1;">
+                        <div class="spinner"></div>
+                        <p style="color: var(--text-muted); margin-top: 20px;">Loading add-ons...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cart Summary -->
+            <div>
+                <div class="cart-summary">
+                    <h3 style="margin-bottom: 20px; color: var(--primary-red);">Your Cart</h3>
+                    
+                    <div id="cart-items">
+                        <p style="color: var(--text-muted); text-align: center; padding: 20px;">
+                            Your cart is empty.<br>Add items to continue.
+                        </p>
+                    </div>
+
+                    <div class="cart-total" id="cart-total-section" style="display: none;">
+                        <span>Subtotal:</span>
+                        <span>$<span id="cart-total">0.00</span></span>
+                    </div>
+
+                    <button 
+                        id="proceed-btn" 
+                        class="btn btn-primary btn-block mt-20" 
+                        style="display: none;"
+                        onclick="proceedToShipping()">
+                        Proceed to Shipping →
+                    </button>
+
+                    <button 
+                        id="skip-btn" 
+                        class="btn btn-primary btn-block mt-20" 
+                        onclick="window.location.href='/shipping'">
+                        Continue to Shipping →
+                    </button>
+
+                    <button 
+                        class="btn btn-secondary btn-block mt-20"
+                        onclick="window.location.href='/dashboard'">
+                        ← Back to Dashboard
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let cart = JSON.parse(sessionStorage.getItem('cart')) || [];
+        let addons = [];
+
+        // Load add-ons
+        async function loadAddons() {
+            try {
+                const response = await fetch('/api/addons');
+                addons = await response.json();
+                
+                displayAddons();
+                updateCart();
+            } catch (error) {
+                console.error('Error loading add-ons:', error);
+                document.getElementById('addons-grid').innerHTML = `
+                    <div style="text-align: center; padding: 40px; grid-column: 1 / -1;">
+                        <p style="color: var(--error-red);">Failed to load add-ons. Please refresh the page.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displayAddons() {
+            const grid = document.getElementById('addons-grid');
+            
+            if (addons.length === 0) {
+                grid.innerHTML = `
+                    <div style="text-align: center; padding: 40px; grid-column: 1 / -1;">
+                        <p style="color: var(--text-muted);">No add-ons available at this time.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = '';
+            
+            addons.forEach(addon => {
+                const card = document.createElement('div');
+                card.className = 'addon-card';
+                card.innerHTML = `
+                    <div class="addon-image">
+                        ${addon.image ? `<img src="${addon.image}" alt="${addon.name}" style="width: 100%; height: 100%; object-fit: cover;">` : '📦'}
+                    </div>
+                    <div class="addon-name">${addon.name}</div>
+                    <div class="addon-description">${addon.description || 'Exclusive MAYA collectible'}</div>
+                    <div class="addon-price">$${addon.price.toFixed(2)}</div>
+                    <div class="addon-actions">
+                        <div class="quantity-selector">
+                            <button class="quantity-btn" onclick="decreaseQuantity(${addon.id})">-</button>
+                            <span class="quantity-display" id="qty-${addon.id}">0</span>
+                            <button class="quantity-btn" onclick="increaseQuantity(${addon.id})">+</button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            // Update quantities from cart
+            cart.forEach(item => {
+                const qtyEl = document.getElementById(`qty-${item.id}`);
+                if (qtyEl) qtyEl.textContent = item.quantity;
+            });
+        }
+
+        function increaseQuantity(addonId) {
+            const addon = addons.find(a => a.id === addonId);
+            if (!addon) return;
+
+            const cartItem = cart.find(item => item.id === addonId);
+            if (cartItem) {
+                cartItem.quantity++;
+            } else {
+                cart.push({
+                    id: addon.id,
+                    name: addon.name,
+                    price: addon.price,
+                    weight: addon.weight,
+                    quantity: 1
+                });
+            }
+
+            updateCart();
+        }
+
+        function decreaseQuantity(addonId) {
+            const cartItem = cart.find(item => item.id === addonId);
+            if (!cartItem) return;
+
+            cartItem.quantity--;
+            if (cartItem.quantity <= 0) {
+                cart = cart.filter(item => item.id !== addonId);
+            }
+
+            updateCart();
+        }
+
+        function updateCart() {
+            sessionStorage.setItem('cart', JSON.stringify(cart));
+
+            const cartItemsDiv = document.getElementById('cart-items');
+            const totalSection = document.getElementById('cart-total-section');
+            const proceedBtn = document.getElementById('proceed-btn');
+            const skipBtn = document.getElementById('skip-btn');
+            
+            if (cart.length === 0) {
+                cartItemsDiv.innerHTML = `
+                    <p style="color: var(--text-muted); text-align: center; padding: 20px;">
+                        No add-ons selected.<br>Continue to shipping to complete your order.
+                    </p>
+                `;
+                totalSection.style.display = 'none';
+                proceedBtn.style.display = 'none';
+                skipBtn.style.display = 'block';
+            } else {
+                let html = '';
+                let total = 0;
+
+                cart.forEach(item => {
+                    const itemTotal = item.price * item.quantity;
+                    total += itemTotal;
+                    html += `
+                        <div class="cart-item">
+                            <div>
+                                <strong>${item.name}</strong><br>
+                                <small style="color: var(--text-muted);">Qty: ${item.quantity} × $${item.price.toFixed(2)}</small>
+                            </div>
+                            <div>$${itemTotal.toFixed(2)}</div>
+                        </div>
+                    `;
+                });
+
+                cartItemsDiv.innerHTML = html;
+                document.getElementById('cart-total').textContent = total.toFixed(2);
+                totalSection.style.display = 'flex';
+                proceedBtn.style.display = 'block';
+                skipBtn.style.display = 'none';
+            }
+
+            // Update quantity displays
+            addons.forEach(addon => {
+                const qtyEl = document.getElementById(`qty-${addon.id}`);
+                if (qtyEl) {
+                    const cartItem = cart.find(item => item.id === addon.id);
+                    qtyEl.textContent = cartItem ? cartItem.quantity : 0;
+                }
+            });
+        }
+
+        function proceedToShipping() {
+            if (cart.length === 0) {
+                alert('Please add items to your cart first.');
+                return;
+            }
+            window.location.href = '/shipping';
+        }
+
+        loadAddons();
+    </script>
+</body>
+</html>
+
