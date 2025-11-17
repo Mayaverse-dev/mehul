@@ -100,6 +100,28 @@ function initializeDatabase() {
                 console.error('Error adding updated_at column:', err.message);
             }
         });
+        
+        // Add columns for card-save-charge-later functionality
+        db.run('ALTER TABLE orders ADD COLUMN stripe_customer_id TEXT', (err) => {
+            if (err && !String(err.message).includes('duplicate column name')) {
+                console.error('Error adding stripe_customer_id column:', err.message);
+            }
+        });
+        db.run('ALTER TABLE orders ADD COLUMN stripe_setup_intent_id TEXT', (err) => {
+            if (err && !String(err.message).includes('duplicate column name')) {
+                console.error('Error adding stripe_setup_intent_id column:', err.message);
+            }
+        });
+        db.run('ALTER TABLE orders ADD COLUMN payment_status TEXT DEFAULT "pending"', (err) => {
+            if (err && !String(err.message).includes('duplicate column name')) {
+                console.error('Error adding payment_status column:', err.message);
+            }
+        });
+        db.run('ALTER TABLE orders ADD COLUMN stripe_payment_method_id TEXT', (err) => {
+            if (err && !String(err.message).includes('duplicate column name')) {
+                console.error('Error adding stripe_payment_method_id column:', err.message);
+            }
+        });
 
         // Admins table
         db.run(`CREATE TABLE IF NOT EXISTS admins (
@@ -386,17 +408,28 @@ app.post('/api/guest/calculate-shipping', (req, res) => {
     res.json({ shippingCost });
 });
 
-// Guest create payment intent
+// Guest create setup intent (save card, charge later)
 app.post('/api/guest/create-payment-intent', async (req, res) => {
     const { amount, cartItems, shippingAddress, shippingCost, customerEmail } = req.body;
     
     try {
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount: Math.round(amount * 100), // Convert to cents
-            currency: 'usd',
+        // Create or retrieve Stripe customer
+        const customer = await stripe.customers.create({
+            email: customerEmail,
+            name: shippingAddress.name,
+            metadata: {
+                orderType: 'pre-order'
+            }
+        });
+        
+        // Create Setup Intent to save card for later charging
+        const setupIntent = await stripe.setupIntents.create({
+            customer: customer.id,
+            payment_method_types: ['card'],
             metadata: {
                 customerEmail: customerEmail || 'guest',
-                orderType: 'guest'
+                orderType: 'pre-order',
+                totalAmount: Math.round(amount * 100).toString()
             }
         });
         
@@ -405,8 +438,9 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
         db.run(`INSERT INTO orders (
             user_id, new_addons, shipping_address, 
             shipping_cost, addons_subtotal, total, 
-            stripe_payment_intent_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`, 
+            stripe_customer_id, stripe_setup_intent_id,
+            payment_status, paid
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
         [
             0, // user_id = 0 for guests
             JSON.stringify(cartItems),
@@ -414,13 +448,219 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
             shippingCost,
             addonsSubtotal,
             amount,
-            paymentIntent.id
+            customer.id,
+            setupIntent.id,
+            'card_saved', // Card saved, not charged yet
+            0 // Not paid yet
         ]);
         
-        res.json({ clientSecret: paymentIntent.client_secret });
+        res.json({ clientSecret: setupIntent.client_secret });
     } catch (error) {
-        console.error('Error creating payment intent:', error);
+        console.error('Error creating setup intent:', error);
         res.status(500).json({ error: 'Payment setup failed' });
+    }
+});
+
+// Save payment method ID to order
+app.post('/api/guest/save-payment-method', (req, res) => {
+    const { paymentMethodId, customerEmail } = req.body;
+    
+    db.run(`UPDATE orders 
+            SET stripe_payment_method_id = ?, payment_status = 'card_saved' 
+            WHERE JSON_EXTRACT(shipping_address, '$.email') = ? 
+            AND stripe_payment_method_id IS NULL
+            ORDER BY id DESC LIMIT 1`, 
+        [paymentMethodId, customerEmail], 
+        (err) => {
+            if (err) {
+                console.error('Error saving payment method:', err);
+                return res.status(500).json({ error: 'Failed to save payment method' });
+            }
+            res.json({ success: true });
+        }
+    );
+});
+
+// Admin endpoint to bulk charge all orders with saved cards
+app.post('/api/admin/bulk-charge-orders', requireAdmin, async (req, res) => {
+    try {
+        // Get all orders with saved cards that haven't been charged yet
+        db.all(`SELECT * FROM orders 
+                WHERE payment_status = 'card_saved' 
+                AND paid = 0 
+                AND stripe_customer_id IS NOT NULL 
+                AND stripe_payment_method_id IS NOT NULL`,
+            async (err, orders) => {
+                if (err) {
+                    console.error('Error fetching orders:', err);
+                    return res.status(500).json({ error: 'Failed to fetch orders' });
+                }
+
+                if (orders.length === 0) {
+                    return res.json({ 
+                        success: true,
+                        message: 'No orders to charge',
+                        charged: 0,
+                        failed: 0,
+                        total: 0
+                    });
+                }
+
+                const results = {
+                    charged: [],
+                    failed: [],
+                    total: orders.length
+                };
+
+                // Process each order
+                for (const order of orders) {
+                    try {
+                        // Charge the saved card
+                        const paymentIntent = await stripe.paymentIntents.create({
+                            amount: Math.round(order.total * 100), // Convert to cents
+                            currency: 'usd',
+                            customer: order.stripe_customer_id,
+                            payment_method: order.stripe_payment_method_id,
+                            off_session: true,
+                            confirm: true,
+                            metadata: {
+                                orderId: order.id.toString(),
+                                orderType: 'bulk-charge'
+                            }
+                        });
+
+                        // Update order status
+                        await new Promise((resolve, reject) => {
+                            db.run(`UPDATE orders 
+                                    SET paid = 1, 
+                                        payment_status = 'charged', 
+                                        stripe_payment_intent_id = ?,
+                                        updated_at = CURRENT_TIMESTAMP 
+                                    WHERE id = ?`, 
+                                [paymentIntent.id, order.id], 
+                                (err) => {
+                                    if (err) reject(err);
+                                    else resolve();
+                                }
+                            );
+                        });
+
+                        results.charged.push({
+                            orderId: order.id,
+                            email: JSON.parse(order.shipping_address).email,
+                            amount: order.total,
+                            paymentIntentId: paymentIntent.id
+                        });
+
+                    } catch (error) {
+                        console.error(`Failed to charge order ${order.id}:`, error);
+                        
+                        // Mark as failed
+                        db.run(`UPDATE orders 
+                                SET payment_status = 'charge_failed' 
+                                WHERE id = ?`, 
+                            [order.id]
+                        );
+
+                        results.failed.push({
+                            orderId: order.id,
+                            email: JSON.parse(order.shipping_address).email,
+                            amount: order.total,
+                            error: error.message
+                        });
+                    }
+                }
+
+                // Return summary
+                res.json({
+                    success: true,
+                    message: `Bulk charge completed: ${results.charged.length} succeeded, ${results.failed.length} failed`,
+                    charged: results.charged.length,
+                    failed: results.failed.length,
+                    total: results.total,
+                    details: results
+                });
+            }
+        );
+    } catch (error) {
+        console.error('Error in bulk charge:', error);
+        res.status(500).json({ error: 'Failed to process bulk charge' });
+    }
+});
+
+// Admin endpoint to charge a customer's saved card
+app.post('/api/admin/charge-order/:orderId', requireAdmin, async (req, res) => {
+    const orderId = req.params.orderId;
+    
+    try {
+        // Get order details
+        db.get('SELECT * FROM orders WHERE id = ?', [orderId], async (err, order) => {
+            if (err || !order) {
+                return res.status(404).json({ error: 'Order not found' });
+            }
+            
+            if (!order.stripe_customer_id || !order.stripe_payment_method_id) {
+                return res.status(400).json({ error: 'No saved payment method for this order' });
+            }
+            
+            if (order.payment_status === 'charged') {
+                return res.status(400).json({ error: 'Order already charged' });
+            }
+            
+            try {
+                // Charge the saved card
+                const paymentIntent = await stripe.paymentIntents.create({
+                    amount: Math.round(order.total * 100), // Convert to cents
+                    currency: 'usd',
+                    customer: order.stripe_customer_id,
+                    payment_method: order.stripe_payment_method_id,
+                    off_session: true,
+                    confirm: true,
+                    metadata: {
+                        orderId: orderId.toString(),
+                        orderType: 'pre-order-charged'
+                    }
+                });
+                
+                // Update order status
+                db.run(`UPDATE orders 
+                        SET paid = 1, 
+                            payment_status = 'charged', 
+                            stripe_payment_intent_id = ?,
+                            updated_at = CURRENT_TIMESTAMP 
+                        WHERE id = ?`, 
+                    [paymentIntent.id, orderId], 
+                    (err) => {
+                        if (err) {
+                            console.error('Error updating order:', err);
+                            return res.status(500).json({ error: 'Failed to update order' });
+                        }
+                        
+                        res.json({ 
+                            success: true, 
+                            paymentIntentId: paymentIntent.id,
+                            message: `Successfully charged $${order.total.toFixed(2)}`
+                        });
+                    }
+                );
+            } catch (stripeError) {
+                console.error('Stripe charge error:', stripeError);
+                
+                // Update order with failed status
+                db.run(`UPDATE orders 
+                        SET payment_status = 'charge_failed' 
+                        WHERE id = ?`, 
+                    [orderId]
+                );
+                
+                res.status(500).json({ 
+                    error: 'Failed to charge card: ' + stripeError.message 
+                });
+            }
+        });
+    } catch (error) {
+        console.error('Error charging order:', error);
+        res.status(500).json({ error: 'Failed to process charge' });
     }
 });
 

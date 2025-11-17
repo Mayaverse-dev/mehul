@@ -92,9 +92,14 @@
                         <h3 class="card-title">All Orders</h3>
                         <p class="card-subtitle">Manage pledge manager orders</p>
                     </div>
-                    <button class="btn btn-secondary" onclick="exportOrders()">
-                        📥 Export CSV
-                    </button>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-secondary" onclick="exportOrders()">
+                            📥 Export CSV
+                        </button>
+                        <button class="btn btn-primary" onclick="bulkChargeOrders()" style="background: var(--success-green);">
+                            💳 Bulk Charge All
+                        </button>
+                    </div>
                 </div>
 
                 <div class="table-responsive admin-table-container">
@@ -105,7 +110,7 @@
                                 <th>Backer</th>
                                 <th>Email</th>
                                 <th>Total</th>
-                                <th>Status</th>
+                                <th>Payment Status</th>
                                 <th>Date</th>
                                 <th>Actions</th>
                             </tr>
@@ -217,23 +222,39 @@
                     return;
                 }
 
-                tbody.innerHTML = orders.map(order => `
-                    <tr>
-                        <td>#${order.id}</td>
-                        <td>${order.backer_name || '-'} (#${order.backer_number || '-'})</td>
-                        <td>${order.email}</td>
-                        <td>$${(order.total || 0).toFixed(2)}</td>
-                        <td>
-                            ${order.paid 
-                                ? '<span class="badge badge-success">Paid</span>' 
-                                : '<span class="badge badge-pending">Unpaid</span>'}
-                        </td>
-                        <td>${new Date(order.created_at).toLocaleDateString()}</td>
-                        <td>
-                            <button class="btn btn-small" onclick="openOrderModal(${order.id})">View Details</button>
-                        </td>
-                    </tr>
-                `).join('');
+                tbody.innerHTML = orders.map(order => {
+                    // Determine payment status badge
+                    let statusBadge;
+                    if (order.payment_status === 'charged' || order.paid === 1) {
+                        statusBadge = '<span class="badge badge-success">💳 Charged</span>';
+                    } else if (order.payment_status === 'card_saved') {
+                        statusBadge = '<span class="badge" style="background: #3b82f6; color: white;">💾 Card Saved</span>';
+                    } else if (order.payment_status === 'charge_failed') {
+                        statusBadge = '<span class="badge badge-error">❌ Failed</span>';
+                    } else {
+                        statusBadge = '<span class="badge badge-pending">⏳ Pending</span>';
+                    }
+                    
+                    // Show "Charge" button if card is saved but not yet charged
+                    const actionButtons = `
+                        <button class="btn btn-small" onclick="openOrderModal(${order.id})" style="margin-right: 5px;">View</button>
+                        ${order.payment_status === 'card_saved' && !order.paid 
+                            ? `<button class="btn btn-small" style="background: var(--success-green); color: white;" onclick="chargeCustomer(${order.id}, ${(order.total || 0).toFixed(2)})">💳 Charge</button>` 
+                            : ''}
+                    `;
+                    
+                    return `
+                        <tr>
+                            <td>#${order.id}</td>
+                            <td>${order.backer_name || '-'} (#${order.backer_number || '-'})</td>
+                            <td>${order.email}</td>
+                            <td>$${(order.total || 0).toFixed(2)}</td>
+                            <td>${statusBadge}</td>
+                            <td>${new Date(order.created_at).toLocaleDateString()}</td>
+                            <td>${actionButtons}</td>
+                        </tr>
+                    `;
+                }).join('');
             } catch (error) {
                 console.error('Error loading orders:', error);
             }
@@ -268,6 +289,101 @@
 
         function exportOrders() {
             window.location.href = '/api/admin/export/orders';
+        }
+
+        // Charge a customer's saved card
+        async function chargeCustomer(orderId, amount) {
+            if (!confirm(`Are you sure you want to charge $${amount} to this customer's saved card?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/charge-order/${orderId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ Success! Charged $${amount}\n\nPayment Intent: ${data.paymentIntentId}`);
+                    // Reload orders to show updated status
+                    loadOrders();
+                } else {
+                    alert(`❌ Failed to charge card:\n${data.error}`);
+                }
+            } catch (error) {
+                console.error('Error charging customer:', error);
+                alert('❌ Error processing charge. Please try again.');
+            }
+        }
+
+        // Bulk charge all orders with saved cards
+        async function bulkChargeOrders() {
+            const confirmation = confirm(
+                '⚠️ BULK CHARGE ALL ORDERS\n\n' +
+                'This will charge ALL customers who have saved cards.\n\n' +
+                'Are you sure you want to proceed?'
+            );
+
+            if (!confirmation) return;
+
+            // Show loading state
+            const bulkBtn = event.target;
+            const originalText = bulkBtn.innerHTML;
+            bulkBtn.disabled = true;
+            bulkBtn.innerHTML = '⏳ Processing...';
+
+            try {
+                const response = await fetch('/api/admin/bulk-charge-orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Create detailed results message
+                    let message = `✅ BULK CHARGE COMPLETE\n\n`;
+                    message += `Total Orders: ${data.total}\n`;
+                    message += `✅ Successfully Charged: ${data.charged}\n`;
+                    message += `❌ Failed: ${data.failed}\n\n`;
+
+                    if (data.details.charged.length > 0) {
+                        message += `Successful Charges:\n`;
+                        data.details.charged.forEach(item => {
+                            message += `  • Order #${item.orderId} - ${item.email} - $${item.amount.toFixed(2)}\n`;
+                        });
+                        message += `\n`;
+                    }
+
+                    if (data.details.failed.length > 0) {
+                        message += `Failed Charges:\n`;
+                        data.details.failed.forEach(item => {
+                            message += `  • Order #${item.orderId} - ${item.email} - $${item.amount.toFixed(2)}\n`;
+                            message += `    Error: ${item.error}\n`;
+                        });
+                    }
+
+                    alert(message);
+                    
+                    // Reload orders to show updated statuses
+                    loadOrders();
+                } else {
+                    alert(`❌ Bulk charge failed:\n${data.error}`);
+                }
+            } catch (error) {
+                console.error('Error during bulk charge:', error);
+                alert('❌ Error processing bulk charge. Please try again.');
+            } finally {
+                // Restore button
+                bulkBtn.disabled = false;
+                bulkBtn.innerHTML = originalText;
+            }
         }
 
         // Modal logic for editing comped items
