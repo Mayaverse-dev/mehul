@@ -17,54 +17,100 @@
     </style>
 </head>
 <body>
-    <div class="header">
+    <div style="background: white; border-bottom: 1px solid var(--border-color); padding: 15px 0;">
         <div class="header-content">
             <div>
-                <h1>MAYA Store</h1>
-                <p>Pre-order exclusive MAYA items</p>
+                <h1 style="font-size: 28px; font-weight: 700; color: var(--primary-red); letter-spacing: 2px; margin: 0;">MAYA</h1>
             </div>
             <div class="user-info" style="display: flex; align-items: center; gap: 15px;">
-                <button onclick="scrollToCart()" class="btn btn-secondary" style="padding: 8px 16px; position: relative;">
-                    🛒 Cart <span id="cart-count-badge" style="background: var(--primary-red); color: white; border-radius: 50%; padding: 2px 6px; font-size: 11px; font-weight: bold; margin-left: 5px; display: none;">0</span>
+                <button onclick="scrollToCart()" style="background: none; border: none; cursor: pointer; font-size: 24px; position: relative; padding: 8px;">
+                    👤
                 </button>
-                <a href="/backer-login" class="btn btn-secondary" style="padding: 8px 16px; text-decoration: none;">Kickstarter Backer Login</a>
+                <button onclick="scrollToCart()" style="background: none; border: none; cursor: pointer; font-size: 24px; position: relative; padding: 8px;">
+                    🛒 <span id="cart-count-badge" style="background: var(--primary-red); color: white; border-radius: 50%; padding: 2px 6px; font-size: 11px; font-weight: bold; position: absolute; top: 0; right: 0; display: none;">0</span>
+                </button>
+                <button style="background: none; border: none; cursor: pointer; font-size: 24px; padding: 8px;">
+                    ☰
+                </button>
             </div>
         </div>
     </div>
 
     <div class="container">
         <!-- Hero Section -->
-        <div class="card" style="background: white; padding: 0; overflow: hidden; margin-bottom: 30px;">
-            <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px; align-items: center; min-height: 500px; padding: 40px;">
+        <div style="display: grid; grid-template-columns: 1fr 380px; gap: 40px; margin-bottom: 40px;">
+            <!-- Left Column: Image + Content -->
+            <div>
                 <!-- Hero Image -->
-                <div style="display: flex; align-items: center; justify-content: center; height: 100%;">
-                    <img src="/images/addons/maya-book.jpeg" alt="MAYA: Seed Takes Root" style="max-width: 100%; max-height: 650px; object-fit: contain; box-shadow: 0 15px 40px rgba(0,0,0,0.2);">
+                <div style="background: #f5f5f5; border-radius: 8px; padding: 40px; margin-bottom: 30px; text-align: center;">
+                    <img src="/images/addons/maya-book.jpeg" alt="MAYA: Seed Takes Root" style="max-width: 100%; max-height: 500px; object-fit: contain;">
                 </div>
                 
-                <!-- Hero Content -->
-                <div style="padding: 40px 40px 40px 0;">
-                    <h1 style="font-size: 48px; color: var(--text-dark); margin: 0 0 20px 0; line-height: 1.2; font-weight: 700;">
-                        MAYA: Seed Takes Root
-                    </h1>
-                    <p style="font-size: 18px; color: var(--text-muted); margin-bottom: 25px; font-weight: 500;">
-                        Written by Anand Gandhi and Zain Memon
-                    </p>
-                    <p style="font-size: 20px; color: var(--text-dark); line-height: 1.6; margin-bottom: 30px;">
-                        An epic sci-fiction fantasy with intricate worldbuilding. Six species, one planet, zero privacy. Enter the age of narrative warfare.
-                    </p>
-                    <div style="margin-bottom: 30px;">
-                        <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 20px;">
-                            <span style="font-size: 32px; font-weight: 700; color: var(--primary-red);" id="hero-book-price">$49.99</span>
-                        </div>
-                        <button id="hero-add-btn" onclick="addHeroBookToCart()" class="btn btn-primary btn-large" style="width: 100%; padding: 16px;">
-                            Add to Cart
-                        </button>
+                <!-- Title and Description -->
+                <h1 style="font-size: 42px; color: var(--text-dark); margin: 0 0 15px 0; line-height: 1.2; font-weight: 700;">
+                    Maya : Seed takes root
+                </h1>
+                <p style="font-size: 16px; color: var(--text-muted); margin-bottom: 25px;">
+                    Written by Anand Gandhi and Zen Weens
+                </p>
+                <p style="font-size: 18px; color: var(--text-dark); line-height: 1.6; margin-bottom: 30px;">
+                    An epic sci-fiction fantasy with intricate worldbuilding. Six species, one planet, zero privacy. Enter the age of narrative warfare.
+                </p>
+
+                <!-- Product Details (Collapsible) -->
+                <div style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 20px;">
+                    <button onclick="toggleProductDetails()" style="width: 100%; padding: 15px 20px; background: white; border: none; border-radius: 8px; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 16px; font-weight: 600;">
+                        <span>Product Details</span>
+                        <span id="details-arrow" style="transition: transform 0.3s;">▼</span>
+                    </button>
+                    <div id="product-details-content" style="display: none; padding: 0 20px 20px 20px; color: var(--text-muted); font-size: 14px; line-height: 1.6;">
+                        Answer the frequently asked question in a simple sentence, a longish paragraph, or even in a list.
+                        <br><br>
+                        Answer the frequently asked question in a simple sentence, a longish paragraph, or even in a list.
                     </div>
-                    <div style="padding-top: 20px; border-top: 1px solid var(--border-color);">
-                        <span style="color: var(--text-muted); font-size: 14px;">
-                            <strong>Kickstarter Backer?</strong> <a href="/backer-login" style="color: var(--primary-red); text-decoration: underline;">Login here</a>
-                        </span>
+                </div>
+            </div>
+
+            <!-- Right Sidebar: Campaign Stats + CTA -->
+            <div style="position: sticky; top: 20px; height: fit-content;">
+                <!-- Campaign Stats Card -->
+                <div style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 25px; margin-bottom: 20px;">
+                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px; font-weight: 500;">
+                        This project was successfully funded on Kickstarter
+                    </p>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;">RAISED ON KICKSTARTER</p>
+                        <p style="font-size: 28px; font-weight: 700; color: var(--text-dark); margin: 0;">US$ 423,621</p>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">pledged of $2,500 goal</p>
                     </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;">BACKERS</p>
+                        <p style="font-size: 28px; font-weight: 700; color: var(--text-dark); margin: 0;">4,157</p>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">blessed this project</p>
+                    </div>
+
+                    <div style="margin-bottom: 25px;">
+                        <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;">FUNDED ON</p>
+                        <p style="font-size: 18px; font-weight: 600; color: var(--text-dark); margin: 0;">XX-XX-2025</p>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px solid var(--border-color); margin: 25px 0;">
+
+                    <!-- Price and CTA -->
+                    <div style="margin-bottom: 20px;">
+                        <span style="font-size: 36px; font-weight: 700; color: var(--primary-red);" id="hero-book-price">$50</span>
+                    </div>
+                    
+                    <button id="hero-add-btn" onclick="addHeroBookToCart()" class="btn btn-primary btn-block btn-large" style="margin-bottom: 15px;">
+                        Add to Cart
+                    </button>
+
+                    <p style="text-align: center; font-size: 13px; color: var(--text-muted); margin-top: 15px;">
+                        <strong>Kickstarter Backer?</strong><br>
+                        <a href="/backer-login" style="color: var(--primary-red); text-decoration: none; font-weight: 600;">Login here</a>
+                    </p>
                 </div>
             </div>
         </div>
@@ -120,31 +166,22 @@
             }
             
             @media (max-width: 768px) {
-                .card > div {
+                .container > div:first-of-type {
                     grid-template-columns: 1fr !important;
                 }
-                .card > div > div:first-child {
-                    padding: 20px !important;
-                    min-height: 300px;
-                }
-                .card > div > div:last-child {
-                    padding: 30px !important;
-                }
-                .card > div > div:last-child h1 {
-                    font-size: 32px !important;
-                }
-                .card > div > div:last-child p {
-                    font-size: 16px !important;
+                
+                .container > div:first-of-type > div:last-child {
+                    position: static !important;
+                    order: -1;
+                    margin-bottom: 30px;
                 }
             }
         </style>
 
-        <!-- Products Grid -->
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title">Available Products</h2>
-                <p class="card-subtitle">All items ship together</p>
-            </div>
+        <!-- Add-ons Section -->
+        <div style="margin-bottom: 25px;">
+            <h2 style="font-size: 32px; font-weight: 700; color: var(--text-dark); margin: 0 0 10px 0;">Add-ons</h2>
+            <p style="font-size: 14px; color: var(--text-muted); margin: 0;">All items ship together</p>
         </div>
 
         <div class="addons-grid" id="products-grid">
@@ -909,7 +946,11 @@
 
                 if (setupIntent.status === 'succeeded') {
                     // Save the payment method ID to the order
-                    await savePaymentMethod(setupIntent.payment_method);
+                    const saved = await savePaymentMethod(setupIntent.payment_method);
+                    
+                    if (!saved) {
+                        throw new Error('Failed to save payment method');
+                    }
                     
                     // Clear cart
                     cart = [];
@@ -937,7 +978,7 @@
                     email: document.getElementById('modal-email').value
                 };
 
-                await fetch('/api/guest/save-payment-method', {
+                const response = await fetch('/api/guest/save-payment-method', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -945,8 +986,25 @@
                         customerEmail: shippingData.email
                     })
                 });
+
+                const data = await response.json();
+                return response.ok && data.success;
             } catch (error) {
                 console.error('Error saving payment method:', error);
+                return false;
+            }
+        }
+
+        function toggleProductDetails() {
+            const content = document.getElementById('product-details-content');
+            const arrow = document.getElementById('details-arrow');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                arrow.style.transform = 'rotate(180deg)';
+            } else {
+                content.style.display = 'none';
+                arrow.style.transform = 'rotate(0deg)';
             }
         }
 
