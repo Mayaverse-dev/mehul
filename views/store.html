@@ -14,177 +14,182 @@
         .modal-footer { padding:12px 20px; border-top:2px solid var(--border-color); }
         .modal-close { background:none; border:none; font-size:22px; cursor:pointer; color: var(--text-dark); }
         .modal-close:hover { color: var(--primary-red); }
+
+        /* Cart button hover effects */
+        .quantity-selector button:hover {
+            background: #f5f5f5 !important;
+        }
+        
+        .quantity-selector button:active {
+            background: #e5e5e5 !important;
+        }
+        
+        button[onclick^="removeFromCart"]:hover {
+            background: #dc2626 !important;
+        }
+
+        /* Button transition effects */
+        .btn {
+            transition: all 0.3s ease;
+        }
+
+        /* Add to cart success animation */
+        @keyframes buttonSuccess {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes pulseGreen {
+            0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(5, 150, 105, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
+        }
+
+        .button-added {
+            animation: buttonSuccess 0.4s ease, pulseGreen 0.6s ease;
+        }
+
+        /* Green checkout button hover */
+        .btn-checkout-green {
+            background: #059669 !important;
+            border-color: #059669 !important;
+        }
+
+        .btn-checkout-green:hover {
+            background: #047857 !important;
+            border-color: #047857 !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+        }
+        
+        @media (max-width: 768px) {
+            .hero-grid {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .stats-card {
+                order: -1;
+                margin-bottom: 30px;
+            }
+        }
     </style>
 </head>
 <body>
-    <div style="background: white; border-bottom: 1px solid var(--border-color); padding: 15px 0;">
-        <div class="header-content">
-            <div>
-                <h1 style="font-size: 28px; font-weight: 700; color: var(--primary-red); letter-spacing: 2px; margin: 0;">MAYA</h1>
-            </div>
-            <div class="user-info" style="display: flex; align-items: center; gap: 15px;">
-                <button onclick="scrollToCart()" style="background: none; border: none; cursor: pointer; font-size: 24px; position: relative; padding: 8px;">
-                    👤
-                </button>
-                <button onclick="scrollToCart()" style="background: none; border: none; cursor: pointer; font-size: 24px; position: relative; padding: 8px;">
-                    🛒 <span id="cart-count-badge" style="background: var(--primary-red); color: white; border-radius: 50%; padding: 2px 6px; font-size: 11px; font-weight: bold; position: absolute; top: 0; right: 0; display: none;">0</span>
-                </button>
-                <button style="background: none; border: none; cursor: pointer; font-size: 24px; padding: 8px;">
-                    ☰
-                </button>
-            </div>
+    <!-- Header with Logo -->
+    <div style="background: #d9d9d9; padding: 16px 60px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="height: 43px; width: 188px;">
+            <img src="/images/addons/maya-book.jpeg" alt="MAYA" style="height: 100%; object-fit: contain;">
+        </div>
+        <div style="display: flex; align-items: center; gap: 33px;">
+            <button onclick="scrollToCart()" style="background: none; border: none; cursor: pointer; font-size: 32px; position: relative; padding: 8px;">
+                👤
+            </button>
+            <button onclick="scrollToCart()" style="background: none; border: none; cursor: pointer; font-size: 32px; position: relative; padding: 8px;">
+                🛒 <span id="cart-count-badge" style="background: var(--primary-red); color: white; border-radius: 50%; padding: 2px 6px; font-size: 11px; font-weight: bold; position: absolute; top: 0; right: 0; display: none;">0</span>
+            </button>
+            <button style="background: none; border: none; cursor: pointer; font-size: 32px; padding: 8px;">
+                ☰
+            </button>
         </div>
     </div>
 
-    <div class="container">
-        <!-- Hero Section -->
-        <div style="display: grid; grid-template-columns: 1fr 380px; gap: 40px; margin-bottom: 40px;">
-            <!-- Left Column: Image + Content -->
+    <div class="container" style="max-width: 1200px; padding: 46px 20px;">
+        <!-- Hero Section with Image + Stats -->
+        <div class="hero-grid" style="display: grid; grid-template-columns: 1fr 380px; gap: 40px; margin-bottom: 40px;">
+            <!-- Left Column: Hero Image -->
             <div>
-                <!-- Hero Image -->
-                <div style="background: #f5f5f5; border-radius: 8px; padding: 40px; margin-bottom: 30px; text-align: center;">
-                    <img src="/images/addons/maya-book.jpeg" alt="MAYA: Seed Takes Root" style="max-width: 100%; max-height: 500px; object-fit: contain;">
-                </div>
-                
-                <!-- Title and Description -->
-                <h1 style="font-size: 42px; color: var(--text-dark); margin: 0 0 15px 0; line-height: 1.2; font-weight: 700;">
-                    Maya : Seed takes root
-                </h1>
-                <p style="font-size: 16px; color: var(--text-muted); margin-bottom: 25px;">
-                    Written by Anand Gandhi and Zen Weens
-                </p>
-                <p style="font-size: 18px; color: var(--text-dark); line-height: 1.6; margin-bottom: 30px;">
-                    An epic sci-fiction fantasy with intricate worldbuilding. Six species, one planet, zero privacy. Enter the age of narrative warfare.
-                </p>
-
-                <!-- Product Details (Collapsible) -->
-                <div style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 20px;">
-                    <button onclick="toggleProductDetails()" style="width: 100%; padding: 15px 20px; background: white; border: none; border-radius: 8px; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 16px; font-weight: 600;">
-                        <span>Product Details</span>
-                        <span id="details-arrow" style="transition: transform 0.3s;">▼</span>
-                    </button>
-                    <div id="product-details-content" style="display: none; padding: 0 20px 20px 20px; color: var(--text-muted); font-size: 14px; line-height: 1.6;">
-                        Answer the frequently asked question in a simple sentence, a longish paragraph, or even in a list.
-                        <br><br>
-                        Answer the frequently asked question in a simple sentence, a longish paragraph, or even in a list.
-                    </div>
+                <div style="background: #e3e3e3; border-radius: 8px; padding: 40px; text-align: center;">
+                    <img src="/images/addons/maya-book.jpeg" alt="MAYA: Seed Takes Root" style="max-width: 100%; max-height: 665px; object-fit: contain;">
                 </div>
             </div>
 
-            <!-- Right Sidebar: Campaign Stats + CTA -->
-            <div style="position: sticky; top: 20px; height: fit-content;">
-                <!-- Campaign Stats Card -->
-                <div style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 25px; margin-bottom: 20px;">
-                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px; font-weight: 500;">
-                        This project was successfully funded on Kickstarter
+            <!-- Right Sidebar: Campaign Stats Card -->
+            <div class="stats-card" style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- Stats Message -->
+                <div style="padding: 10px;">
+                    <p style="font-family: 'Roboto', sans-serif; font-weight: 800; font-size: 32px; line-height: 1; margin: 0; color: black;">
+                        This project was successfully funded on Kickstarter.
                     </p>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;">RAISED ON KICKSTARTER</p>
-                        <p style="font-size: 28px; font-weight: 700; color: var(--text-dark); margin: 0;">US$ 423,621</p>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">pledged of $2,500 goal</p>
-                    </div>
+                </div>
 
-                    <div style="margin-bottom: 20px;">
-                        <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;">BACKERS</p>
-                        <p style="font-size: 28px; font-weight: 700; color: var(--text-dark); margin: 0;">4,157</p>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">blessed this project</p>
-                    </div>
+                <!-- Raised Amount -->
+                <div style="background: #d9d9d9; padding: 15px 14px; border-radius: 4px;">
+                    <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; margin: 0 0 8px 0; color: black;">RAISED ON KICKSTARTER</p>
+                    <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 24px; margin: 0 0 8px 0; color: black;">US$ 423,621</p>
+                    <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 14px; margin: 0; color: black;">pledged of US$ 10,000 goal</p>
+                </div>
 
-                    <div style="margin-bottom: 25px;">
-                        <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;">FUNDED ON</p>
-                        <p style="font-size: 18px; font-weight: 600; color: var(--text-dark); margin: 0;">XX-XX-2025</p>
-                    </div>
+                <!-- Backers -->
+                <div style="background: #d9d9d9; padding: 15px; border-radius: 4px;">
+                    <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; margin: 0 0 8px 0; color: black;">BACKERS</p>
+                    <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 24px; margin: 0 0 8px 0; color: black;">4,157</p>
+                    <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 14px; margin: 0; color: black;">Backers love this project</p>
+                </div>
 
-                    <hr style="border: none; border-top: 1px solid var(--border-color); margin: 25px 0;">
-
-                    <!-- Price and CTA -->
-                    <div style="margin-bottom: 20px;">
-                        <span style="font-size: 36px; font-weight: 700; color: var(--primary-red);" id="hero-book-price">$50</span>
-                    </div>
-                    
-                    <button id="hero-add-btn" onclick="addHeroBookToCart()" class="btn btn-primary btn-block btn-large" style="margin-bottom: 15px;">
-                        Add to Cart
-                    </button>
-
-                    <p style="text-align: center; font-size: 13px; color: var(--text-muted); margin-top: 15px;">
-                        <strong>Kickstarter Backer?</strong><br>
-                        <a href="/backer-login" style="color: var(--primary-red); text-decoration: none; font-weight: 600;">Login here</a>
-                    </p>
+                <!-- Funded Date -->
+                <div style="background: #d9d9d9; padding: 19px 15px; border-radius: 4px;">
+                    <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; margin: 0 0 14px 0; color: black;">FUNDED ON</p>
+                    <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 24px; margin: 0; color: black;">XX.XX.2025</p>
                 </div>
             </div>
         </div>
 
-        <!-- Responsive styles for mobile -->
-        <style>
-            /* Cart button hover effects */
-            .quantity-selector button:hover {
-                background: #f5f5f5 !important;
-            }
-            
-            .quantity-selector button:active {
-                background: #e5e5e5 !important;
-            }
-            
-            button[onclick^="removeFromCart"]:hover {
-                background: #dc2626 !important;
-            }
+        <!-- Title & Description Section -->
+        <div style="margin-bottom: 40px;">
+            <h1 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 72px; line-height: 1.2; letter-spacing: -2.16px; margin: 0 0 16px 0; color: #1e1e1e;">
+                Maya : Seed takes root
+            </h1>
+            <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 14px; line-height: 1.4; margin: 0 0 12px 0; color: #757575;">
+                Written by Anand Gandhi and Zain Memon
+            </p>
+            <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 20px; line-height: 1.2; margin: 0 0 24px 0; color: #757575;">
+                An epic sci-fiction fantasy with intricate worldbuilding. Six species, one planet, zero privacy. Enter the age of narrative warfare.
+            </p>
 
-            /* Button transition effects */
-            .btn {
-                transition: all 0.3s ease;
-            }
+            <!-- Price -->
+            <div style="margin-bottom: 24px;">
+                <div style="font-family: 'Inter', sans-serif; font-weight: 700; color: #1e1e1e; display: flex; align-items: baseline; gap: 2px;">
+                    <span style="font-size: 24px; letter-spacing: -0.48px;">$</span>
+                    <span id="hero-book-price" style="font-size: 64px; letter-spacing: -1.28px;">50</span>
+                </div>
+            </div>
 
-            /* Add to cart success animation */
-            @keyframes buttonSuccess {
-                0% { transform: scale(1); }
-                50% { transform: scale(1.05); }
-                100% { transform: scale(1); }
-            }
+            <!-- Add to Cart Button -->
+            <button id="hero-add-btn" onclick="addHeroBookToCart()" style="background: #2c2c2c; border: 1px solid #2c2c2c; color: #f5f5f5; padding: 12px; border-radius: 8px; width: 100%; max-width: 600px; font-family: 'Inter', sans-serif; font-size: 32px; font-weight: 400; cursor: pointer;">
+                Add to Cart
+            </button>
+        </div>
 
-            @keyframes pulseGreen {
-                0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.7); }
-                70% { box-shadow: 0 0 0 10px rgba(5, 150, 105, 0); }
-                100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
-            }
-
-            .button-added {
-                animation: buttonSuccess 0.4s ease, pulseGreen 0.6s ease;
-            }
-
-            /* Green checkout button hover */
-            .btn-checkout-green {
-                background: #059669 !important;
-                border-color: #059669 !important;
-            }
-
-            .btn-checkout-green:hover {
-                background: #047857 !important;
-                border-color: #047857 !important;
-                transform: translateY(-2px);
-                box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
-            }
-            
-            @media (max-width: 768px) {
-                .container > div:first-of-type {
-                    grid-template-columns: 1fr !important;
-                }
-                
-                .container > div:first-of-type > div:last-child {
-                    position: static !important;
-                    order: -1;
-                    margin-bottom: 30px;
-                }
-            }
-        </style>
+        <!-- Product Details (Collapsible) -->
+        <div style="background: #c7c7c7; border-radius: 16px; padding: 18px 11px; margin-bottom: 40px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <button onclick="toggleProductDetails()" style="background: none; border: none; cursor: pointer; padding: 10px; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 16px; color: #1e1e1e;">
+                    Product Details
+                </button>
+                <button onclick="toggleProductDetails()" style="background: none; border: none; cursor: pointer; padding: 10px; font-size: 20px; transform-origin: center; transition: transform 0.3s;" id="details-arrow">
+                    ▼
+                </button>
+            </div>
+            <div id="product-details-content" style="display: none; padding: 10px;">
+                <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 16px; line-height: 1.4; margin: 0; color: #1e1e1e;">
+                    Answer the frequently asked question in a simple sentence, a longish paragraph, or even in a list. Answer the frequently asked question in a simple sentence, a longish paragraph, or even in a list.
+                </p>
+            </div>
+        </div>
 
         <!-- Add-ons Section -->
-        <div style="margin-bottom: 25px;">
-            <h2 style="font-size: 32px; font-weight: 700; color: var(--text-dark); margin: 0 0 10px 0;">Add-ons</h2>
-            <p style="font-size: 14px; color: var(--text-muted); margin: 0;">All items ship together</p>
+        <div style="background: #eeeeee; border-radius: 11px; padding: 36px 61px; text-align: center; margin-bottom: 40px;">
+            <h2 style="font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 24px; line-height: 32px; margin: 0 0 8px 0; color: black;">
+                Add-ons
+            </h2>
+            <p style="font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 11px; line-height: 16px; letter-spacing: 0.5px; margin: 0; color: #7c7c7c;">
+                All items ship together
+            </p>
         </div>
 
-        <div class="addons-grid" id="products-grid">
+        <!-- Products Grid -->
+        <div class="addons-grid" id="products-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(352px, 1fr)); gap: 12px; margin-bottom: 30px;">
             <!-- Products will be loaded here -->
             <div style="text-align: center; padding: 40px; grid-column: 1 / -1;">
                 <div class="spinner"></div>
@@ -405,7 +410,7 @@
                 
                 // If hero book found, update price in hero section
                 if (heroBook) {
-                    document.getElementById('hero-book-price').textContent = '$' + heroBook.price.toFixed(2);
+                    document.getElementById('hero-book-price').textContent = heroBook.price.toFixed(0);
                 }
                 
                 displayProducts();
@@ -495,28 +500,29 @@
             
             products.forEach(product => {
                 const card = document.createElement('div');
-                card.className = 'addon-card';
                 card.id = `product-card-${product.id}`;
+                card.style.cssText = 'position: relative; padding: 23px 14px; background: #eeeeee; border-radius: 11px;';
                 
                 const isInCart = cart.find(item => item.id === product.id);
+                const cartItem = isInCart;
+                const quantity = cartItem ? cartItem.quantity : 0;
                 
                 card.innerHTML = `
-                    <div class="addon-image">
-                        ${product.image ? `<img src="${product.image}" alt="${product.name}" style="width: 100%; height: 100%; object-fit: cover;">` : '📦'}
+                    <div style="background: #d9d9d9; border-radius: 8px; padding: 10px; margin-bottom: 15px; text-align: center;">
+                        ${product.image ? `<img src="${product.image}" alt="${product.name}" style="max-width: 100%; max-height: 377px; object-fit: contain;">` : '<div style="height: 377px; display: flex; align-items: center; justify-content: center; font-size: 64px;">📦</div>'}
                     </div>
-                    <div class="addon-name">${product.name}</div>
-                    <div class="addon-description">${product.description || 'Exclusive MAYA collectible'}</div>
-                    <div class="addon-price">$${product.price.toFixed(2)}</div>
-                    <div class="addon-actions">
-                        <button 
-                            id="add-btn-${product.id}" 
-                            class="btn btn-primary btn-block" 
-                            onclick="${isInCart ? 'proceedToCheckout()' : 'addProductToCart(' + product.id + ')'}"
-                            style="padding: 10px; font-size: 14px;"
-                        >
-                            ${isInCart ? 'Proceed to Checkout →' : 'Add to Cart'}
-                        </button>
+                    <p style="font-family: 'Inter', sans-serif; font-size: 24px; color: #363636; margin: 0 0 6px 0; padding: 10px;">${product.name}</p>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 30px; letter-spacing: 0.9px; color: black; margin: 0; padding: 10px;">$${product.price.toFixed(1)}</p>
+                        <div style="display: flex; gap: 10px; align-items: center; padding: 10px;">
+                            <button onclick="decreaseCartQuantity(${product.id})" style="background: #828282; color: white; border: none; border-radius: 4px; padding: 4px 9px; font-size: 28px; font-weight: bold; cursor: pointer; width: 40px; height: 48px;">-</button>
+                            <div style="background: #828282; color: white; border-radius: 4px; padding: 4px 21px; font-size: 28px; font-weight: bold; min-width: 60px; height: 48px; display: flex; align-items: center; justify-content: center;" id="qty-${product.id}">${quantity}</div>
+                            <button onclick="increaseCartQuantity(${product.id})" style="background: #828282; color: white; border: none; border-radius: 4px; padding: 4px 9px; font-size: 28px; font-weight: bold; cursor: pointer; width: 40px; height: 48px;">+</button>
+                        </div>
                     </div>
+                    <button id="add-btn-${product.id}" onclick="${isInCart ? 'proceedToCheckout()' : 'addProductToCart(' + product.id + ')'}" style="background: #2c2c2c; color: white; border: none; border-radius: 4px; padding: 8px 90px; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 21px; cursor: pointer; width: 100%;">
+                        Add to Cart
+                    </button>
                 `;
                 grid.appendChild(card);
             });
@@ -527,20 +533,18 @@
             const product = products.find(p => p.id === productId);
             if (!product) return;
 
-            // Check if already in cart - don't add again
+            // Check if already in cart
             const cartItem = cart.find(item => item.id === productId);
-            if (cartItem) {
-                return; // Already in cart
+            if (!cartItem) {
+                // Add to cart with quantity 1
+                cart.push({
+                    id: product.id,
+                    name: product.name,
+                    price: product.price,
+                    weight: product.weight,
+                    quantity: 1
+                });
             }
-
-            // Add to cart with quantity 1
-            cart.push({
-                id: product.id,
-                name: product.name,
-                price: product.price,
-                weight: product.weight,
-                quantity: 1
-            });
 
             // Trigger animation on the button
             const btn = document.getElementById(`add-btn-${productId}`);
@@ -556,11 +560,23 @@
 
         // Cart modal specific quantity functions
         function increaseCartQuantity(productId) {
-            const cartItem = cart.find(item => item.id === productId);
+            let cartItem = cart.find(item => item.id === productId);
             if (cartItem) {
                 cartItem.quantity++;
-                updateCart();
+            } else {
+                // Add to cart if not already there
+                const product = products.find(p => p.id === productId);
+                if (product) {
+                    cart.push({
+                        id: product.id,
+                        name: product.name,
+                        price: product.price,
+                        weight: product.weight,
+                        quantity: 1
+                    });
+                }
             }
+            updateCart();
         }
 
         function decreaseCartQuantity(productId) {
@@ -569,8 +585,10 @@
 
             if (cartItem.quantity > 1) {
                 cartItem.quantity--;
-                updateCart();
+            } else {
+                cart = cart.filter(item => item.id !== productId);
             }
+            updateCart();
         }
 
         function removeFromCart(productId) {
@@ -646,11 +664,16 @@
                 document.getElementById('modal-next-btn').style.display = 'block';
             }
 
-            // Update product card buttons
+            // Update product card buttons and quantity displays
             products.forEach(product => {
+                const cartItem = cart.find(item => item.id === product.id);
+                const qtyDisplay = document.getElementById(`qty-${product.id}`);
+                if (qtyDisplay) {
+                    qtyDisplay.textContent = cartItem ? cartItem.quantity : 0;
+                }
+
                 const btn = document.getElementById(`add-btn-${product.id}`);
                 if (btn) {
-                    const cartItem = cart.find(item => item.id === product.id);
                     if (cartItem) {
                         btn.textContent = 'Proceed to Checkout →';
                         btn.classList.add('btn-checkout-green');
@@ -1012,4 +1035,3 @@
     </script>
 </body>
 </html>
-
