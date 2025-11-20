@@ -274,7 +274,7 @@
 
         <!-- Floating Checkout Button (shown when cart has items) -->
         <div id="floating-checkout" style="position: fixed; bottom: 30px; right: 30px; display: none; z-index: 999;">
-            <button class="btn btn-primary btn-large" onclick="openCartModal()" style="box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+            <button class="btn btn-large" onclick="openCartModal()" style="background: #059669; border-color: #059669; color: white; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);" onmouseover="this.style.background='#047857'; this.style.borderColor='#047857'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(5, 150, 105, 0.4)';" onmouseout="this.style.background='#059669'; this.style.borderColor='#059669'; this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(5, 150, 105, 0.3)';">
                 Proceed to Checkout → <span id="floating-total"></span>
             </button>
         </div>
