@@ -65,14 +65,42 @@
         
         @media (max-width: 768px) {
             .hero-grid {
-                grid-template-columns: 1fr !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+
+            .hero-image-container {
+                order: 1;
+            }
+
+            .title-cta-section {
+                order: 2 !important;
+                margin-top: 30px !important;
+                margin-bottom: 30px !important;
+            }
+
+            .title-cta-section h1 {
+                font-size: 36px !important;
+            }
+
+            .title-cta-section p:nth-of-type(2) {
+                font-size: 16px !important;
+            }
+
+            .title-cta-section > div:first-of-type span:last-child {
+                font-size: 48px !important;
+            }
+
+            .title-cta-section button {
+                font-size: 24px !important;
             }
             
             .stats-card {
+                order: 3;
                 display: grid !important;
                 grid-template-columns: 1fr 1fr 1fr !important;
                 gap: 6px !important;
-                margin-top: 20px;
+                margin-top: 0 !important;
             }
 
             .stats-card > div {
@@ -130,7 +158,7 @@
         <!-- Hero Section with Image + Stats -->
         <div class="hero-grid" style="display: grid; grid-template-columns: 1fr 380px; gap: 40px; margin-bottom: 40px;">
             <!-- Left Column: Hero Image -->
-            <div>
+            <div class="hero-image-container">
                 <div style="background: #e3e3e3; border-radius: 8px; padding: 40px; text-align: center;">
                     <img src="/images/addons/maya-book.jpeg" alt="MAYA: Seed Takes Root" style="max-width: 100%; max-height: 665px; object-fit: contain;">
                 </div>
@@ -168,7 +196,7 @@
         </div>
 
         <!-- Title & Description Section -->
-        <div style="margin-bottom: 40px;">
+        <div class="title-cta-section" style="margin-bottom: 40px;">
             <h1 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 72px; line-height: 1.2; letter-spacing: -2.16px; margin: 0 0 16px 0; color: #1e1e1e;">
                 Maya : Seed takes root
             </h1>
