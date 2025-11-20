@@ -64,13 +64,20 @@
         }
         
         @media (max-width: 768px) {
-            .hero-grid {
+            .hero-wrapper {
                 display: flex !important;
                 flex-direction: column !important;
             }
 
+            .hero-grid {
+                display: flex !important;
+                flex-direction: column !important;
+                order: 1 !important;
+            }
+
             .hero-image-container {
                 order: 1;
+                margin-bottom: 0 !important;
             }
 
             .title-cta-section {
@@ -100,7 +107,7 @@
                 display: grid !important;
                 grid-template-columns: 1fr 1fr 1fr !important;
                 gap: 6px !important;
-                margin-top: 0 !important;
+                margin-top: 30px !important;
             }
 
             .stats-card > div {
@@ -155,48 +162,50 @@
     </div>
 
     <div class="container" style="max-width: 1200px; padding: 46px 20px;">
-        <!-- Hero Section with Image + Stats -->
-        <div class="hero-grid" style="display: grid; grid-template-columns: 1fr 380px; gap: 40px; margin-bottom: 40px;">
-            <!-- Left Column: Hero Image -->
-            <div class="hero-image-container">
-                <div style="background: #e3e3e3; border-radius: 8px; padding: 40px; text-align: center;">
-                    <img src="/images/addons/maya-book.jpeg" alt="MAYA: Seed Takes Root" style="max-width: 100%; max-height: 665px; object-fit: contain;">
+        <!-- Hero Section Wrapper -->
+        <div class="hero-wrapper">
+            <!-- Hero Section with Image + Stats -->
+            <div class="hero-grid" style="display: grid; grid-template-columns: 1fr 380px; gap: 40px;">
+                <!-- Left Column: Hero Image -->
+                <div class="hero-image-container">
+                    <div style="background: #e3e3e3; border-radius: 8px; padding: 40px; text-align: center;">
+                        <img src="/images/addons/maya-book.jpeg" alt="MAYA: Seed Takes Root" style="max-width: 100%; max-height: 665px; object-fit: contain;">
+                    </div>
+                </div>
+
+                <!-- Right Sidebar: Campaign Stats Card -->
+                <div class="stats-card" style="display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Stats Message -->
+                    <div style="padding: 10px;">
+                        <p style="font-family: 'Roboto', sans-serif; font-weight: 800; font-size: 32px; line-height: 1; margin: 0; color: black;">
+                            This project was successfully funded on Kickstarter.
+                        </p>
+                    </div>
+
+                    <!-- Raised Amount -->
+                    <div style="background: #d9d9d9; padding: 15px 14px; border-radius: 4px;">
+                        <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; margin: 0 0 8px 0; color: black;">RAISED ON KICKSTARTER</p>
+                        <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 24px; margin: 0 0 8px 0; color: black;">US$ 423,621</p>
+                        <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 14px; margin: 0; color: black;">pledged of US$ 10,000 goal</p>
+                    </div>
+
+                    <!-- Backers -->
+                    <div style="background: #d9d9d9; padding: 15px; border-radius: 4px;">
+                        <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; margin: 0 0 8px 0; color: black;">BACKERS</p>
+                        <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 24px; margin: 0 0 8px 0; color: black;">4,157</p>
+                        <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 14px; margin: 0; color: black;">Backers love this project</p>
+                    </div>
+
+                    <!-- Funded Date -->
+                    <div style="background: #d9d9d9; padding: 19px 15px; border-radius: 4px;">
+                        <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; margin: 0 0 14px 0; color: black;">FUNDED ON</p>
+                        <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 24px; margin: 0; color: black;">XX.XX.2025</p>
+                    </div>
                 </div>
             </div>
 
-            <!-- Right Sidebar: Campaign Stats Card -->
-            <div class="stats-card" style="display: flex; flex-direction: column; gap: 8px;">
-                <!-- Stats Message -->
-                <div style="padding: 10px;">
-                    <p style="font-family: 'Roboto', sans-serif; font-weight: 800; font-size: 32px; line-height: 1; margin: 0; color: black;">
-                        This project was successfully funded on Kickstarter.
-                    </p>
-                </div>
-
-                <!-- Raised Amount -->
-                <div style="background: #d9d9d9; padding: 15px 14px; border-radius: 4px;">
-                    <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; margin: 0 0 8px 0; color: black;">RAISED ON KICKSTARTER</p>
-                    <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 24px; margin: 0 0 8px 0; color: black;">US$ 423,621</p>
-                    <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 14px; margin: 0; color: black;">pledged of US$ 10,000 goal</p>
-                </div>
-
-                <!-- Backers -->
-                <div style="background: #d9d9d9; padding: 15px; border-radius: 4px;">
-                    <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; margin: 0 0 8px 0; color: black;">BACKERS</p>
-                    <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 24px; margin: 0 0 8px 0; color: black;">4,157</p>
-                    <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 14px; margin: 0; color: black;">Backers love this project</p>
-                </div>
-
-                <!-- Funded Date -->
-                <div style="background: #d9d9d9; padding: 19px 15px; border-radius: 4px;">
-                    <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; margin: 0 0 14px 0; color: black;">FUNDED ON</p>
-                    <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 24px; margin: 0; color: black;">XX.XX.2025</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Title & Description Section -->
-        <div class="title-cta-section" style="margin-bottom: 40px;">
+            <!-- Title & Description Section -->
+            <div class="title-cta-section" style="margin-top: 40px;">
             <h1 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 72px; line-height: 1.2; letter-spacing: -2.16px; margin: 0 0 16px 0; color: #1e1e1e;">
                 Maya : Seed takes root
             </h1>
@@ -219,6 +228,7 @@
             <button id="hero-add-btn" onclick="addHeroBookToCart()" style="background: #2c2c2c; border: 1px solid #2c2c2c; color: #f5f5f5; padding: 12px; border-radius: 8px; width: 100%; max-width: 600px; font-family: 'Inter', sans-serif; font-size: 32px; font-weight: 400; cursor: pointer;">
                 Add to Cart
             </button>
+            </div>
         </div>
 
         <!-- Product Details (Collapsible) -->
