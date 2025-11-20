@@ -214,6 +214,11 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'store.html'));
 });
 
+// Test component page
+app.get('/test-component', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'test-component.html'));
+});
+
 // Backer login page
 app.get('/backer-login', (req, res) => {
     if (req.session.userId) {
