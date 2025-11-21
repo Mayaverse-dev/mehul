@@ -211,7 +211,7 @@
             <!-- Title & Description Section -->
             <div class="title-cta-section" style="grid-column: 1 / -1;">
             <h1 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 72px; line-height: 1.2; letter-spacing: -2.16px; margin: 0 0 16px 0; color: #1e1e1e;">
-                Maya : Seed takes root
+                MAYA : Seed Takes Root
             </h1>
             <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 14px; line-height: 1.4; margin: 0 0 12px 0; color: #757575;">
                 Written by Anand Gandhi and Zain Memon
@@ -576,7 +576,7 @@
             products.forEach(product => {
                 const card = document.createElement('div');
                 card.id = `product-card-${product.id}`;
-                card.style.cssText = 'position: relative; padding: 23px 14px; background: #eeeeee; border-radius: 11px;';
+                card.style.cssText = 'display: flex; flex-direction: column; padding: 23px 14px; background: #eeeeee; border-radius: 11px; height: 100%;';
                 
                 const isInCart = cart.find(item => item.id === product.id);
                 const cartItem = isInCart;
@@ -586,16 +586,19 @@
                     <div style="background: #d9d9d9; border-radius: 8px; padding: 10px; margin-bottom: 15px; text-align: center;">
                         ${product.image ? `<img src="${product.image}" alt="${product.name}" style="max-width: 100%; max-height: 377px; object-fit: contain;">` : '<div style="height: 377px; display: flex; align-items: center; justify-content: center; font-size: 64px;">📦</div>'}
                     </div>
-                    <p style="font-family: 'Inter', sans-serif; font-size: 24px; color: #363636; margin: 0 0 6px 0; padding: 10px;">${product.name}</p>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                        <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 30px; letter-spacing: 0.9px; color: black; margin: 0; padding: 10px;">$${product.price.toFixed(1)}</p>
-                        <div style="display: flex; gap: 10px; align-items: center; padding: 10px;">
-                            <button onclick="decreaseCartQuantity(${product.id})" style="background: #828282; color: white; border: none; border-radius: 4px; padding: 4px 9px; font-size: 28px; font-weight: bold; cursor: pointer; width: 40px; height: 48px;">-</button>
-                            <div style="background: #828282; color: white; border-radius: 4px; padding: 4px 21px; font-size: 28px; font-weight: bold; min-width: 60px; height: 48px; display: flex; align-items: center; justify-content: center;" id="qty-${product.id}">${quantity}</div>
-                            <button onclick="increaseCartQuantity(${product.id})" style="background: #828282; color: white; border: none; border-radius: 4px; padding: 4px 9px; font-size: 28px; font-weight: bold; cursor: pointer; width: 40px; height: 48px;">+</button>
+                    <div style="flex: 1; display: flex; flex-direction: column;">
+                        <p style="font-family: 'Inter', sans-serif; font-size: 24px; color: #363636; margin: 0 0 6px 0; padding: 10px;">${product.name}</p>
+                        <div style="flex: 1;"></div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 30px; letter-spacing: 0.9px; color: black; margin: 0; padding: 10px;">$${product.price.toFixed(1)}</p>
+                            <div style="display: flex; gap: 10px; align-items: center; padding: 10px;">
+                                <button onclick="decreaseCartQuantity(${product.id})" style="background: #828282; color: white; border: none; border-radius: 4px; padding: 4px 9px; font-size: 28px; font-weight: bold; cursor: pointer; width: 40px; height: 48px;">-</button>
+                                <div style="background: #828282; color: white; border-radius: 4px; padding: 4px 21px; font-size: 28px; font-weight: bold; min-width: 60px; height: 48px; display: flex; align-items: center; justify-content: center;" id="qty-${product.id}">${quantity}</div>
+                                <button onclick="increaseCartQuantity(${product.id})" style="background: #828282; color: white; border: none; border-radius: 4px; padding: 4px 9px; font-size: 28px; font-weight: bold; cursor: pointer; width: 40px; height: 48px;">+</button>
+                            </div>
                         </div>
                     </div>
-                    <button id="add-btn-${product.id}" onclick="${isInCart ? 'proceedToCheckout()' : 'addProductToCart(' + product.id + ')'}" style="background: #2c2c2c; color: white; border: none; border-radius: 4px; padding: 8px 90px; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 21px; cursor: pointer; width: 100%;">
+                    <button id="add-btn-${product.id}" onclick="${isInCart ? 'proceedToCheckout()' : 'addProductToCart(' + product.id + ')'}" style="background: #2c2c2c; color: white; border: none; border-radius: 4px; padding: 8px 20px; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 21px; cursor: pointer; width: 100%; white-space: nowrap; margin-top: auto;">
                         Add to Cart
                     </button>
                 `;
@@ -752,10 +755,12 @@
                     if (cartItem) {
                         btn.textContent = 'Proceed to Checkout →';
                         btn.classList.add('btn-checkout-green');
+                        btn.style.whiteSpace = 'nowrap';
                         btn.onclick = proceedToCheckout;
                     } else {
                         btn.textContent = 'Add to Cart';
                         btn.classList.remove('btn-checkout-green');
+                        btn.style.whiteSpace = 'nowrap';
                         btn.onclick = () => addProductToCart(product.id);
                     }
                 }
