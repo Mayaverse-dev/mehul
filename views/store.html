@@ -184,7 +184,7 @@
 </head>
 <body>
     <!-- Header with Logo -->
-    <div style="background: #d9d9d9; padding: 10px 60px; display: flex; align-items: center; justify-content: space-between;">
+    <div id="navbar" style="background: #d9d9d9; padding: 10px 60px; display: flex; align-items: center; justify-content: space-between; position: fixed; top: 0; left: 0; right: 0; z-index: 1000; transition: transform 0.3s ease;">
         <div style="height: 30px; width: auto;">
             <img src="/images/maya-logo.png" alt="MAYA" style="height: 100%; width: auto; object-fit: contain;">
         </div>
@@ -200,6 +200,9 @@
             </button>
         </div>
     </div>
+    
+    <!-- Spacer for fixed navbar -->
+    <div style="height: 50px;"></div>
 
     <div class="container" style="max-width: 1400px; margin: 0 auto; padding: 60px 80px;">
         <!-- Hero Section -->
@@ -1160,6 +1163,25 @@
         }
 
         loadProducts();
+
+        // Smart navbar scroll behavior
+        let lastScrollTop = 0;
+        let navbarHeight = 50;
+        const navbar = document.getElementById('navbar');
+        
+        window.addEventListener('scroll', function() {
+            let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            
+            if (scrollTop > lastScrollTop && scrollTop > navbarHeight) {
+                // Scrolling down - hide navbar
+                navbar.style.transform = 'translateY(-100%)';
+            } else {
+                // Scrolling up - show navbar
+                navbar.style.transform = 'translateY(0)';
+            }
+            
+            lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
+        }, false);
     </script>
 </body>
 </html>
