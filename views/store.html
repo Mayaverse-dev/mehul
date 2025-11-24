@@ -69,14 +69,31 @@
             box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
         }
         
-        @media (max-width: 1280px) {
+        @media (max-width: 1200px) {
             .container {
                 padding: 46px 40px !important;
+            }
+
+            /* Hero Section */
+            .container > div:first-of-type {
+                grid-template-columns: 1fr !important;
+                gap: 30px !important;
+            }
+
+            /* Stats Section */
+            .container > div:nth-of-type(2) {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 20px !important;
+            }
+
+            .container > div:nth-of-type(2) > div:first-child {
+                grid-column: 1 / -1 !important;
             }
 
             .addons-grid {
                 grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
                 gap: 20px !important;
+                justify-content: center !important;
             }
         }
 
@@ -160,28 +177,28 @@
         </div>
     </div>
 
-    <div class="container" style="max-width: 1280px; margin: 0 auto; padding: 46px 160px;">
+    <div class="container" style="max-width: 1120px; margin: 0 auto; padding: 46px 20px;">
         <!-- Hero Section -->
-        <div style="display: grid; grid-template-columns: 640px 1fr; gap: 40px; margin-bottom: 60px;">
+        <div style="display: grid; grid-template-columns: 640px 1fr; gap: 60px; margin-bottom: 67px;">
             <!-- Left: Book Image -->
             <div style="background: #e3e3e3; border-radius: 16px; padding: 0; display: flex; align-items: center; justify-content: center; height: 563px;">
                 <img src="/images/addons/maya-book.jpeg" alt="MAYA: Seed Takes Root" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 16px;">
             </div>
 
             <!-- Right: Product Details -->
-            <div style="display: flex; flex-direction: column; justify-content: center; padding: 0 20px;">
-                <h1 style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 38px; line-height: 1.2; margin: 0 0 20px 0; color: #1e1e1e;">
+            <div style="display: flex; flex-direction: column; justify-content: center; padding: 0;">
+                <h1 style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 38px; line-height: 1.2; margin: 0 0 25px 0; color: #1e1e1e;">
                     MAYA : Seed Takes Root
                 </h1>
-                <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; line-height: 1.4; letter-spacing: 0.4px; margin: 0 0 20px 0; color: black;">
+                <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; line-height: 1.4; letter-spacing: 0.4px; margin: 0 0 21px 0; color: black;">
                     Written by Anand Gandhi and Zain Memon
                 </p>
-                <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 18px; line-height: 1.2; margin: 0 0 40px 0; color: #757575;">
+                <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 18px; line-height: 1.2; margin: 0 0 47px 0; color: #757575;">
                     An epic sci-fiction fantasy with intricate worldbuilding. Six species, one planet, zero privacy. Enter the age of narrative warfare.
                 </p>
 
                 <!-- Price -->
-                <div style="margin-bottom: 40px;">
+                <div style="margin-bottom: 85px;">
                     <div style="font-family: 'Inter', sans-serif; font-weight: 700; color: #1e1e1e; display: flex; align-items: baseline; gap: 2px;">
                         <span style="font-size: 64px; letter-spacing: -1.28px;">$</span>
                         <span id="hero-book-price" style="font-size: 64px; letter-spacing: -1.28px;">50</span>
@@ -196,7 +213,7 @@
         </div>
 
         <!-- Kickstarter Stats Section -->
-        <div style="display: grid; grid-template-columns: 256px 256px 256px 256px; gap: 16px; margin-bottom: 60px;">
+        <div style="display: grid; grid-template-columns: 256px 256px 256px 256px; gap: 72px; margin-bottom: 67px;">
             <!-- Message -->
             <div style="display: flex; align-items: center;">
                 <p style="font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 26px; line-height: 36px; letter-spacing: 1px; margin: 0; color: black;">
@@ -243,7 +260,7 @@
         </div>
 
         <!-- Add-ons Section Header -->
-        <div style="background: #eeeeee; border-radius: 16px; padding: 22px 25px; margin-bottom: 40px;">
+        <div style="background: #eeeeee; border-radius: 16px; padding: 22px 25px; margin-bottom: 44px;">
             <h2 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 20px; line-height: 1.4; margin: 0 0 4px 0; color: black;">
                 Free and Paid Add-ons
             </h2>
@@ -253,7 +270,7 @@
         </div>
 
         <!-- Products Grid -->
-        <div class="addons-grid" id="products-grid" style="display: grid; grid-template-columns: repeat(3, 352px); gap: 32px; margin-bottom: 30px; justify-content: start;">
+        <div class="addons-grid" id="products-grid" style="display: grid; grid-template-columns: repeat(3, 352px); gap: 32px; margin-bottom: 30px; justify-content: space-between;">
             <!-- Products will be loaded here -->
             <div style="text-align: center; padding: 40px; grid-column: 1 / -1;">
                 <div class="spinner"></div>
