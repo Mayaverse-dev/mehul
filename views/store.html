@@ -581,18 +581,19 @@
             const cartItem = cart.find(item => item.id === heroBook.id);
 
             if (cartItem) {
-                // Book is in cart - show checkout button
-                btn.textContent = 'Proceed to Checkout →';
+                // Book is in cart - show added state
+                btn.textContent = 'Added';
                 btn.classList.add('btn-checkout-green');
-                btn.style.cursor = 'pointer';
-                btn.disabled = false;
-                btn.onclick = proceedToCheckout;
+                btn.style.cursor = 'default';
+                btn.disabled = true;
+                btn.style.opacity = '0.8';
             } else {
                 // Book not in cart - show add button
                 btn.textContent = 'Add to Cart';
                 btn.classList.remove('btn-checkout-green');
                 btn.style.cursor = 'pointer';
                 btn.disabled = false;
+                btn.style.opacity = '1';
                 btn.onclick = addHeroBookToCart;
             }
         }
@@ -649,8 +650,8 @@
                     </div>
                     
                     <!-- Add to Cart Button -->
-                    <button id="add-btn-${product.id}" onclick="${isInCart ? 'proceedToCheckout()' : 'addProductToCart(' + product.id + ')'}" style="background: #2c2c2c; color: white; border: none; border-radius: 10px; padding: 14px; margin: 0 24px 24px 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; cursor: pointer; white-space: nowrap; transition: all 0.3s ease;">
-                        Add to Cart
+                    <button id="add-btn-${product.id}" onclick="${isInCart ? '' : 'addProductToCart(' + product.id + ')'}" style="background: ${isInCart ? '#059669' : '#2c2c2c'}; color: white; border: none; border-radius: 10px; padding: 14px; margin: 0 24px 24px 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; cursor: ${isInCart ? 'default' : 'pointer'}; white-space: nowrap; transition: all 0.3s ease; opacity: ${isInCart ? '0.8' : '1'};" ${isInCart ? 'disabled' : ''}>
+                        ${isInCart ? 'Added' : 'Add to Cart'}
                     </button>
                 `;
                 grid.appendChild(card);
@@ -804,14 +805,18 @@
                 const btn = document.getElementById(`add-btn-${product.id}`);
                 if (btn) {
                     if (cartItem) {
-                        btn.textContent = 'Proceed to Checkout →';
-                        btn.classList.add('btn-checkout-green');
-                        btn.style.whiteSpace = 'nowrap';
-                        btn.onclick = proceedToCheckout;
+                        btn.textContent = 'Added';
+                        btn.style.background = '#059669';
+                        btn.style.cursor = 'default';
+                        btn.style.opacity = '0.8';
+                        btn.disabled = true;
+                        btn.onclick = null;
                     } else {
                         btn.textContent = 'Add to Cart';
-                        btn.classList.remove('btn-checkout-green');
-                        btn.style.whiteSpace = 'nowrap';
+                        btn.style.background = '#2c2c2c';
+                        btn.style.cursor = 'pointer';
+                        btn.style.opacity = '1';
+                        btn.disabled = false;
                         btn.onclick = () => addProductToCart(product.id);
                     }
                 }
