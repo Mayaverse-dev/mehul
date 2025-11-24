@@ -33,6 +33,26 @@
             transition: all 0.3s ease;
         }
 
+        /* Product card hover effects */
+        #products-grid > div {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        #products-grid > div:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Button hover effects */
+        button:not(.modal-close):not([onclick*="toggle"]):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        button:not(.modal-close):not([onclick*="toggle"]):active {
+            transform: translateY(0);
+        }
+
         /* Add to cart success animation */
         @keyframes buttonSuccess {
             0% { transform: scale(1); }
@@ -69,15 +89,27 @@
             box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
         }
         
-        @media (max-width: 1200px) {
+        @media (max-width: 1400px) {
             .container {
-                padding: 46px 40px !important;
+                padding: 40px 40px !important;
+            }
+        }
+
+        @media (max-width: 1100px) {
+            .container {
+                padding: 30px 30px !important;
             }
 
             /* Hero Section */
             .container > div:first-of-type {
-                grid-template-columns: 1fr !important;
-                gap: 30px !important;
+                flex-direction: column !important;
+                gap: 40px !important;
+            }
+
+            .container > div:first-of-type > div:first-child {
+                flex: 1 !important;
+                width: 100% !important;
+                min-height: 500px !important;
             }
 
             /* Stats Section */
@@ -92,8 +124,6 @@
 
             .addons-grid {
                 grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
-                gap: 20px !important;
-                justify-content: center !important;
             }
         }
 
@@ -104,56 +134,50 @@
 
             /* Hero Section Mobile */
             .container > div:first-of-type {
-                grid-template-columns: 1fr !important;
-                gap: 20px !important;
-                margin-bottom: 30px !important;
+                margin-bottom: 40px !important;
             }
 
             .container > div:first-of-type > div:first-child {
-                height: 400px !important;
+                min-height: 400px !important;
+                padding: 30px !important;
             }
 
             .container > div:first-of-type > div:last-child h1 {
-                font-size: 28px !important;
+                font-size: 32px !important;
             }
 
-            .container > div:first-of-type > div:last-child p:nth-of-type(1) {
+            .container > div:first-of-type > div:last-child p {
                 font-size: 16px !important;
             }
 
-            .container > div:first-of-type > div:last-child p:nth-of-type(2) {
-                font-size: 16px !important;
-            }
-
-            .container > div:first-of-type > div:last-child > div:nth-of-type(3) span {
-                font-size: 48px !important;
+            .container > div:first-of-type > div:last-child > div:first-child {
+                font-size: 42px !important;
             }
 
             .container > div:first-of-type > div:last-child button {
-                font-size: 24px !important;
-                max-width: 100% !important;
+                width: 100% !important;
+                font-size: 18px !important;
             }
 
             /* Stats Section Mobile */
             .container > div:nth-of-type(2) {
                 grid-template-columns: 1fr !important;
-                gap: 12px !important;
-                margin-bottom: 30px !important;
+                gap: 15px !important;
+                margin-bottom: 40px !important;
             }
 
             .container > div:nth-of-type(2) > div {
-                padding: 15px !important;
+                padding: 20px !important;
             }
 
             .container > div:nth-of-type(2) > div:first-child p {
                 font-size: 18px !important;
-                line-height: 1.3 !important;
             }
 
             /* Add-ons Grid Mobile */
             .addons-grid {
                 grid-template-columns: 1fr !important;
-                gap: 20px !important;
+                gap: 24px !important;
             }
         }
     </style>
@@ -177,100 +201,99 @@
         </div>
     </div>
 
-    <div class="container" style="max-width: 1120px; margin: 0 auto; padding: 46px 20px;">
+    <div class="container" style="max-width: 1400px; margin: 0 auto; padding: 60px 80px;">
         <!-- Hero Section -->
-        <div style="display: grid; grid-template-columns: 640px 1fr; gap: 60px; margin-bottom: 67px;">
+        <div style="display: flex; gap: 80px; margin-bottom: 80px; align-items: center;">
             <!-- Left: Book Image -->
-            <div style="background: #e3e3e3; border-radius: 16px; padding: 0; display: flex; align-items: center; justify-content: center; height: 563px;">
-                <img src="/images/addons/maya-book.jpeg" alt="MAYA: Seed Takes Root" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 16px;">
+            <div style="flex: 0 0 550px; background: #e3e3e3; border-radius: 16px; padding: 40px; display: flex; align-items: center; justify-content: center; min-height: 600px;">
+                <img src="/images/addons/maya-book.jpeg" alt="MAYA: Seed Takes Root" style="max-width: 100%; max-height: 100%; object-fit: contain;">
             </div>
 
             <!-- Right: Product Details -->
-            <div style="display: flex; flex-direction: column; justify-content: center; padding: 0;">
-                <h1 style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 38px; line-height: 1.2; margin: 0 0 25px 0; color: #1e1e1e;">
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                <h1 style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 42px; line-height: 1.2; margin: 0 0 20px 0; color: #1e1e1e;">
                     MAYA : Seed Takes Root
                 </h1>
-                <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; line-height: 1.4; letter-spacing: 0.4px; margin: 0 0 21px 0; color: black;">
+                <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; line-height: 1.5; margin: 0 0 24px 0; color: #333;">
                     Written by Anand Gandhi and Zain Memon
                 </p>
-                <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 18px; line-height: 1.2; margin: 0 0 47px 0; color: #757575;">
+                <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 18px; line-height: 1.6; margin: 0 0 40px 0; color: #666;">
                     An epic sci-fiction fantasy with intricate worldbuilding. Six species, one planet, zero privacy. Enter the age of narrative warfare.
                 </p>
 
                 <!-- Price -->
-                <div style="margin-bottom: 85px;">
-                    <div style="font-family: 'Inter', sans-serif; font-weight: 700; color: #1e1e1e; display: flex; align-items: baseline; gap: 2px;">
-                        <span style="font-size: 64px; letter-spacing: -1.28px;">$</span>
-                        <span id="hero-book-price" style="font-size: 64px; letter-spacing: -1.28px;">50</span>
+                <div style="margin-bottom: 40px;">
+                    <div style="font-family: 'Inter', sans-serif; font-weight: 700; color: #1e1e1e; font-size: 56px; line-height: 1;">
+                        $<span id="hero-book-price">50</span>
                     </div>
                 </div>
 
                 <!-- Add to Cart Button -->
-                <button id="hero-add-btn" onclick="addHeroBookToCart()" style="background: #2c2c2c; border: 1px solid #2c2c2c; color: #f5f5f5; padding: 16px; border-radius: 16px; width: 100%; max-width: 332px; font-family: 'Inter', sans-serif; font-size: 32px; font-weight: 400; cursor: pointer;">
+                <button id="hero-add-btn" onclick="addHeroBookToCart()" style="background: #2c2c2c; border: 1px solid #2c2c2c; color: #f5f5f5; padding: 18px 40px; border-radius: 12px; width: fit-content; font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
                     Add to Cart
                 </button>
             </div>
         </div>
 
         <!-- Kickstarter Stats Section -->
-        <div style="display: grid; grid-template-columns: 256px 256px 256px 256px; gap: 72px; margin-bottom: 67px;">
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 30px; margin-bottom: 80px; max-width: 1200px; margin-left: auto; margin-right: auto;">
             <!-- Message -->
-            <div style="display: flex; align-items: center;">
-                <p style="font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 26px; line-height: 36px; letter-spacing: 1px; margin: 0; color: black;">
+            <div style="display: flex; align-items: center; background: #f5f5f5; padding: 30px; border-radius: 16px;">
+                <p style="font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 22px; line-height: 1.4; margin: 0; color: black;">
                     This project was successfully funded on Kickstarter.
                 </p>
             </div>
 
             <!-- Raised Amount -->
-            <div style="background: #d9d9d9; padding: 22px; border-radius: 16px;">
-                <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; line-height: 1.4; margin: 0 0 12px 0; color: black;">RAISED ON KICKSTARTER</p>
-                <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 24px; line-height: 1.2; letter-spacing: -0.48px; margin: 0 0 2px 0; color: black;">US$ 423,621</p>
-                <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 14px; line-height: 1.4; margin: 0; color: black;">pledged of US$ 10,000 goal</p>
+            <div style="background: #d9d9d9; padding: 30px; border-radius: 16px;">
+                <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14px; line-height: 1.4; margin: 0 0 12px 0; color: #555; text-transform: uppercase; letter-spacing: 0.5px;">Raised on Kickstarter</p>
+                <p style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 28px; line-height: 1.2; margin: 0 0 8px 0; color: black;">US$ 423,621</p>
+                <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 14px; line-height: 1.4; margin: 0; color: #666;">pledged of US$ 10,000 goal</p>
             </div>
 
             <!-- Backers -->
-            <div style="background: #d9d9d9; padding: 22px; border-radius: 16px;">
-                <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; line-height: 1.4; margin: 0 0 12px 0; color: black;">BACKERS</p>
-                <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 24px; line-height: 1.2; letter-spacing: -0.48px; margin: 0 0 2px 0; color: black;">4,157</p>
-                <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 14px; line-height: 1.4; margin: 0; color: black;">Backers love this project</p>
+            <div style="background: #d9d9d9; padding: 30px; border-radius: 16px;">
+                <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14px; line-height: 1.4; margin: 0 0 12px 0; color: #555; text-transform: uppercase; letter-spacing: 0.5px;">Backers</p>
+                <p style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 28px; line-height: 1.2; margin: 0 0 8px 0; color: black;">4,157</p>
+                <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 14px; line-height: 1.4; margin: 0; color: #666;">Backers love this project</p>
             </div>
 
             <!-- Funded Date -->
-            <div style="background: #d9d9d9; padding: 22px; border-radius: 16px;">
-                <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; line-height: 1.4; margin: 0 0 18px 0; color: black;">FUNDED ON</p>
-                <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 24px; line-height: 1.2; letter-spacing: -0.48px; margin: 0; color: black;">XX.XX.2025</p>
+            <div style="background: #d9d9d9; padding: 30px; border-radius: 16px;">
+                <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14px; line-height: 1.4; margin: 0 0 12px 0; color: #555; text-transform: uppercase; letter-spacing: 0.5px;">Funded On</p>
+                <p style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 28px; line-height: 1.2; margin: 0; color: black;">XX.XX.2025</p>
             </div>
         </div>
 
         <!-- Product Details (Collapsible) -->
-        <div style="background: #d9d9d9; border-radius: 16px; padding: 22px 25px; margin-bottom: 28px;">
+        <div style="background: #d9d9d9; border-radius: 16px; padding: 30px; margin-bottom: 60px; max-width: 1200px; margin-left: auto; margin-right: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <button onclick="toggleProductDetails()" style="background: none; border: none; cursor: pointer; padding: 0; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 20px; line-height: 1.4; color: #1e1e1e;">
+                <button onclick="toggleProductDetails()" style="background: none; border: none; cursor: pointer; padding: 0; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 22px; line-height: 1.4; color: #1e1e1e;">
                     Product Details
                 </button>
-                <button onclick="toggleProductDetails()" style="background: none; border: none; cursor: pointer; padding: 0; font-size: 25px; transform-origin: center; transition: transform 0.3s;" id="details-arrow">
+                <button onclick="toggleProductDetails()" style="background: none; border: none; cursor: pointer; padding: 0; font-size: 24px; transform-origin: center; transition: transform 0.3s;" id="details-arrow">
                     ▼
                 </button>
             </div>
-            <div id="product-details-content" style="display: none; padding: 20px 0 0 0;">
-                <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 18px; line-height: 1.4; margin: 0; color: #1e1e1e;">
+            <div id="product-details-content" style="display: none; padding: 24px 0 0 0;">
+                <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 16px; line-height: 1.6; margin: 0; color: #333;">
                     Answer the frequently asked question in a simple sentence, a longish paragraph, or even in a list. Answer the frequently asked question in a simple sentence, a longish paragraph, or even in a list.
                 </p>
             </div>
         </div>
 
         <!-- Add-ons Section Header -->
-        <div style="background: #eeeeee; border-radius: 16px; padding: 22px 25px; margin-bottom: 44px;">
-            <h2 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 20px; line-height: 1.4; margin: 0 0 4px 0; color: black;">
+        <div style="background: #eeeeee; border-radius: 16px; padding: 30px; margin-bottom: 50px; max-width: 1200px; margin-left: auto; margin-right: auto; text-align: center;">
+            <h2 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 28px; line-height: 1.4; margin: 0 0 8px 0; color: black;">
                 Free and Paid Add-ons
             </h2>
-            <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 18px; line-height: 1.4; letter-spacing: 0.5px; margin: 0; color: #7c7c7c;">
+            <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 16px; line-height: 1.5; margin: 0; color: #666;">
                 All items ship together
             </p>
         </div>
 
         <!-- Products Grid -->
-        <div class="addons-grid" id="products-grid" style="display: grid; grid-template-columns: repeat(3, 352px); gap: 32px; margin-bottom: 30px; justify-content: space-between;">
+        <div class="addons-grid" id="products-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 40px; margin-bottom: 60px; max-width: 1200px; margin-left: auto; margin-right: auto;">
             <!-- Products will be loaded here -->
             <div style="text-align: center; padding: 40px; grid-column: 1 / -1;">
                 <div class="spinner"></div>
@@ -582,7 +605,7 @@
             products.forEach(product => {
                 const card = document.createElement('div');
                 card.id = `product-card-${product.id}`;
-                card.style.cssText = 'display: flex; flex-direction: column; background: #eeeeee; border-radius: 16px; height: 647px; position: relative;';
+                card.style.cssText = 'display: flex; flex-direction: column; background: #eeeeee; border-radius: 16px; min-height: 550px; position: relative; transition: all 0.3s ease;';
                 
                 const isInCart = cart.find(item => item.id === product.id);
                 const cartItem = isInCart;
@@ -590,34 +613,34 @@
                 
                 // Check if product is free
                 const isFree = product.price === 0;
-                const priceDisplay = isFree ? 'FREE' : `$${product.price.toFixed(1)}`;
-                const priceColor = isFree ? '#4b944e' : 'black';
+                const priceDisplay = isFree ? 'FREE' : `$${product.price.toFixed(0)}`;
+                const priceColor = isFree ? '#4b944e' : '#1e1e1e';
                 
                 card.innerHTML = `
                     <!-- Product Image -->
-                    <div style="background: #d9d9d9; border-radius: 12px; margin: 28px 24px 0 24px; height: 377px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                    <div style="background: #d9d9d9; border-radius: 12px; margin: 24px; height: 280px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                         ${product.image ? `<img src="${product.image}" alt="${product.name}" style="max-width: 100%; max-height: 100%; object-fit: contain;">` : '<div style="display: flex; align-items: center; justify-content: center; font-size: 64px;">📦</div>'}
                     </div>
                     
                     <!-- Product Description -->
-                    <div style="padding: 15px 24px 0 24px; flex: 1;">
-                        <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 24px; line-height: 1.4; color: #363636; margin: 0;">${product.name}</p>
+                    <div style="padding: 0 24px; flex: 1;">
+                        <p style="font-family: 'Inter', sans-serif; font-weight: 500; font-size: 18px; line-height: 1.4; color: #333; margin: 0 0 20px 0;">${product.name}</p>
                     </div>
                     
                     <!-- Price and Quantity Controls -->
-                    <div style="padding: 0 24px; margin-bottom: 12px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 30px; line-height: 1.4; color: ${priceColor}; margin: 0;">${priceDisplay}</p>
-                            <div style="display: flex; gap: 12px; align-items: center;">
-                                <button onclick="decreaseCartQuantity(${product.id})" style="background: #828282; color: white; border: none; border-radius: 4px; padding: 0; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 28px; line-height: 1.4; cursor: pointer; width: 39px; height: 48px; display: flex; align-items: center; justify-content: center;">_</button>
-                                <div style="background: #828282; color: white; border-radius: 4px; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 28px; line-height: 1.4; min-width: 59px; height: 48px; display: flex; align-items: center; justify-content: center;" id="qty-${product.id}">${quantity}</div>
-                                <button onclick="increaseCartQuantity(${product.id})" style="background: #828282; color: white; border: none; border-radius: 4px; padding: 0; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 28px; line-height: 1.4; cursor: pointer; width: 39px; height: 48px; display: flex; align-items: center; justify-content: center;">+</button>
+                    <div style="padding: 0 24px; margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <p style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 32px; line-height: 1; color: ${priceColor}; margin: 0;">${priceDisplay}</p>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <button onclick="decreaseCartQuantity(${product.id})" style="background: #828282; color: white; border: none; border-radius: 6px; padding: 0; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">−</button>
+                                <div style="background: #828282; color: white; border-radius: 6px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 18px; min-width: 50px; height: 36px; display: flex; align-items: center; justify-content: center;" id="qty-${product.id}">${quantity}</div>
+                                <button onclick="increaseCartQuantity(${product.id})" style="background: #828282; color: white; border: none; border-radius: 6px; padding: 0; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">+</button>
                             </div>
                         </div>
                     </div>
                     
                     <!-- Add to Cart Button -->
-                    <button id="add-btn-${product.id}" onclick="${isInCart ? 'proceedToCheckout()' : 'addProductToCart(' + product.id + ')'}" style="background: #2c2c2c; color: white; border: none; border-radius: 4px; padding: 0; margin: 0 24px 28px 24px; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 21px; line-height: 1.4; cursor: pointer; height: 54px; white-space: nowrap;">
+                    <button id="add-btn-${product.id}" onclick="${isInCart ? 'proceedToCheckout()' : 'addProductToCart(' + product.id + ')'}" style="background: #2c2c2c; color: white; border: none; border-radius: 10px; padding: 14px; margin: 0 24px 24px 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; cursor: pointer; white-space: nowrap; transition: all 0.3s ease;">
                         Add to Cart
                     </button>
                 `;
