@@ -582,7 +582,7 @@
 
             if (cartItem) {
                 // Book is in cart - show added state
-                btn.textContent = 'Added';
+                btn.textContent = '✓ Added';
                 btn.style.background = '#059669';
                 btn.style.borderColor = '#059669';
                 btn.style.cursor = 'default';
@@ -651,7 +651,7 @@
                     
                     <!-- Add to Cart Button -->
                     <button id="add-btn-${product.id}" onclick="${isInCart ? '' : 'addProductToCart(' + product.id + ')'}" style="background: ${isInCart ? '#059669' : '#2c2c2c'}; border: 1px solid ${isInCart ? '#059669' : '#2c2c2c'}; color: white; border-radius: 10px; padding: 14px; margin: 0 24px 24px 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; cursor: ${isInCart ? 'default' : 'pointer'}; white-space: nowrap; transition: all 0.3s ease;" ${isInCart ? 'disabled' : ''}>
-                        ${isInCart ? 'Added' : 'Add to Cart'}
+                        ${isInCart ? '✓ Added' : 'Add to Cart'}
                     </button>
                 `;
                 grid.appendChild(card);
@@ -805,7 +805,7 @@
                 const btn = document.getElementById(`add-btn-${product.id}`);
                 if (btn) {
                     if (cartItem) {
-                        btn.textContent = 'Added';
+                        btn.textContent = '✓ Added';
                         btn.style.background = '#059669';
                         btn.style.borderColor = '#059669';
                         btn.style.cursor = 'default';
