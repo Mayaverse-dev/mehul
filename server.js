@@ -511,26 +511,38 @@ app.post('/api/guest/save-payment-method', async (req, res) => {
     const { paymentMethodId, customerEmail } = req.body;
     
     try {
+        // Find the most recent order for this email
+        let order;
         if (isPostgres) {
-            await execute(`UPDATE orders 
-                SET stripe_payment_method_id = $1, payment_status = 'card_saved' 
-                WHERE shipping_address::json->>'email' = $2 
+            order = await queryOne(`SELECT id FROM orders 
+                WHERE shipping_address::json->>'email' = $1 
                 AND stripe_payment_method_id IS NULL
                 ORDER BY id DESC LIMIT 1`, 
-                [paymentMethodId, customerEmail]);
+                [customerEmail]);
         } else {
-            await execute(`UPDATE orders 
-                SET stripe_payment_method_id = $1, payment_status = 'card_saved' 
-                WHERE json_extract(shipping_address, '$.email') = $2 
+            order = await queryOne(`SELECT id FROM orders 
+                WHERE json_extract(shipping_address, '$.email') = $1 
                 AND stripe_payment_method_id IS NULL
                 ORDER BY id DESC LIMIT 1`, 
-                [paymentMethodId, customerEmail]);
+                [customerEmail]);
         }
         
+        if (!order) {
+            console.error('No order found for email:', customerEmail);
+            return res.status(404).json({ error: 'Order not found' });
+        }
+        
+        // Update the order with payment method
+        await execute(`UPDATE orders 
+            SET stripe_payment_method_id = $1, payment_status = 'card_saved' 
+            WHERE id = $2`, 
+            [paymentMethodId, order.id]);
+        
+        console.log('✓ Payment method saved for order:', order.id);
         res.json({ success: true });
     } catch (err) {
         console.error('Error saving payment method:', err);
-        res.status(500).json({ error: 'Failed to save payment method' });
+        res.status(500).json({ error: 'Failed to save payment method', details: err.message });
     }
 });
 
