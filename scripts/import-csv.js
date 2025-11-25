@@ -1,14 +1,59 @@
 require('dotenv').config();
 const fs = require('fs');
 const csv = require('csv-parser');
-const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const nodemailer = require('nodemailer');
+
+// Database setup - PostgreSQL or SQLite
+let pool = null;
+let db = null;
+let isPostgres = false;
+
+if (process.env.DATABASE_URL) {
+    // Use PostgreSQL
+    const { Pool } = require('pg');
+    pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+    isPostgres = true;
+    console.log('✓ Using PostgreSQL database');
+} else {
+    // Fallback to SQLite
+    const sqlite3 = require('sqlite3').verbose();
+    db = new sqlite3.Database('./database.db', (err) => {
+        if (err) {
+            console.error('❌ Error opening database:', err);
+            process.exit(1);
+        }
+        console.log('✓ Using SQLite database');
+    });
+}
+
+// Database query wrapper
+async function query(sql, params = []) {
+    if (isPostgres) {
+        // Convert ? to $1, $2, etc. for PostgreSQL
+        let index = 0;
+        const pgSql = sql.replace(/\?/g, () => `$${++index}`);
+        const result = await pool.query(pgSql, params);
+        return result.rows;
+    } else {
+        // SQLite
+        return new Promise((resolve, reject) => {
+            db.run(sql, params, function(err) {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+    }
+}
 
 // Check if CSV file path is provided
 if (process.argv.length < 3) {
     console.error('❌ Please provide the path to the Kickstarter CSV file');
-    console.log('Usage: node scripts/import-csv.js path-to-kickstarter.csv');
+    console.log('\nUsage: npm run import-csv path-to-kickstarter.csv');
+    console.log('\nFor Railway: railway run npm run import-csv path-to-kickstarter.csv');
     process.exit(1);
 }
 
@@ -22,25 +67,22 @@ if (!fs.existsSync(csvFilePath)) {
 
 console.log('📂 Reading CSV file:', csvFilePath);
 
-// Connect to database
-const db = new sqlite3.Database('./database.db', (err) => {
-    if (err) {
-        console.error('❌ Error opening database:', err);
-        process.exit(1);
-    }
-    console.log('✓ Connected to database');
-});
-
-// Email transporter
-const emailTransporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
-    secure: false,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD
-    }
-});
+// Email transporter (optional)
+let emailTransporter = null;
+if (process.env.EMAIL_HOST && process.env.EMAIL_USER) {
+    emailTransporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST,
+        port: process.env.EMAIL_PORT || 587,
+        secure: false,
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASSWORD
+        }
+    });
+    console.log('✓ Email configured - will send welcome emails');
+} else {
+    console.log('⚠️  Email not configured - skipping welcome emails');
+}
 
 // Generate random password
 function generatePassword(length = 8) {
@@ -54,18 +96,20 @@ function generatePassword(length = 8) {
 
 // Send welcome email
 async function sendWelcomeEmail(email, password, backerName) {
+    if (!emailTransporter) return false;
+
     const mailOptions = {
         from: process.env.EMAIL_FROM || 'MAYA Pledge Manager <noreply@example.com>',
         to: email,
         subject: 'Welcome to MAYA Pledge Manager',
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background-color: #dc2626; color: white; padding: 30px; text-align: center;">
+                <div style="background-color: #2c2c2c; color: white; padding: 30px; text-align: center;">
                     <h1 style="margin: 0;">MAYA Pledge Manager</h1>
                     <p style="margin: 10px 0 0 0;">Your Kickstarter Journey Continues</p>
                 </div>
                 
-                <div style="padding: 30px; background-color: #f5f1ea;">
+                <div style="padding: 30px; background-color: #f5f5f5;">
                     <p>Hello ${backerName || 'Backer'},</p>
                     
                     <p>Thank you for backing MAYA on Kickstarter! We're excited to have you as part of our community.</p>
@@ -78,21 +122,21 @@ async function sendWelcomeEmail(email, password, backerName) {
                         <li>Complete your order</li>
                     </ul>
                     
-                    <div style="background-color: white; padding: 20px; margin: 20px 0; border-left: 4px solid #dc2626;">
-                        <h3 style="margin-top: 0; color: #dc2626;">Your Login Credentials</h3>
+                    <div style="background-color: white; padding: 20px; margin: 20px 0; border-left: 4px solid #2c2c2c;">
+                        <h3 style="margin-top: 0; color: #2c2c2c;">Your Login Credentials</h3>
                         <p><strong>Email:</strong> ${email}</p>
-                        <p><strong>Password:</strong> <code style="background-color: #f5f1ea; padding: 5px 10px; border-radius: 4px;">${password}</code></p>
+                        <p><strong>Password:</strong> <code style="background-color: #f5f5f5; padding: 5px 10px; border-radius: 4px;">${password}</code></p>
                     </div>
                     
                     <div style="text-align: center; margin: 30px 0;">
-                        <a href="${process.env.APP_URL || 'http://localhost:3000'}" 
-                           style="background-color: #dc2626; color: white; padding: 15px 40px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+                        <a href="${process.env.APP_URL || 'https://maya-store-production.up.railway.app'}" 
+                           style="background-color: #2c2c2c; color: white; padding: 15px 40px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
                             Access Pledge Manager
                         </a>
                     </div>
                     
                     <p style="font-size: 14px; color: #666;">
-                        If you have any questions, please reply to this email or contact us at support@entermaya.com
+                        If you have any questions, please reply to this email.
                     </p>
                     
                     <p style="font-size: 14px; color: #666;">
@@ -101,7 +145,7 @@ async function sendWelcomeEmail(email, password, backerName) {
                     </p>
                 </div>
                 
-                <div style="background-color: #c8b696; color: #665239; padding: 20px; text-align: center; font-size: 12px;">
+                <div style="background-color: #d9d9d9; color: #666; padding: 20px; text-align: center; font-size: 12px;">
                     <p style="margin: 0;">© 2025 MAYA. All rights reserved.</p>
                 </div>
             </div>
@@ -117,7 +161,7 @@ async function sendWelcomeEmail(email, password, backerName) {
     }
 }
 
-// Item name mappings
+// Item name mappings (adjust these based on your actual Kickstarter CSV column names)
 const itemColumns = {
     'MAYA : Seed Takes Root ebook (Edition Zero)': 'ebook',
     'MAYA : Seed Takes Root Paperback (Edition Zero)': 'paperback',
@@ -170,8 +214,8 @@ fs.createReadStream(csvFilePath)
                 const backerUID = row['Backer UID'];
                 const backerName = row['Backer Name'];
                 const rewardTitle = row['Reward Title'];
-                const backingMinimum = parseFloat(row['Backing Minimum'].replace(/[$,]/g, '')) || 0;
-                const pledgeAmount = parseFloat(row['Pledge Amount'].replace(/[$,]/g, '')) || 0;
+                const backingMinimum = parseFloat(row['Backing Minimum']?.replace(/[$,]/g, '')) || 0;
+                const pledgeAmount = parseFloat(row['Pledge Amount']?.replace(/[$,]/g, '')) || 0;
                 const shippingCountry = row['Shipping Country'];
 
                 // Parse Kickstarter items
@@ -197,37 +241,44 @@ fs.createReadStream(csvFilePath)
                 const hashedPassword = await bcrypt.hash(password, 10);
 
                 // Insert into database
-                await new Promise((resolve, reject) => {
-                    db.run(`INSERT OR REPLACE INTO users (
-                        email, password, backer_number, backer_uid, backer_name,
-                        reward_title, backing_minimum, pledge_amount,
-                        kickstarter_items, kickstarter_addons, shipping_country
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [
-                        email,
-                        hashedPassword,
-                        backerNumber,
-                        backerUID,
-                        backerName,
-                        rewardTitle,
-                        backingMinimum,
-                        pledgeAmount,
-                        JSON.stringify(items),
-                        JSON.stringify(addons),
-                        shippingCountry
-                    ],
-                    (err) => {
-                        if (err) reject(err);
-                        else resolve();
-                    });
-                });
+                await query(`INSERT INTO users (
+                    email, password, backer_number, backer_uid, backer_name,
+                    reward_title, backing_minimum, pledge_amount,
+                    kickstarter_items, kickstarter_addons, shipping_country
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(email) DO UPDATE SET
+                    password = excluded.password,
+                    backer_number = excluded.backer_number,
+                    backer_uid = excluded.backer_uid,
+                    backer_name = excluded.backer_name,
+                    reward_title = excluded.reward_title,
+                    backing_minimum = excluded.backing_minimum,
+                    pledge_amount = excluded.pledge_amount,
+                    kickstarter_items = excluded.kickstarter_items,
+                    kickstarter_addons = excluded.kickstarter_addons,
+                    shipping_country = excluded.shipping_country`,
+                [
+                    email,
+                    hashedPassword,
+                    backerNumber,
+                    backerUID,
+                    backerName,
+                    rewardTitle,
+                    backingMinimum,
+                    pledgeAmount,
+                    JSON.stringify(items),
+                    JSON.stringify(addons),
+                    shippingCountry
+                ]);
 
                 importedCount++;
 
                 // Send welcome email
-                const emailSent = await sendWelcomeEmail(email, password, backerName);
-                if (emailSent) {
-                    emailsSent++;
+                if (emailTransporter) {
+                    const emailSent = await sendWelcomeEmail(email, password, backerName);
+                    if (emailSent) {
+                        emailsSent++;
+                    }
                 }
 
                 // Progress indicator
@@ -251,22 +302,15 @@ fs.createReadStream(csvFilePath)
         }
         console.log('='.repeat(60) + '\n');
 
-        // Close database
-        db.close((err) => {
-            if (err) {
-                console.error('Error closing database:', err);
-            }
-            process.exit(0);
-        });
+        // Close database connections
+        if (isPostgres && pool) {
+            await pool.end();
+        } else if (db) {
+            db.close();
+        }
+        process.exit(0);
     })
     .on('error', (error) => {
         console.error('❌ Error reading CSV file:', error);
         process.exit(1);
     });
-
-
-
-
-
-
-
