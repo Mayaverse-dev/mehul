@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const session = require('express-session');
@@ -10,22 +10,30 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize database
-const db = new sqlite3.Database('./database.db', (err) => {
+// Initialize PostgreSQL connection pool
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+
+// Test database connection
+pool.connect((err, client, release) => {
     if (err) {
-        console.error('Error opening database:', err);
+        console.error('Error connecting to database:', err);
+        process.exit(1);
     } else {
-        console.log('✓ Connected to SQLite database');
+        console.log('✓ Connected to PostgreSQL database');
+        release();
         initializeDatabase();
     }
 });
 
 // Initialize database tables
-function initializeDatabase() {
-    db.serialize(() => {
+async function initializeDatabase() {
+    try {
         // Users table
-        db.run(`CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+        await pool.query(`CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             backer_number INTEGER,
@@ -38,15 +46,13 @@ function initializeDatabase() {
             kickstarter_addons TEXT,
             shipping_country TEXT,
             has_completed INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )`, (err) => {
-            if (err) console.error('Error creating users table:', err);
-            else console.log('✓ Users table ready');
-        });
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+        console.log('✓ Users table ready');
 
         // Add-ons table
-        db.run(`CREATE TABLE IF NOT EXISTS addons (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+        await pool.query(`CREATE TABLE IF NOT EXISTS addons (
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             kickstarter_addon_id TEXT,
             price REAL NOT NULL,
@@ -54,15 +60,13 @@ function initializeDatabase() {
             image TEXT,
             active INTEGER DEFAULT 1,
             description TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )`, (err) => {
-            if (err) console.error('Error creating addons table:', err);
-            else console.log('✓ Add-ons table ready');
-        });
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+        console.log('✓ Add-ons table ready');
 
         // Orders table
-        db.run(`CREATE TABLE IF NOT EXISTS orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+        await pool.query(`CREATE TABLE IF NOT EXISTS orders (
+            id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL,
             new_addons TEXT,
             shipping_address TEXT,
@@ -71,97 +75,54 @@ function initializeDatabase() {
             total REAL DEFAULT 0,
             stripe_payment_intent_id TEXT,
             paid INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            completed_at TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP,
+            comped_items TEXT,
+            admin_notes TEXT,
+            updated_by_admin_id INTEGER,
+            updated_at TIMESTAMP,
+            stripe_customer_id TEXT,
+            stripe_setup_intent_id TEXT,
+            payment_status TEXT DEFAULT 'pending',
+            stripe_payment_method_id TEXT,
             FOREIGN KEY (user_id) REFERENCES users (id)
-        )`, (err) => {
-            if (err) console.error('Error creating orders table:', err);
-            else console.log('✓ Orders table ready');
-        });
-
-        // Safe migration: add comped_items/admin audit columns if missing
-        db.run('ALTER TABLE orders ADD COLUMN comped_items TEXT', (err) => {
-            if (err && !String(err.message).includes('duplicate column name')) {
-                console.error('Error adding comped_items column:', err.message);
-            }
-        });
-        db.run('ALTER TABLE orders ADD COLUMN admin_notes TEXT', (err) => {
-            if (err && !String(err.message).includes('duplicate column name')) {
-                console.error('Error adding admin_notes column:', err.message);
-            }
-        });
-        db.run('ALTER TABLE orders ADD COLUMN updated_by_admin_id INTEGER', (err) => {
-            if (err && !String(err.message).includes('duplicate column name')) {
-                console.error('Error adding updated_by_admin_id column:', err.message);
-            }
-        });
-        db.run('ALTER TABLE orders ADD COLUMN updated_at TEXT', (err) => {
-            if (err && !String(err.message).includes('duplicate column name')) {
-                console.error('Error adding updated_at column:', err.message);
-            }
-        });
-        
-        // Add columns for card-save-charge-later functionality
-        db.run('ALTER TABLE orders ADD COLUMN stripe_customer_id TEXT', (err) => {
-            if (err && !String(err.message).includes('duplicate column name')) {
-                console.error('Error adding stripe_customer_id column:', err.message);
-            }
-        });
-        db.run('ALTER TABLE orders ADD COLUMN stripe_setup_intent_id TEXT', (err) => {
-            if (err && !String(err.message).includes('duplicate column name')) {
-                console.error('Error adding stripe_setup_intent_id column:', err.message);
-            }
-        });
-        db.run('ALTER TABLE orders ADD COLUMN payment_status TEXT DEFAULT "pending"', (err) => {
-            if (err && !String(err.message).includes('duplicate column name')) {
-                console.error('Error adding payment_status column:', err.message);
-            }
-        });
-        db.run('ALTER TABLE orders ADD COLUMN stripe_payment_method_id TEXT', (err) => {
-            if (err && !String(err.message).includes('duplicate column name')) {
-                console.error('Error adding stripe_payment_method_id column:', err.message);
-            }
-        });
+        )`);
+        console.log('✓ Orders table ready');
 
         // Admins table
-        db.run(`CREATE TABLE IF NOT EXISTS admins (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+        await pool.query(`CREATE TABLE IF NOT EXISTS admins (
+            id SERIAL PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             name TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )`, (err) => {
-            if (err) console.error('Error creating admins table:', err);
-            else {
-                console.log('✓ Admins table ready');
-                createDefaultAdmin();
-            }
-        });
-    });
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+        console.log('✓ Admins table ready');
+
+        // Create default admin
+        await createDefaultAdmin();
+        
+    } catch (err) {
+        console.error('Error initializing database:', err);
+    }
 }
 
 // Create default admin account
-function createDefaultAdmin() {
+async function createDefaultAdmin() {
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
     const adminPassword = process.env.ADMIN_PASSWORD || 'changeme123';
     
-    db.get('SELECT * FROM admins WHERE email = ?', [adminEmail], (err, row) => {
-        if (!row) {
-            bcrypt.hash(adminPassword, 10, (err, hash) => {
-                if (err) {
-                    console.error('Error hashing admin password:', err);
-                    return;
-                }
-                db.run('INSERT INTO admins (email, password, name) VALUES (?, ?, ?)', 
-                    [adminEmail, hash, 'Admin'], 
-                    (err) => {
-                        if (err) console.error('Error creating admin:', err);
-                        else console.log('✓ Default admin created:', adminEmail);
-                    }
-                );
-            });
+    try {
+        const result = await pool.query('SELECT * FROM admins WHERE email = $1', [adminEmail]);
+        if (result.rows.length === 0) {
+            const hash = await bcrypt.hash(adminPassword, 10);
+            await pool.query('INSERT INTO admins (email, password, name) VALUES ($1, $2, $3)', 
+                [adminEmail, hash, 'Admin']);
+            console.log('✓ Default admin created:', adminEmail);
         }
-    });
+    } catch (err) {
+        console.error('Error creating admin:', err);
+    }
 }
 
 // Middleware
@@ -232,10 +193,9 @@ app.get('/backer-login', (req, res) => {
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     
-    db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
-        }
+    try {
+        const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        const user = result.rows[0];
         
         if (!user) {
             return res.status(401).json({ error: 'Invalid email or password' });
@@ -249,7 +209,10 @@ app.post('/login', async (req, res) => {
         req.session.userId = user.id;
         req.session.userEmail = user.email;
         res.json({ success: true, redirect: '/dashboard' });
-    });
+    } catch (err) {
+        console.error('Login error:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // Dashboard - View Kickstarter order
@@ -258,10 +221,13 @@ app.get('/dashboard', requireAuth, (req, res) => {
 });
 
 // Get user data for dashboard
-app.get('/api/user/data', requireAuth, (req, res) => {
-    db.get('SELECT * FROM users WHERE id = ?', [req.session.userId], (err, user) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
+app.get('/api/user/data', requireAuth, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.session.userId]);
+        const user = result.rows[0];
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
         }
         
         // Parse JSON fields
@@ -279,7 +245,10 @@ app.get('/api/user/data', requireAuth, (req, res) => {
         };
         
         res.json(userData);
-    });
+    } catch (err) {
+        console.error('Error fetching user data:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // Add-ons page
@@ -288,13 +257,14 @@ app.get('/addons', requireAuth, (req, res) => {
 });
 
 // Get available add-ons
-app.get('/api/addons', (req, res) => {
-    db.all('SELECT * FROM addons WHERE active = 1', (err, addons) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
-        }
-        res.json(addons);
-    });
+app.get('/api/addons', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM addons WHERE active = 1');
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error fetching addons:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // Get Stripe publishable key
@@ -340,11 +310,11 @@ app.post('/api/create-payment-intent', requireAuth, async (req, res) => {
         
         // Create order in database
         const addonsSubtotal = amount - shippingCost;
-        db.run(`INSERT INTO orders (
+        await pool.query(`INSERT INTO orders (
             user_id, new_addons, shipping_address, 
             shipping_cost, addons_subtotal, total, 
             stripe_payment_intent_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`, 
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)`, 
         [
             req.session.userId,
             JSON.stringify(cartItems),
@@ -363,22 +333,22 @@ app.post('/api/create-payment-intent', requireAuth, async (req, res) => {
 });
 
 // Confirm payment
-app.post('/api/confirm-payment', requireAuth, (req, res) => {
+app.post('/api/confirm-payment', requireAuth, async (req, res) => {
     const { paymentIntentId } = req.body;
     
-    db.run(`UPDATE orders SET paid = 1, completed_at = CURRENT_TIMESTAMP 
-            WHERE stripe_payment_intent_id = ? AND user_id = ?`, 
-            [paymentIntentId, req.session.userId], 
-            (err) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
-        }
+    try {
+        await pool.query(`UPDATE orders SET paid = 1, completed_at = CURRENT_TIMESTAMP 
+            WHERE stripe_payment_intent_id = $1 AND user_id = $2`, 
+            [paymentIntentId, req.session.userId]);
         
         // Mark user as completed
-        db.run('UPDATE users SET has_completed = 1 WHERE id = ?', [req.session.userId]);
+        await pool.query('UPDATE users SET has_completed = 1 WHERE id = $1', [req.session.userId]);
         
         res.json({ success: true });
-    });
+    } catch (err) {
+        console.error('Error confirming payment:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // Thank you page
@@ -440,12 +410,12 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
         
         // Create guest order in database
         const addonsSubtotal = amount - shippingCost;
-        db.run(`INSERT INTO orders (
+        await pool.query(`INSERT INTO orders (
             user_id, new_addons, shipping_address, 
             shipping_cost, addons_subtotal, total, 
             stripe_customer_id, stripe_setup_intent_id,
             payment_status, paid
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, 
         [
             0, // user_id = 0 for guests
             JSON.stringify(cartItems),
@@ -467,126 +437,113 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
 });
 
 // Save payment method ID to order
-app.post('/api/guest/save-payment-method', (req, res) => {
+app.post('/api/guest/save-payment-method', async (req, res) => {
     const { paymentMethodId, customerEmail } = req.body;
     
-    db.run(`UPDATE orders 
-            SET stripe_payment_method_id = ?, payment_status = 'card_saved' 
-            WHERE JSON_EXTRACT(shipping_address, '$.email') = ? 
+    try {
+        // PostgreSQL JSON extraction is different from SQLite
+        await pool.query(`UPDATE orders 
+            SET stripe_payment_method_id = $1, payment_status = 'card_saved' 
+            WHERE shipping_address::json->>'email' = $2 
             AND stripe_payment_method_id IS NULL
             ORDER BY id DESC LIMIT 1`, 
-        [paymentMethodId, customerEmail], 
-        (err) => {
-            if (err) {
-                console.error('Error saving payment method:', err);
-                return res.status(500).json({ error: 'Failed to save payment method' });
-            }
-            res.json({ success: true });
-        }
-    );
+            [paymentMethodId, customerEmail]);
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error saving payment method:', err);
+        res.status(500).json({ error: 'Failed to save payment method' });
+    }
 });
 
 // Admin endpoint to bulk charge all orders with saved cards
 app.post('/api/admin/bulk-charge-orders', requireAdmin, async (req, res) => {
     try {
         // Get all orders with saved cards that haven't been charged yet
-        db.all(`SELECT * FROM orders 
-                WHERE payment_status = 'card_saved' 
-                AND paid = 0 
-                AND stripe_customer_id IS NOT NULL 
-                AND stripe_payment_method_id IS NOT NULL`,
-            async (err, orders) => {
-                if (err) {
-                    console.error('Error fetching orders:', err);
-                    return res.status(500).json({ error: 'Failed to fetch orders' });
-                }
+        const result = await pool.query(`SELECT * FROM orders 
+            WHERE payment_status = 'card_saved' 
+            AND paid = 0 
+            AND stripe_customer_id IS NOT NULL 
+            AND stripe_payment_method_id IS NOT NULL`);
+        
+        const orders = result.rows;
 
-                if (orders.length === 0) {
-                    return res.json({ 
-                        success: true,
-                        message: 'No orders to charge',
-                        charged: 0,
-                        failed: 0,
-                        total: 0
-                    });
-                }
+        if (orders.length === 0) {
+            return res.json({ 
+                success: true,
+                message: 'No orders to charge',
+                charged: 0,
+                failed: 0,
+                total: 0
+            });
+        }
 
-                const results = {
-                    charged: [],
-                    failed: [],
-                    total: orders.length
-                };
+        const results = {
+            charged: [],
+            failed: [],
+            total: orders.length
+        };
 
-                // Process each order
-                for (const order of orders) {
-                    try {
-                        // Charge the saved card
-                        const paymentIntent = await stripe.paymentIntents.create({
-                            amount: Math.round(order.total * 100), // Convert to cents
-                            currency: 'usd',
-                            customer: order.stripe_customer_id,
-                            payment_method: order.stripe_payment_method_id,
-                            off_session: true,
-                            confirm: true,
-                            metadata: {
-                                orderId: order.id.toString(),
-                                orderType: 'bulk-charge'
-                            }
-                        });
-
-                        // Update order status
-                        await new Promise((resolve, reject) => {
-                            db.run(`UPDATE orders 
-                                    SET paid = 1, 
-                                        payment_status = 'charged', 
-                                        stripe_payment_intent_id = ?,
-                                        updated_at = CURRENT_TIMESTAMP 
-                                    WHERE id = ?`, 
-                                [paymentIntent.id, order.id], 
-                                (err) => {
-                                    if (err) reject(err);
-                                    else resolve();
-                                }
-                            );
-                        });
-
-                        results.charged.push({
-                            orderId: order.id,
-                            email: JSON.parse(order.shipping_address).email,
-                            amount: order.total,
-                            paymentIntentId: paymentIntent.id
-                        });
-
-                    } catch (error) {
-                        console.error(`Failed to charge order ${order.id}:`, error);
-                        
-                        // Mark as failed
-                        db.run(`UPDATE orders 
-                                SET payment_status = 'charge_failed' 
-                                WHERE id = ?`, 
-                            [order.id]
-                        );
-
-                        results.failed.push({
-                            orderId: order.id,
-                            email: JSON.parse(order.shipping_address).email,
-                            amount: order.total,
-                            error: error.message
-                        });
+        // Process each order
+        for (const order of orders) {
+            try {
+                // Charge the saved card
+                const paymentIntent = await stripe.paymentIntents.create({
+                    amount: Math.round(order.total * 100), // Convert to cents
+                    currency: 'usd',
+                    customer: order.stripe_customer_id,
+                    payment_method: order.stripe_payment_method_id,
+                    off_session: true,
+                    confirm: true,
+                    metadata: {
+                        orderId: order.id.toString(),
+                        orderType: 'bulk-charge'
                     }
-                }
+                });
 
-                // Return summary
-                res.json({
-                    success: true,
-                    message: `Bulk charge completed: ${results.charged.length} succeeded, ${results.failed.length} failed`,
-                    charged: results.charged.length,
-                    failed: results.failed.length,
-                    total: results.total,
-                    details: results
+                // Update order status
+                await pool.query(`UPDATE orders 
+                    SET paid = 1, 
+                        payment_status = 'charged', 
+                        stripe_payment_intent_id = $1,
+                        updated_at = CURRENT_TIMESTAMP 
+                    WHERE id = $2`, 
+                    [paymentIntent.id, order.id]);
+
+                results.charged.push({
+                    orderId: order.id,
+                    email: JSON.parse(order.shipping_address).email,
+                    amount: order.total,
+                    paymentIntentId: paymentIntent.id
+                });
+
+            } catch (error) {
+                console.error(`Failed to charge order ${order.id}:`, error);
+                
+                // Mark as failed
+                await pool.query(`UPDATE orders 
+                    SET payment_status = 'charge_failed' 
+                    WHERE id = $1`, 
+                    [order.id]);
+
+                results.failed.push({
+                    orderId: order.id,
+                    email: JSON.parse(order.shipping_address).email,
+                    amount: order.total,
+                    error: error.message
                 });
             }
-        );
+        }
+
+        // Return summary
+        res.json({
+            success: true,
+            message: `Bulk charge completed: ${results.charged.length} succeeded, ${results.failed.length} failed`,
+            charged: results.charged.length,
+            failed: results.failed.length,
+            total: results.total,
+            details: results
+        });
     } catch (error) {
         console.error('Error in bulk charge:', error);
         res.status(500).json({ error: 'Failed to process bulk charge' });
@@ -599,70 +556,63 @@ app.post('/api/admin/charge-order/:orderId', requireAdmin, async (req, res) => {
     
     try {
         // Get order details
-        db.get('SELECT * FROM orders WHERE id = ?', [orderId], async (err, order) => {
-            if (err || !order) {
-                return res.status(404).json({ error: 'Order not found' });
-            }
+        const result = await pool.query('SELECT * FROM orders WHERE id = $1', [orderId]);
+        const order = result.rows[0];
+        
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+        
+        if (!order.stripe_customer_id || !order.stripe_payment_method_id) {
+            return res.status(400).json({ error: 'No saved payment method for this order' });
+        }
+        
+        if (order.payment_status === 'charged') {
+            return res.status(400).json({ error: 'Order already charged' });
+        }
+        
+        try {
+            // Charge the saved card
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: Math.round(order.total * 100), // Convert to cents
+                currency: 'usd',
+                customer: order.stripe_customer_id,
+                payment_method: order.stripe_payment_method_id,
+                off_session: true,
+                confirm: true,
+                metadata: {
+                    orderId: orderId.toString(),
+                    orderType: 'pre-order-charged'
+                }
+            });
             
-            if (!order.stripe_customer_id || !order.stripe_payment_method_id) {
-                return res.status(400).json({ error: 'No saved payment method for this order' });
-            }
+            // Update order status
+            await pool.query(`UPDATE orders 
+                SET paid = 1, 
+                    payment_status = 'charged', 
+                    stripe_payment_intent_id = $1,
+                    updated_at = CURRENT_TIMESTAMP 
+                WHERE id = $2`, 
+                [paymentIntent.id, orderId]);
             
-            if (order.payment_status === 'charged') {
-                return res.status(400).json({ error: 'Order already charged' });
-            }
+            res.json({ 
+                success: true, 
+                paymentIntentId: paymentIntent.id,
+                message: `Successfully charged $${order.total.toFixed(2)}`
+            });
+        } catch (stripeError) {
+            console.error('Stripe charge error:', stripeError);
             
-            try {
-                // Charge the saved card
-                const paymentIntent = await stripe.paymentIntents.create({
-                    amount: Math.round(order.total * 100), // Convert to cents
-                    currency: 'usd',
-                    customer: order.stripe_customer_id,
-                    payment_method: order.stripe_payment_method_id,
-                    off_session: true,
-                    confirm: true,
-                    metadata: {
-                        orderId: orderId.toString(),
-                        orderType: 'pre-order-charged'
-                    }
-                });
-                
-                // Update order status
-                db.run(`UPDATE orders 
-                        SET paid = 1, 
-                            payment_status = 'charged', 
-                            stripe_payment_intent_id = ?,
-                            updated_at = CURRENT_TIMESTAMP 
-                        WHERE id = ?`, 
-                    [paymentIntent.id, orderId], 
-                    (err) => {
-                        if (err) {
-                            console.error('Error updating order:', err);
-                            return res.status(500).json({ error: 'Failed to update order' });
-                        }
-                        
-                        res.json({ 
-                            success: true, 
-                            paymentIntentId: paymentIntent.id,
-                            message: `Successfully charged $${order.total.toFixed(2)}`
-                        });
-                    }
-                );
-            } catch (stripeError) {
-                console.error('Stripe charge error:', stripeError);
-                
-                // Update order with failed status
-                db.run(`UPDATE orders 
-                        SET payment_status = 'charge_failed' 
-                        WHERE id = ?`, 
-                    [orderId]
-                );
-                
-                res.status(500).json({ 
-                    error: 'Failed to charge card: ' + stripeError.message 
-                });
-            }
-        });
+            // Update order with failed status
+            await pool.query(`UPDATE orders 
+                SET payment_status = 'charge_failed' 
+                WHERE id = $1`, 
+                [orderId]);
+            
+            res.status(500).json({ 
+                error: 'Failed to charge card: ' + stripeError.message 
+            });
+        }
     } catch (error) {
         console.error('Error charging order:', error);
         res.status(500).json({ error: 'Failed to process charge' });
@@ -670,18 +620,19 @@ app.post('/api/admin/charge-order/:orderId', requireAdmin, async (req, res) => {
 });
 
 // Guest confirm payment
-app.post('/api/guest/confirm-payment', (req, res) => {
+app.post('/api/guest/confirm-payment', async (req, res) => {
     const { paymentIntentId } = req.body;
     
-    db.run(`UPDATE orders SET paid = 1, completed_at = CURRENT_TIMESTAMP 
-            WHERE stripe_payment_intent_id = ?`, 
-            [paymentIntentId], 
-            (err) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
-        }
+    try {
+        await pool.query(`UPDATE orders SET paid = 1, completed_at = CURRENT_TIMESTAMP 
+            WHERE stripe_payment_intent_id = $1`, 
+            [paymentIntentId]);
+        
         res.json({ success: true });
-    });
+    } catch (err) {
+        console.error('Error confirming payment:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // Guest thank you page
@@ -706,10 +657,9 @@ app.get('/admin/login', (req, res) => {
 app.post('/admin/login', async (req, res) => {
     const { email, password } = req.body;
     
-    db.get('SELECT * FROM admins WHERE email = ?', [email], async (err, admin) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
-        }
+    try {
+        const result = await pool.query('SELECT * FROM admins WHERE email = $1', [email]);
+        const admin = result.rows[0];
         
         if (!admin) {
             return res.status(401).json({ error: 'Invalid credentials' });
@@ -723,7 +673,10 @@ app.post('/admin/login', async (req, res) => {
         req.session.adminId = admin.id;
         req.session.adminEmail = admin.email;
         res.json({ success: true, redirect: '/admin/dashboard' });
-    });
+    } catch (err) {
+        console.error('Admin login error:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // Admin dashboard
@@ -732,71 +685,83 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
 });
 
 // Get admin statistics
-app.get('/api/admin/stats', requireAdmin, (req, res) => {
-    const stats = {};
-    
-    db.get('SELECT COUNT(*) as total FROM users', (err, row) => {
-        stats.totalBackers = row.total;
+app.get('/api/admin/stats', requireAdmin, async (req, res) => {
+    try {
+        const stats = {};
         
-        db.get('SELECT COUNT(*) as total FROM orders WHERE paid = 1', (err, row) => {
-            stats.completedOrders = row.total;
-            
-            db.get('SELECT SUM(total) as revenue FROM orders WHERE paid = 1', (err, row) => {
-                stats.totalRevenue = row.revenue || 0;
-                
-                db.get('SELECT COUNT(*) as total FROM orders WHERE paid = 0', (err, row) => {
-                    stats.pendingOrders = row.total;
-                    
-                    res.json(stats);
-                });
-            });
-        });
-    });
+        const r1 = await pool.query('SELECT COUNT(*) as total FROM users');
+        stats.totalBackers = parseInt(r1.rows[0].total);
+        
+        const r2 = await pool.query('SELECT COUNT(*) as total FROM orders WHERE paid = 1');
+        stats.completedOrders = parseInt(r2.rows[0].total);
+        
+        const r3 = await pool.query('SELECT SUM(total) as revenue FROM orders WHERE paid = 1');
+        stats.totalRevenue = parseFloat(r3.rows[0].revenue) || 0;
+        
+        const r4 = await pool.query('SELECT COUNT(*) as total FROM orders WHERE paid = 0');
+        stats.pendingOrders = parseInt(r4.rows[0].total);
+        
+        res.json(stats);
+    } catch (err) {
+        console.error('Error fetching stats:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // Get all users
-app.get('/api/admin/users', requireAdmin, (req, res) => {
-    db.all('SELECT id, email, backer_number, backer_name, reward_title, pledge_amount, has_completed FROM users ORDER BY backer_number', (err, users) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
-        }
-        res.json(users);
-    });
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, email, backer_number, backer_name, reward_title, pledge_amount, has_completed FROM users ORDER BY backer_number');
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error fetching users:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // Get all orders
-app.get('/api/admin/orders', requireAdmin, (req, res) => {
-    db.all(`SELECT o.*, u.email, u.backer_number, u.backer_name 
+app.get('/api/admin/orders', requireAdmin, async (req, res) => {
+    try {
+        const result = await pool.query(`SELECT o.*, u.email, u.backer_number, u.backer_name 
             FROM orders o 
-            JOIN users u ON o.user_id = u.id 
-            ORDER BY o.created_at DESC`, (err, orders) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
-        }
-        res.json(orders);
-    });
+            LEFT JOIN users u ON o.user_id = u.id 
+            ORDER BY o.created_at DESC`);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error fetching orders:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // Get single order (with parsed JSON)
-app.get('/api/admin/orders/:id', requireAdmin, (req, res) => {
-    db.get(`SELECT o.*, u.email, u.backer_number, u.backer_name 
-            FROM orders o JOIN users u ON o.user_id = u.id WHERE o.id = ?`, [req.params.id], (err, order) => {
-        if (err) return res.status(500).json({ error: 'Database error' });
-        if (!order) return res.status(404).json({ error: 'Order not found' });
+app.get('/api/admin/orders/:id', requireAdmin, async (req, res) => {
+    try {
+        const result = await pool.query(`SELECT o.*, u.email, u.backer_number, u.backer_name 
+            FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE o.id = $1`, [req.params.id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+        
+        const order = result.rows[0];
         try {
             order.new_addons = order.new_addons ? JSON.parse(order.new_addons) : [];
             order.shipping_address = order.shipping_address ? JSON.parse(order.shipping_address) : {};
-            order.compet_items = undefined; // legacy typo guard
             order.comped_items = order.comped_items ? JSON.parse(order.comped_items) : [];
         } catch (_) {}
+        
         res.json(order);
-    });
+    } catch (err) {
+        console.error('Error fetching order:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // Update comped items on an order
-app.put('/api/admin/orders/:id/comped-items', requireAdmin, (req, res) => {
+app.put('/api/admin/orders/:id/comped-items', requireAdmin, async (req, res) => {
     const orderId = req.params.id;
     let compedItems = Array.isArray(req.body.compedItems) ? req.body.compedItems : [];
+    
     // Server-enforce free/no-shipping
     compedItems = compedItems.map(item => ({
         id: item.id || null,
@@ -808,23 +773,23 @@ app.put('/api/admin/orders/:id/comped-items', requireAdmin, (req, res) => {
         note: item.note ? String(item.note).slice(0, 500) : undefined
     })).filter(i => i.quantity > 0 && i.name);
 
-    const nowIso = new Date().toISOString();
-    db.run(`UPDATE orders SET comped_items = ?, admin_notes = COALESCE(admin_notes, ''), 
-            updated_by_admin_id = ?, updated_at = ? WHERE id = ?`, 
-        [JSON.stringify(compedItems), req.session.adminId, nowIso, orderId], (err) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
-        }
+    try {
+        await pool.query(`UPDATE orders SET comped_items = $1, 
+            updated_by_admin_id = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, 
+            [JSON.stringify(compedItems), req.session.adminId, orderId]);
+        
         res.json({ success: true });
-    });
+    } catch (err) {
+        console.error('Error updating comped items:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // Export users to CSV
-app.get('/api/admin/export/users', requireAdmin, (req, res) => {
-    db.all('SELECT * FROM users ORDER BY backer_number', (err, users) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
-        }
+app.get('/api/admin/export/users', requireAdmin, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM users ORDER BY backer_number');
+        const users = result.rows;
         
         // Create CSV
         let csv = 'Backer Number,Email,Name,Reward Tier,Pledge Amount,Completed,Created\n';
@@ -841,72 +806,74 @@ app.get('/api/admin/export/users', requireAdmin, (req, res) => {
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', 'attachment; filename=maya-users-export.csv');
         res.send(csv);
-    });
+    } catch (err) {
+        console.error('Error exporting users:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // Export orders to CSV
-app.get('/api/admin/export/orders', requireAdmin, (req, res) => {
-    // First get all available add-ons to create columns
-    db.all('SELECT id, name FROM addons ORDER BY name', (err, availableAddons) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
-        }
+app.get('/api/admin/export/orders', requireAdmin, async (req, res) => {
+    try {
+        // First get all available add-ons to create columns
+        const addonsResult = await pool.query('SELECT id, name FROM addons ORDER BY name');
+        const availableAddons = addonsResult.rows;
         
-        db.all(`SELECT o.*, u.email, u.backer_number, u.backer_name 
-                FROM orders o 
-                JOIN users u ON o.user_id = u.id 
-                ORDER BY o.created_at DESC`, (err, orders) => {
-            if (err) {
-                return res.status(500).json({ error: 'Database error' });
-            }
-            
-            // Build CSV header with add-on columns
-            let csv = 'Order ID,Backer Number,Backer Name,Email,';
-            
-            // Add column for each add-on
-            availableAddons.forEach(addon => {
-                csv += `"${addon.name}",`;
-            });
-            
-            csv += 'Add-ons Subtotal,Shipping Cost,Total,Paid,Created,Shipping Address,Comped Items\n';
-            
-            // Build rows
-            orders.forEach(order => {
-                const addons = order.new_addons ? JSON.parse(order.new_addons) : [];
-                const address = order.shipping_address ? JSON.parse(order.shipping_address) : {};
-                const comped = order.comped_items ? JSON.parse(order.comped_items) : [];
-                
-                csv += `${order.id},`;
-                csv += `${order.backer_number || ''},`;
-                csv += `"${order.backer_name || ''}",`;
-                csv += `"${order.email || ''}",`;
-                
-                // For each available add-on, output quantity (0 if not in order)
-                availableAddons.forEach(availableAddon => {
-                    const purchased = addons.find(a => a.id === availableAddon.id || a.name === availableAddon.name);
-                    csv += `${purchased ? purchased.quantity : 0},`;
-                });
-                
-                csv += `${order.addons_subtotal || 0},`;
-                csv += `${order.shipping_cost || 0},`;
-                csv += `${order.total || 0},`;
-                csv += `${order.paid ? 'Yes' : 'No'},`;
-                csv += `"${order.created_at || ''}",`;
-                
-                // Format address
-                const addressStr = `${address.fullName || ''} | ${address.addressLine1 || ''} ${address.addressLine2 || ''} | ${address.city || ''}, ${address.state || ''} ${address.postalCode || ''} | ${address.country || ''} | Phone: ${address.phone || ''}`;
-                csv += `"${addressStr}",`;
-                
-                // Format comped items
-                const compedStr = comped.map(c => `${c.name} x${c.quantity}${c.note ? ' (' + c.note + ')' : ''}`).join('; ');
-                csv += `"${compedStr}"\n`;
-            });
-            
-            res.setHeader('Content-Type', 'text/csv');
-            res.setHeader('Content-Disposition', 'attachment; filename=maya-orders-export.csv');
-            res.send(csv);
+        const ordersResult = await pool.query(`SELECT o.*, u.email, u.backer_number, u.backer_name 
+            FROM orders o 
+            LEFT JOIN users u ON o.user_id = u.id 
+            ORDER BY o.created_at DESC`);
+        const orders = ordersResult.rows;
+        
+        // Build CSV header with add-on columns
+        let csv = 'Order ID,Backer Number,Backer Name,Email,';
+        
+        // Add column for each add-on
+        availableAddons.forEach(addon => {
+            csv += `"${addon.name}",`;
         });
-    });
+        
+        csv += 'Add-ons Subtotal,Shipping Cost,Total,Paid,Created,Shipping Address,Comped Items\n';
+        
+        // Build rows
+        orders.forEach(order => {
+            const addons = order.new_addons ? JSON.parse(order.new_addons) : [];
+            const address = order.shipping_address ? JSON.parse(order.shipping_address) : {};
+            const comped = order.comped_items ? JSON.parse(order.comped_items) : [];
+            
+            csv += `${order.id},`;
+            csv += `${order.backer_number || ''},`;
+            csv += `"${order.backer_name || ''}",`;
+            csv += `"${order.email || address.email || ''}",`;
+            
+            // For each available add-on, output quantity (0 if not in order)
+            availableAddons.forEach(availableAddon => {
+                const purchased = addons.find(a => a.id === availableAddon.id || a.name === availableAddon.name);
+                csv += `${purchased ? purchased.quantity : 0},`;
+            });
+            
+            csv += `${order.addons_subtotal || 0},`;
+            csv += `${order.shipping_cost || 0},`;
+            csv += `${order.total || 0},`;
+            csv += `${order.paid ? 'Yes' : 'No'},`;
+            csv += `"${order.created_at || ''}",`;
+            
+            // Format address
+            const addressStr = `${address.fullName || address.name || ''} | ${address.addressLine1 || address.address1 || ''} ${address.addressLine2 || address.address2 || ''} | ${address.city || ''}, ${address.state || ''} ${address.postalCode || address.postal || ''} | ${address.country || ''} | Phone: ${address.phone || ''}`;
+            csv += `"${addressStr}",`;
+            
+            // Format comped items
+            const compedStr = comped.map(c => `${c.name} x${c.quantity}${c.note ? ' (' + c.note + ')' : ''}`).join('; ');
+            csv += `"${compedStr}"\n`;
+        });
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=maya-orders-export.csv');
+        res.send(csv);
+    } catch (err) {
+        console.error('Error exporting orders:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // Admin logout
@@ -951,22 +918,18 @@ function calculateShipping(country, cartItems) {
 // START SERVER
 // ============================================
 
-app.listen(PORT, '127.0.0.1', () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 MAYA Pledge Manager running on http://localhost:${PORT}`);
     console.log(`\n📋 Next steps:`);
-    console.log(`   1. Copy .env.example to .env and configure`);
+    console.log(`   1. Set DATABASE_URL in .env (or Railway will auto-provide it)`);
     console.log(`   2. Import Kickstarter CSV: npm run import-csv path-to-csv.csv`);
     console.log(`   3. Admin login at: http://localhost:${PORT}/admin/login\n`);
 });
 
 // Graceful shutdown
-process.on('SIGINT', () => {
-    db.close((err) => {
-        if (err) {
-            console.error(err.message);
-        }
-        console.log('\nDatabase connection closed.');
-        process.exit(0);
-    });
+process.on('SIGINT', async () => {
+    console.log('\nShutting down gracefully...');
+    await pool.end();
+    console.log('Database connections closed.');
+    process.exit(0);
 });
-
