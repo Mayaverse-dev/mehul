@@ -1,6 +1,5 @@
 require('dotenv').config();
 const express = require('express');
-const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const session = require('express-session');
@@ -10,30 +9,103 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize PostgreSQL connection pool
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+// Database setup - PostgreSQL (production) or SQLite (development fallback)
+let pool = null;
+let db = null;
+let isPostgres = false;
 
-// Test database connection
-pool.connect((err, client, release) => {
+if (process.env.DATABASE_URL) {
+    // Use PostgreSQL
+    const { Pool } = require('pg');
+    pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+    isPostgres = true;
+    
+    // Test database connection
+    pool.connect((err, client, release) => {
+        if (err) {
+            console.error('Error connecting to PostgreSQL:', err);
+            process.exit(1);
+        } else {
+            console.log('✓ Connected to PostgreSQL database');
+            release();
+            initializeDatabase();
+        }
+    });
+} else {
+    // Fallback to SQLite for local development
+    const sqlite3 = require('sqlite3').verbose();
+    db = new sqlite3.Database('./database.db', (err) => {
     if (err) {
-        console.error('Error connecting to database:', err);
-        process.exit(1);
+            console.error('Error opening SQLite database:', err);
+            process.exit(1);
+        } else {
+            console.log('✓ Using SQLite database (local development)');
+            console.log('⚠️  For production, set DATABASE_URL in .env');
+            initializeDatabase();
+        }
+    });
+}
+
+// Database query wrapper - works with both PostgreSQL and SQLite
+async function query(sql, params = []) {
+    if (isPostgres) {
+        // PostgreSQL - use $1, $2, $3 placeholders
+        const result = await pool.query(sql, params);
+        return result.rows;
     } else {
-        console.log('✓ Connected to PostgreSQL database');
-        release();
-        initializeDatabase();
+        // SQLite - use ? placeholders and convert query
+        const sqliteQuery = sql.replace(/\$(\d+)/g, '?');
+        return new Promise((resolve, reject) => {
+            db.all(sqliteQuery, params, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        });
     }
-});
+}
+
+async function queryOne(sql, params = []) {
+    if (isPostgres) {
+        const result = await pool.query(sql, params);
+        return result.rows[0];
+    } else {
+        const sqliteQuery = sql.replace(/\$(\d+)/g, '?');
+        return new Promise((resolve, reject) => {
+            db.get(sqliteQuery, params, (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+    }
+}
+
+async function execute(sql, params = []) {
+    if (isPostgres) {
+        await pool.query(sql, params);
+    } else {
+        const sqliteQuery = sql.replace(/\$(\d+)/g, '?').replace(/SERIAL/g, 'INTEGER').replace(/TIMESTAMP/g, 'TEXT');
+        return new Promise((resolve, reject) => {
+            db.run(sqliteQuery, params, function(err) {
+                if (err) reject(err);
+                else resolve(this);
+            });
+        });
+    }
+}
 
 // Initialize database tables
 async function initializeDatabase() {
     try {
+        const idType = isPostgres ? 'SERIAL' : 'INTEGER';
+        const timestampType = isPostgres ? 'TIMESTAMP' : 'TEXT';
+        const autoIncrement = isPostgres ? '' : 'AUTOINCREMENT';
+        
         // Users table
-        await pool.query(`CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
+        await execute(`CREATE TABLE IF NOT EXISTS users (
+            id ${idType} PRIMARY KEY ${autoIncrement},
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             backer_number INTEGER,
@@ -46,13 +118,13 @@ async function initializeDatabase() {
             kickstarter_addons TEXT,
             shipping_country TEXT,
             has_completed INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
         )`);
         console.log('✓ Users table ready');
 
         // Add-ons table
-        await pool.query(`CREATE TABLE IF NOT EXISTS addons (
-            id SERIAL PRIMARY KEY,
+        await execute(`CREATE TABLE IF NOT EXISTS addons (
+            id ${idType} PRIMARY KEY ${autoIncrement},
             name TEXT NOT NULL,
             kickstarter_addon_id TEXT,
             price REAL NOT NULL,
@@ -60,13 +132,13 @@ async function initializeDatabase() {
             image TEXT,
             active INTEGER DEFAULT 1,
             description TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
         )`);
         console.log('✓ Add-ons table ready');
 
         // Orders table
-        await pool.query(`CREATE TABLE IF NOT EXISTS orders (
-            id SERIAL PRIMARY KEY,
+        await execute(`CREATE TABLE IF NOT EXISTS orders (
+            id ${idType} PRIMARY KEY ${autoIncrement},
             user_id INTEGER NOT NULL,
             new_addons TEXT,
             shipping_address TEXT,
@@ -75,12 +147,12 @@ async function initializeDatabase() {
             total REAL DEFAULT 0,
             stripe_payment_intent_id TEXT,
             paid INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            completed_at TIMESTAMP,
+            created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP,
+            completed_at ${timestampType},
             comped_items TEXT,
             admin_notes TEXT,
             updated_by_admin_id INTEGER,
-            updated_at TIMESTAMP,
+            updated_at ${timestampType},
             stripe_customer_id TEXT,
             stripe_setup_intent_id TEXT,
             payment_status TEXT DEFAULT 'pending',
@@ -90,14 +162,14 @@ async function initializeDatabase() {
         console.log('✓ Orders table ready');
 
         // Admins table
-        await pool.query(`CREATE TABLE IF NOT EXISTS admins (
-            id SERIAL PRIMARY KEY,
+        await execute(`CREATE TABLE IF NOT EXISTS admins (
+            id ${idType} PRIMARY KEY ${autoIncrement},
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             name TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
         )`);
-        console.log('✓ Admins table ready');
+                console.log('✓ Admins table ready');
 
         // Create default admin
         await createDefaultAdmin();
@@ -113,10 +185,10 @@ async function createDefaultAdmin() {
     const adminPassword = process.env.ADMIN_PASSWORD || 'changeme123';
     
     try {
-        const result = await pool.query('SELECT * FROM admins WHERE email = $1', [adminEmail]);
-        if (result.rows.length === 0) {
+        const admin = await queryOne('SELECT * FROM admins WHERE email = $1', [adminEmail]);
+        if (!admin) {
             const hash = await bcrypt.hash(adminPassword, 10);
-            await pool.query('INSERT INTO admins (email, password, name) VALUES ($1, $2, $3)', 
+            await execute('INSERT INTO admins (email, password, name) VALUES ($1, $2, $3)', 
                 [adminEmail, hash, 'Admin']);
             console.log('✓ Default admin created:', adminEmail);
         }
@@ -194,8 +266,7 @@ app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     
     try {
-        const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-        const user = result.rows[0];
+        const user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
         
         if (!user) {
             return res.status(401).json({ error: 'Invalid email or password' });
@@ -223,8 +294,7 @@ app.get('/dashboard', requireAuth, (req, res) => {
 // Get user data for dashboard
 app.get('/api/user/data', requireAuth, async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.session.userId]);
-        const user = result.rows[0];
+        const user = await queryOne('SELECT * FROM users WHERE id = $1', [req.session.userId]);
         
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
@@ -259,8 +329,8 @@ app.get('/addons', requireAuth, (req, res) => {
 // Get available add-ons
 app.get('/api/addons', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM addons WHERE active = 1');
-        res.json(result.rows);
+        const addons = await query('SELECT * FROM addons WHERE active = 1');
+        res.json(addons);
     } catch (err) {
         console.error('Error fetching addons:', err);
         res.status(500).json({ error: 'Database error' });
@@ -310,7 +380,7 @@ app.post('/api/create-payment-intent', requireAuth, async (req, res) => {
         
         // Create order in database
         const addonsSubtotal = amount - shippingCost;
-        await pool.query(`INSERT INTO orders (
+        await execute(`INSERT INTO orders (
             user_id, new_addons, shipping_address, 
             shipping_cost, addons_subtotal, total, 
             stripe_payment_intent_id
@@ -337,12 +407,12 @@ app.post('/api/confirm-payment', requireAuth, async (req, res) => {
     const { paymentIntentId } = req.body;
     
     try {
-        await pool.query(`UPDATE orders SET paid = 1, completed_at = CURRENT_TIMESTAMP 
+        await execute(`UPDATE orders SET paid = 1, completed_at = CURRENT_TIMESTAMP 
             WHERE stripe_payment_intent_id = $1 AND user_id = $2`, 
             [paymentIntentId, req.session.userId]);
         
         // Mark user as completed
-        await pool.query('UPDATE users SET has_completed = 1 WHERE id = $1', [req.session.userId]);
+        await execute('UPDATE users SET has_completed = 1 WHERE id = $1', [req.session.userId]);
         
         res.json({ success: true });
     } catch (err) {
@@ -410,7 +480,7 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
         
         // Create guest order in database
         const addonsSubtotal = amount - shippingCost;
-        await pool.query(`INSERT INTO orders (
+        await execute(`INSERT INTO orders (
             user_id, new_addons, shipping_address, 
             shipping_cost, addons_subtotal, total, 
             stripe_customer_id, stripe_setup_intent_id,
@@ -441,13 +511,21 @@ app.post('/api/guest/save-payment-method', async (req, res) => {
     const { paymentMethodId, customerEmail } = req.body;
     
     try {
-        // PostgreSQL JSON extraction is different from SQLite
-        await pool.query(`UPDATE orders 
-            SET stripe_payment_method_id = $1, payment_status = 'card_saved' 
-            WHERE shipping_address::json->>'email' = $2 
-            AND stripe_payment_method_id IS NULL
-            ORDER BY id DESC LIMIT 1`, 
-            [paymentMethodId, customerEmail]);
+        if (isPostgres) {
+            await execute(`UPDATE orders 
+                SET stripe_payment_method_id = $1, payment_status = 'card_saved' 
+                WHERE shipping_address::json->>'email' = $2 
+                AND stripe_payment_method_id IS NULL
+                ORDER BY id DESC LIMIT 1`, 
+                [paymentMethodId, customerEmail]);
+        } else {
+            await execute(`UPDATE orders 
+                SET stripe_payment_method_id = $1, payment_status = 'card_saved' 
+                WHERE json_extract(shipping_address, '$.email') = $2 
+                AND stripe_payment_method_id IS NULL
+                ORDER BY id DESC LIMIT 1`, 
+                [paymentMethodId, customerEmail]);
+        }
         
         res.json({ success: true });
     } catch (err) {
@@ -460,13 +538,11 @@ app.post('/api/guest/save-payment-method', async (req, res) => {
 app.post('/api/admin/bulk-charge-orders', requireAdmin, async (req, res) => {
     try {
         // Get all orders with saved cards that haven't been charged yet
-        const result = await pool.query(`SELECT * FROM orders 
+        const orders = await query(`SELECT * FROM orders 
             WHERE payment_status = 'card_saved' 
             AND paid = 0 
             AND stripe_customer_id IS NOT NULL 
             AND stripe_payment_method_id IS NOT NULL`);
-        
-        const orders = result.rows;
 
         if (orders.length === 0) {
             return res.json({ 
@@ -502,7 +578,7 @@ app.post('/api/admin/bulk-charge-orders', requireAdmin, async (req, res) => {
                 });
 
                 // Update order status
-                await pool.query(`UPDATE orders 
+                await execute(`UPDATE orders 
                     SET paid = 1, 
                         payment_status = 'charged', 
                         stripe_payment_intent_id = $1,
@@ -521,7 +597,7 @@ app.post('/api/admin/bulk-charge-orders', requireAdmin, async (req, res) => {
                 console.error(`Failed to charge order ${order.id}:`, error);
                 
                 // Mark as failed
-                await pool.query(`UPDATE orders 
+                await execute(`UPDATE orders 
                     SET payment_status = 'charge_failed' 
                     WHERE id = $1`, 
                     [order.id]);
@@ -556,8 +632,7 @@ app.post('/api/admin/charge-order/:orderId', requireAdmin, async (req, res) => {
     
     try {
         // Get order details
-        const result = await pool.query('SELECT * FROM orders WHERE id = $1', [orderId]);
-        const order = result.rows[0];
+        const order = await queryOne('SELECT * FROM orders WHERE id = $1', [orderId]);
         
         if (!order) {
             return res.status(404).json({ error: 'Order not found' });
@@ -587,7 +662,7 @@ app.post('/api/admin/charge-order/:orderId', requireAdmin, async (req, res) => {
             });
             
             // Update order status
-            await pool.query(`UPDATE orders 
+            await execute(`UPDATE orders 
                 SET paid = 1, 
                     payment_status = 'charged', 
                     stripe_payment_intent_id = $1,
@@ -604,7 +679,7 @@ app.post('/api/admin/charge-order/:orderId', requireAdmin, async (req, res) => {
             console.error('Stripe charge error:', stripeError);
             
             // Update order with failed status
-            await pool.query(`UPDATE orders 
+            await execute(`UPDATE orders 
                 SET payment_status = 'charge_failed' 
                 WHERE id = $1`, 
                 [orderId]);
@@ -624,7 +699,7 @@ app.post('/api/guest/confirm-payment', async (req, res) => {
     const { paymentIntentId } = req.body;
     
     try {
-        await pool.query(`UPDATE orders SET paid = 1, completed_at = CURRENT_TIMESTAMP 
+        await execute(`UPDATE orders SET paid = 1, completed_at = CURRENT_TIMESTAMP 
             WHERE stripe_payment_intent_id = $1`, 
             [paymentIntentId]);
         
@@ -658,8 +733,7 @@ app.post('/admin/login', async (req, res) => {
     const { email, password } = req.body;
     
     try {
-        const result = await pool.query('SELECT * FROM admins WHERE email = $1', [email]);
-        const admin = result.rows[0];
+        const admin = await queryOne('SELECT * FROM admins WHERE email = $1', [email]);
         
         if (!admin) {
             return res.status(401).json({ error: 'Invalid credentials' });
@@ -689,17 +763,17 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
     try {
         const stats = {};
         
-        const r1 = await pool.query('SELECT COUNT(*) as total FROM users');
-        stats.totalBackers = parseInt(r1.rows[0].total);
+        const r1 = await query('SELECT COUNT(*) as total FROM users');
+        stats.totalBackers = parseInt(r1[0].total);
         
-        const r2 = await pool.query('SELECT COUNT(*) as total FROM orders WHERE paid = 1');
-        stats.completedOrders = parseInt(r2.rows[0].total);
+        const r2 = await query('SELECT COUNT(*) as total FROM orders WHERE paid = 1');
+        stats.completedOrders = parseInt(r2[0].total);
         
-        const r3 = await pool.query('SELECT SUM(total) as revenue FROM orders WHERE paid = 1');
-        stats.totalRevenue = parseFloat(r3.rows[0].revenue) || 0;
+        const r3 = await query('SELECT SUM(total) as revenue FROM orders WHERE paid = 1');
+        stats.totalRevenue = parseFloat(r3[0].revenue) || 0;
         
-        const r4 = await pool.query('SELECT COUNT(*) as total FROM orders WHERE paid = 0');
-        stats.pendingOrders = parseInt(r4.rows[0].total);
+        const r4 = await query('SELECT COUNT(*) as total FROM orders WHERE paid = 0');
+        stats.pendingOrders = parseInt(r4[0].total);
         
         res.json(stats);
     } catch (err) {
@@ -711,8 +785,8 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
 // Get all users
 app.get('/api/admin/users', requireAdmin, async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, email, backer_number, backer_name, reward_title, pledge_amount, has_completed FROM users ORDER BY backer_number');
-        res.json(result.rows);
+        const users = await query('SELECT id, email, backer_number, backer_name, reward_title, pledge_amount, has_completed FROM users ORDER BY backer_number');
+        res.json(users);
     } catch (err) {
         console.error('Error fetching users:', err);
         res.status(500).json({ error: 'Database error' });
@@ -722,11 +796,11 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
 // Get all orders
 app.get('/api/admin/orders', requireAdmin, async (req, res) => {
     try {
-        const result = await pool.query(`SELECT o.*, u.email, u.backer_number, u.backer_name 
+        const orders = await query(`SELECT o.*, u.email, u.backer_number, u.backer_name 
             FROM orders o 
             LEFT JOIN users u ON o.user_id = u.id 
             ORDER BY o.created_at DESC`);
-        res.json(result.rows);
+        res.json(orders);
     } catch (err) {
         console.error('Error fetching orders:', err);
         res.status(500).json({ error: 'Database error' });
@@ -736,14 +810,13 @@ app.get('/api/admin/orders', requireAdmin, async (req, res) => {
 // Get single order (with parsed JSON)
 app.get('/api/admin/orders/:id', requireAdmin, async (req, res) => {
     try {
-        const result = await pool.query(`SELECT o.*, u.email, u.backer_number, u.backer_name 
+        const order = await queryOne(`SELECT o.*, u.email, u.backer_number, u.backer_name 
             FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE o.id = $1`, [req.params.id]);
         
-        if (result.rows.length === 0) {
+        if (!order) {
             return res.status(404).json({ error: 'Order not found' });
         }
         
-        const order = result.rows[0];
         try {
             order.new_addons = order.new_addons ? JSON.parse(order.new_addons) : [];
             order.shipping_address = order.shipping_address ? JSON.parse(order.shipping_address) : {};
@@ -774,7 +847,7 @@ app.put('/api/admin/orders/:id/comped-items', requireAdmin, async (req, res) => 
     })).filter(i => i.quantity > 0 && i.name);
 
     try {
-        await pool.query(`UPDATE orders SET comped_items = $1, 
+        await execute(`UPDATE orders SET comped_items = $1, 
             updated_by_admin_id = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, 
             [JSON.stringify(compedItems), req.session.adminId, orderId]);
         
@@ -788,8 +861,7 @@ app.put('/api/admin/orders/:id/comped-items', requireAdmin, async (req, res) => 
 // Export users to CSV
 app.get('/api/admin/export/users', requireAdmin, async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM users ORDER BY backer_number');
-        const users = result.rows;
+        const users = await query('SELECT * FROM users ORDER BY backer_number');
         
         // Create CSV
         let csv = 'Backer Number,Email,Name,Reward Tier,Pledge Amount,Completed,Created\n';
@@ -816,14 +888,12 @@ app.get('/api/admin/export/users', requireAdmin, async (req, res) => {
 app.get('/api/admin/export/orders', requireAdmin, async (req, res) => {
     try {
         // First get all available add-ons to create columns
-        const addonsResult = await pool.query('SELECT id, name FROM addons ORDER BY name');
-        const availableAddons = addonsResult.rows;
+        const availableAddons = await query('SELECT id, name FROM addons ORDER BY name');
         
-        const ordersResult = await pool.query(`SELECT o.*, u.email, u.backer_number, u.backer_name 
+        const orders = await query(`SELECT o.*, u.email, u.backer_number, u.backer_name 
             FROM orders o 
             LEFT JOIN users u ON o.user_id = u.id 
             ORDER BY o.created_at DESC`);
-        const orders = ordersResult.rows;
         
         // Build CSV header with add-on columns
         let csv = 'Order ID,Backer Number,Backer Name,Email,';
@@ -929,7 +999,14 @@ app.listen(PORT, '0.0.0.0', () => {
 // Graceful shutdown
 process.on('SIGINT', async () => {
     console.log('\nShutting down gracefully...');
-    await pool.end();
-    console.log('Database connections closed.');
+    if (isPostgres && pool) {
+        await pool.end();
+        console.log('PostgreSQL connections closed.');
+    } else if (db) {
+        db.close((err) => {
+            if (err) console.error(err.message);
+            console.log('SQLite database connection closed.');
+        });
+    }
     process.exit(0);
 });
