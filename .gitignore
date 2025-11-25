@@ -25,12 +25,6 @@ npm-debug.log*
 # CSV data files (may contain personal information)
 *.csv
 
-# Images (can be large)
-*.png
-*.jpg
-*.jpeg
-*.gif
-
 # Temporary files
 *.tmp
 .cache/

@@ -2,9 +2,6 @@ node_modules
 .git
 *.log
 *.csv
-*.png
-*.jpg
-*.jpeg
 database.db
 .env
 .DS_Store
