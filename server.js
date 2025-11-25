@@ -252,15 +252,6 @@ app.get('/test-component', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'test-component.html'));
 });
 
-// Backer login page
-app.get('/backer-login', (req, res) => {
-    if (req.session.userId) {
-        res.redirect('/dashboard');
-    } else {
-        res.sendFile(path.join(__dirname, 'views', 'backer-login.html'));
-    }
-});
-
 // Login handler
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
