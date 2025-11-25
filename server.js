@@ -999,6 +999,24 @@ function calculateShipping(country, cartItems) {
 // ============================================
 // TEMPORARY SEED ENDPOINT (REMOVE AFTER USE)
 // ============================================
+app.get('/api/seed-main-book/:secret', async (req, res) => {
+    if (req.params.secret !== 'maya-seed-2024') {
+        return res.status(403).json({ error: 'Invalid secret' });
+    }
+    
+    try {
+        await query(
+            `INSERT INTO addons (name, price, weight, description, image, active)
+             VALUES (${isPostgres ? '$1, $2, $3, $4, $5, $6' : '?, ?, ?, ?, ?, ?'})`,
+            ['MAYA: Seed Takes Root Hardcover', 50.00, 500, 'An epic sci-fiction fantasy with intricate worldbuilding. Six species, one planet, zero privacy. Enter the age of narrative warfare.', 'maya-book.jpeg', 1]
+        );
+        res.json({ success: true, message: 'Successfully added main book' });
+    } catch (error) {
+        console.error('Seed error:', error);
+        res.status(500).json({ error: 'Failed to add main book', details: error.message });
+    }
+});
+
 app.get('/api/seed-addons-temp/:secret', async (req, res) => {
     // Simple secret check
     if (req.params.secret !== 'maya-seed-2024') {
