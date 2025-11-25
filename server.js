@@ -252,6 +252,15 @@ app.get('/test-component', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'test-component.html'));
 });
 
+// Login page
+app.get('/login', (req, res) => {
+    if (req.session.userId) {
+        res.redirect('/dashboard');
+    } else {
+        res.sendFile(path.join(__dirname, 'views', 'login.html'));
+    }
+});
+
 // Login handler
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
