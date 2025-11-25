@@ -997,6 +997,78 @@ function calculateShipping(country, cartItems) {
 }
 
 // ============================================
+// TEMPORARY SEED ENDPOINT (REMOVE AFTER USE)
+// ============================================
+app.get('/api/admin/seed-addons', requireAdmin, async (req, res) => {
+    const addons = [
+        {
+            name: 'MAYA Bookmark',
+            price: 15.00,
+            weight: 20,
+            description: 'Beautiful MAYA bookmarks featuring stunning artwork from the series',
+            image: 'maya-bookmark.png',
+            active: 1
+        },
+        {
+            name: 'MAYA Sticker',
+            price: 10.00,
+            weight: 10,
+            description: 'Premium vinyl stickers featuring characters from MAYA',
+            image: 'maya-sticker.png',
+            active: 1
+        },
+        {
+            name: 'MAYA Poster',
+            price: 25.00,
+            weight: 150,
+            description: 'High-quality art poster featuring the world of MAYA',
+            image: 'maya-poster.png',
+            active: 1
+        },
+        {
+            name: 'MAYA Notebook',
+            price: 20.00,
+            weight: 300,
+            description: 'Premium notebook with MAYA artwork cover',
+            image: 'maya-notebook.png',
+            active: 1
+        },
+        {
+            name: 'MAYA Patches',
+            price: 12.00,
+            weight: 25,
+            description: 'Embroidered patches featuring MAYA characters and symbols',
+            image: 'maya-patches.png',
+            active: 1
+        },
+        {
+            name: 'MAYA Enamel Pin',
+            price: 18.00,
+            weight: 30,
+            description: 'High-quality enamel pins with intricate MAYA designs',
+            image: 'maya-enamel-pin.png',
+            active: 1
+        }
+    ];
+
+    try {
+        const results = [];
+        for (const addon of addons) {
+            await query(
+                `INSERT INTO addons (name, price, weight, description, image, active)
+                 VALUES (${isPostgres ? '$1, $2, $3, $4, $5, $6' : '?, ?, ?, ?, ?, ?'})`,
+                [addon.name, addon.price, addon.weight, addon.description, addon.image, addon.active]
+            );
+            results.push(`Added: ${addon.name} ($${addon.price})`);
+        }
+        res.json({ success: true, message: 'Successfully seeded add-ons', results });
+    } catch (error) {
+        console.error('Seed error:', error);
+        res.status(500).json({ error: 'Failed to seed add-ons', details: error.message });
+    }
+});
+
+// ============================================
 // START SERVER
 // ============================================
 
