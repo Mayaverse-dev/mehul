@@ -2,97 +2,305 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dashboard - MAYA Pledge Manager</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Pledge - MAYA</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        /* Navbar */
+        #navbar {
+            background: #d9d9d9;
+            padding: 10px 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+
+        .logo-container {
+            height: 30px;
+            width: auto;
+        }
+
+        .logo-container img {
+            height: 100%;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            color: #2c2c2c;
+            font-size: 14px;
+        }
+
+        .nav-right a {
+            color: #2c2c2c;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .nav-right a:hover {
+            opacity: 0.7;
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 100px 20px 60px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Pledge Card */
+        .pledge-card {
+            background: #eeeeee;
+            border-radius: 16px;
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+
+        .pledge-title {
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            font-size: 32px;
+            color: #1e1e1e;
+            margin-bottom: 30px;
+            letter-spacing: -0.96px;
+        }
+
+        .pledge-hero {
+            width: 100%;
+            max-height: 500px;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        .pledge-hero img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .pledge-badge {
+            display: inline-block;
+            background: #059669;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .section-label {
+            color: #717171;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .items-text {
+            color: #717171;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .divider {
+            border: none;
+            border-top: 2px solid #d9d9d9;
+            margin: 30px 0;
+        }
+
+        /* Product Thumbnails */
+        .product-thumbnails {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            margin: 40px 0;
+        }
+
+        .thumbnail-item {
+            flex: 0 0 140px;
+            text-align: center;
+        }
+
+        .thumbnail-item img {
+            width: 100%;
+            height: 140px;
+            object-fit: contain;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .thumbnail-label {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        /* View Cart Button */
+        .btn-cart {
+            background: #2c2c2c;
+            color: white;
+            border: none;
+            border-radius: 11px;
+            padding: 18px 50px;
+            font-size: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            display: block;
+            margin: 0 auto;
+            text-decoration: none;
+            text-align: center;
+        }
+
+        .btn-cart:hover {
+            opacity: 0.9;
+        }
+
+        /* Progress Info */
+        .progress-info {
+            text-align: center;
+            margin-top: 40px;
+            padding: 30px;
+            background: white;
+            border-radius: 12px;
+        }
+
+        .progress-info h3 {
+            color: #2c2c2c;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+
+        .progress-info p {
+            color: #717171;
+            margin-bottom: 20px;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #2c2c2c;
+            border: 2px solid #2c2c2c;
+            border-radius: 10px;
+            padding: 14px 40px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-secondary:hover {
+            background: #2c2c2c;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            #navbar {
+                padding: 10px 20px;
+            }
+
+            .main-content {
+                padding: 80px 15px 40px;
+            }
+
+            .pledge-card {
+                padding: 24px;
+            }
+
+            .pledge-title {
+                font-size: 24px;
+            }
+
+            .product-thumbnails {
+                flex-wrap: wrap;
+                gap: 20px;
+            }
+
+            .thumbnail-item {
+                flex: 0 0 120px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div class="header">
-        <div class="header-content">
-            <div>
-                <h1>MAYA Pledge Manager</h1>
-                <p>Manage your Kickstarter pledge</p>
-            </div>
-            <div class="user-info">
-                <span id="user-email"></span> | <a href="/logout" style="color: white;">Logout</a>
-            </div>
+    <!-- Navbar -->
+    <div id="navbar">
+        <div class="logo-container">
+            <a href="/">
+                <img src="/images/maya-logo.png" alt="MAYA">
+            </a>
+        </div>
+        <div class="nav-right">
+            <span id="user-email"></span>
+            <span>|</span>
+            <a href="/logout">Logout</a>
         </div>
     </div>
 
-    <div class="container">
-        <!-- Progress Bar -->
-        <div class="progress-bar">
-            <div class="progress-step active">
-                <div class="progress-circle">1</div>
-                <div class="progress-label">Your Order</div>
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Pledge Card -->
+        <div class="pledge-card">
+            <h1 class="pledge-title" id="pledge-title">Your Kickstarter Pledge</h1>
+            
+            <!-- Hero Image -->
+            <div class="pledge-hero">
+                <img src="https://www.figma.com/api/mcp/asset/985bdfee-d9bd-4b65-8a3a-e4e2ae217dac" alt="Your Pledge" id="pledge-image">
             </div>
-            <div class="progress-step clickable" onclick="window.location.href='/addons'">
-                <div class="progress-circle">2</div>
-                <div class="progress-label">Add-ons</div>
+
+            <!-- Badge -->
+            <div class="pledge-badge">$<span id="pledge-amount-badge">0</span> PAID</div>
+
+            <!-- Items Section -->
+            <div class="section-label">ITEMS INCLUDED</div>
+            <div class="items-text" id="items-list">
+                Loading your pledge items...
             </div>
-            <div class="progress-step clickable" onclick="window.location.href='/shipping'">
-                <div class="progress-circle">3</div>
-                <div class="progress-label">Shipping</div>
+
+            <!-- Divider -->
+            <hr class="divider">
+
+            <!-- Product Thumbnails - placeholder for add-ons -->
+            <div class="product-thumbnails" id="addon-thumbnails" style="display: none;">
+                <!-- Will be populated if they have add-ons -->
             </div>
-            <div class="progress-step clickable" onclick="window.location.href='/checkout'">
-                <div class="progress-circle">4</div>
-                <div class="progress-label">Payment</div>
-            </div>
+
+            <!-- View Cart Button -->
+            <a href="/addons" class="btn-cart">Browse Add-ons</a>
         </div>
 
-        <!-- Welcome Message -->
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title">Welcome back!</h2>
-                <p class="card-subtitle">Backer #<span id="backer-number"></span></p>
-            </div>
-        </div>
-
-        <!-- Kickstarter Pledge -->
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">Your Kickstarter Pledge</h3>
-                <p class="card-subtitle">✓ Paid on Kickstarter</p>
-            </div>
-
-            <div class="form-grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                <div>
-                    <strong>Pledge Tier:</strong>
-                    <p style="color: var(--primary-red); font-size: 20px; font-weight: 600;" id="reward-title">-</p>
-                </div>
-                <div>
-                    <strong>Amount Paid:</strong>
-                    <p style="color: var(--primary-red); font-size: 20px; font-weight: 600;" id="pledge-amount">$0.00</p>
-                </div>
-            </div>
-
-            <h4 style="margin-bottom: 15px; color: var(--text-dark);">Items Included in Your Pledge:</h4>
-            <ul class="item-list" id="kickstarter-items">
-                <!-- Items will be loaded here -->
-            </ul>
-        </div>
-
-        <!-- Kickstarter Add-ons (if any) -->
-        <div class="card" id="kickstarter-addons-card" style="display: none;">
-            <div class="card-header">
-                <h3 class="card-title">Add-ons Purchased on Kickstarter</h3>
-                <p class="card-subtitle">These are already included in your order</p>
-            </div>
-
-            <ul class="item-list" id="kickstarter-addons-list">
-                <!-- Add-ons will be loaded here -->
-            </ul>
-        </div>
-
-        <!-- Next Steps -->
-        <div class="card" style="text-align: center; padding: 40px;">
-            <h3 style="margin-bottom: 15px;">Ready to add more items?</h3>
-            <p style="color: var(--text-muted); margin-bottom: 25px;">
-                Browse our exclusive add-ons and enhance your MAYA collection!
-            </p>
-            <a href="/addons" class="btn btn-primary btn-large">
-                🛒 Browse Add-ons
-            </a>
+        <!-- Progress Info -->
+        <div class="progress-info">
+            <h3>Complete Your Order</h3>
+            <p>Add more items to your pledge or proceed to shipping and payment</p>
+            <a href="/shipping" class="btn-secondary">Continue to Shipping →</a>
         </div>
     </div>
 
@@ -105,50 +313,28 @@
 
                 // Display user info
                 document.getElementById('user-email').textContent = userData.email;
-                document.getElementById('backer-number').textContent = userData.backerNumber || '-';
-                document.getElementById('reward-title').textContent = userData.rewardTitle || 'No reward tier';
-                document.getElementById('pledge-amount').textContent = '$' + (userData.pledgeAmount || 0);
+                document.getElementById('pledge-title').textContent = userData.rewardTitle || 'Your Kickstarter Pledge';
+                document.getElementById('pledge-amount-badge').textContent = (userData.pledgeAmount || 0).toFixed(0);
 
-                // Display Kickstarter items
-                const itemsList = document.getElementById('kickstarter-items');
+                // Build items list
                 const items = userData.kickstarterItems || {};
+                const addons = userData.kickstarterAddons || {};
                 
                 const itemNames = {
-                    ebook: 'MAYA: Seed Takes Root ebook (Edition Zero)',
-                    paperback: 'MAYA: Seed Takes Root Paperback (Edition Zero)',
-                    audiobook: 'MAYA: Seed Takes Root Audiobook (Narrated by Hugo Weaving)',
-                    hardcover: 'MAYA: Seed Takes Root Hardcover (Edition Zero)',
-                    book2_hardcover: 'MAYA: Whispers In The Soil | Book 2 Hardcover',
-                    book3_hardcover: 'MAYA: It Becomes The Forest | Book 3 Hardcover',
-                    lorebook: 'MAYA Lore: Its Species And Their Cultures (Edition Zero)',
+                    ebook: 'MAYA : Seed Takes Root e-book (Edition Zero)',
+                    paperback: 'MAYA : Seed Takes Root Paperback (Edition Zero)',
+                    audiobook: 'MAYA : Seed Takes Root Audiobook (Narrated by Hugo Weaving)',
+                    hardcover: 'MAYA : Seed Takes Root Hardcover (Edition Zero)',
+                    book2_hardcover: 'MAYA : Whispers In The Soil | Book 2 Hardcover',
+                    book3_hardcover: 'MAYA : It Becomes The Forest | Book 3 Hardcover',
+                    book2_live: 'MAYA : Whispers In The Soil | Book 2 Live Access',
+                    book3_live: 'MAYA : It Becomes The Forest | Book 3 Live Access',
+                    lorebook: 'MAYA Lore : It\'s Species And Their Cultures (Edition Zero)',
                     built_env: 'Built Environments of MAYA Hardcover (Phase 1 & 2)',
                     pendant: 'Flitt Locust Pendant',
                     art_book: 'Limited Edition MAYA Art Book'
                 };
 
-                let hasItems = false;
-                for (const [key, name] of Object.entries(itemNames)) {
-                    const quantity = items[key] || 0;
-                    if (quantity > 0) {
-                        hasItems = true;
-                        const li = document.createElement('li');
-                        li.innerHTML = `
-                            <span class="item-name">📖 ${name}</span>
-                            <span class="item-quantity">Qty: ${quantity}</span>
-                        `;
-                        itemsList.appendChild(li);
-                    }
-                }
-
-                if (!hasItems) {
-                    itemsList.innerHTML = '<li><span class="item-name" style="color: var(--text-muted);">No items in this pledge tier</span></li>';
-                }
-
-                // Display Kickstarter add-ons (if any)
-                const addons = userData.kickstarterAddons || {};
-                const addonsList = document.getElementById('kickstarter-addons-list');
-                const addonsCard = document.getElementById('kickstarter-addons-card');
-                
                 const addonNames = {
                     pendant: 'Flitt Locust Pendant',
                     audiobook_addon: 'MAYA: Seed Takes Root Audiobook',
@@ -156,26 +342,35 @@
                     lorebook_addon: 'MAYA Lorebook'
                 };
 
-                let hasAddons = false;
-                for (const [key, name] of Object.entries(addonNames)) {
-                    const quantity = addons[key] || 0;
+                let itemsArray = [];
+
+                // Add main items
+                for (const [key, name] of Object.entries(itemNames)) {
+                    const quantity = items[key] || 0;
                     if (quantity > 0) {
-                        hasAddons = true;
-                        const li = document.createElement('li');
-                        li.innerHTML = `
-                            <span class="item-name">✓ ${name}</span>
-                            <span class="item-quantity">Qty: ${quantity}</span>
-                        `;
-                        addonsList.appendChild(li);
+                        itemsArray.push(name);
                     }
                 }
 
-                if (hasAddons) {
-                    addonsCard.style.display = 'block';
+                // Add Kickstarter add-ons
+                for (const [key, name] of Object.entries(addonNames)) {
+                    const quantity = addons[key] || 0;
+                    if (quantity > 0) {
+                        itemsArray.push(name);
+                    }
+                }
+
+                // Display items as comma-separated text
+                const itemsListEl = document.getElementById('items-list');
+                if (itemsArray.length > 0) {
+                    itemsListEl.textContent = itemsArray.join(', ');
+                } else {
+                    itemsListEl.textContent = 'No items included in this pledge tier.';
                 }
 
             } catch (error) {
                 console.error('Error loading user data:', error);
+                document.getElementById('items-list').textContent = 'Error loading pledge information. Please refresh the page.';
             }
         }
 
@@ -183,4 +378,3 @@
     </script>
 </body>
 </html>
-
