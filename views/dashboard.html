@@ -272,7 +272,7 @@
             
             <!-- Hero Image -->
             <div class="pledge-hero">
-                <img src="https://www.figma.com/api/mcp/asset/985bdfee-d9bd-4b65-8a3a-e4e2ae217dac" alt="Your Pledge" id="pledge-image">
+                <img src="https://www.figma.com/api/mcp/asset/985bdfee-d9bd-4b65-8a3a-e4e2ae217dac" alt="Your Pledge" id="pledge-image" style="object-fit: contain;">
             </div>
 
             <!-- Badge -->
@@ -284,27 +284,148 @@
                 Loading your pledge items...
             </div>
 
-            <!-- Divider -->
-            <hr class="divider">
-
-            <!-- Product Thumbnails - placeholder for add-ons -->
-            <div class="product-thumbnails" id="addon-thumbnails" style="display: none;">
-                <!-- Will be populated if they have add-ons -->
-            </div>
-
-            <!-- View Cart Button -->
-            <a href="/addons" class="btn-cart">Browse Add-ons</a>
         </div>
+
+        <!-- Add-ons Section -->
+        <div style="margin-top: 60px;">
+            <h2 style="font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 40px; text-align: center; margin-bottom: 16px; color: #2c2c2c;">Free and Paid Add-ons</h2>
+            <p style="text-align: center; color: #717171; font-size: 18px; margin-bottom: 50px;">All items ship together</p>
+
+            <!-- Products Grid -->
+            <div id="products-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 40px; margin-bottom: 60px;">
+                <!-- Products will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Sticky Checkout Button -->
+        <button id="sticky-checkout-btn" onclick="openCartModal()" style="display: none; position: fixed; bottom: 30px; right: 30px; background: #059669; color: white; border: none; padding: 18px 35px; border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3); z-index: 999; transition: all 0.3s ease;">
+            Proceed to Checkout
+        </button>
 
         <!-- Progress Info -->
         <div class="progress-info">
-            <h3>Complete Your Order</h3>
-            <p>Add more items to your pledge or proceed to shipping and payment</p>
+            <h3>Ready to Complete Your Order?</h3>
+            <p>Add items to your cart and proceed to shipping and payment</p>
             <a href="/shipping" class="btn-secondary">Continue to Shipping →</a>
         </div>
     </div>
 
     <script>
+        // Cart functionality
+        let cart = JSON.parse(sessionStorage.getItem('cart')) || [];
+        let products = [];
+
+        // Update cart display
+        function updateCart() {
+            const stickyBtn = document.getElementById('sticky-checkout-btn');
+            if (cart.length > 0) {
+                stickyBtn.style.display = 'block';
+            } else {
+                stickyBtn.style.display = 'none';
+            }
+        }
+
+        // Add product to cart
+        function addProductToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            const existingItem = cart.find(item => item.id === productId);
+            if (existingItem) {
+                return; // Already in cart
+            }
+
+            cart.push({
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                weight: product.weight,
+                quantity: 1
+            });
+
+            sessionStorage.setItem('cart', JSON.stringify(cart));
+            
+            // Update button
+            const btn = document.getElementById(`add-btn-${productId}`);
+            if (btn) {
+                btn.textContent = '✓ Added';
+                btn.style.background = '#059669';
+                btn.style.borderColor = '#059669';
+                btn.style.cursor = 'default';
+                btn.disabled = true;
+                btn.onclick = null;
+            }
+
+            updateCart();
+        }
+
+        // Open cart modal (redirect to store cart)
+        function openCartModal() {
+            window.location.href = '/';
+        }
+
+        // Load products
+        async function loadProducts() {
+            try {
+                const response = await fetch('/api/addons');
+                products = await response.json();
+                
+                // Filter out main book
+                const addOnsOnly = products.filter(p => 
+                    !(p.name.toLowerCase().includes('hardcover') && 
+                      p.name.toLowerCase().includes('seed takes root'))
+                );
+                
+                displayProducts(addOnsOnly);
+            } catch (error) {
+                console.error('Error loading products:', error);
+            }
+        }
+
+        // Display products
+        function displayProducts(addOnsOnly) {
+            const grid = document.getElementById('products-grid');
+            
+            if (addOnsOnly.length === 0) {
+                grid.innerHTML = `<div style="text-align: center; padding: 40px; grid-column: 1 / -1;"><p style="color: #717171;">No products available at this time.</p></div>`;
+                return;
+            }
+
+            grid.innerHTML = '';
+            
+            addOnsOnly.forEach(product => {
+                const card = document.createElement('div');
+                card.id = `product-card-${product.id}`;
+                card.style.cssText = 'display: flex; flex-direction: column; background: #eeeeee; border-radius: 16px; min-height: 550px; position: relative; transition: all 0.3s ease;';
+                
+                const isInCart = cart.find(item => item.id === product.id);
+                
+                card.innerHTML = `
+                    <!-- Product Image -->
+                    <div style="background: #d9d9d9; border-radius: 12px; margin: 24px; height: 280px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                        ${product.image ? `<img src="/images/addons/${product.image}" alt="${product.name}" style="max-width: 100%; max-height: 100%; object-fit: contain;">` : '<div style="display: flex; align-items: center; justify-content: center; font-size: 64px;">📦</div>'}
+                    </div>
+                    
+                    <!-- Product Info -->
+                    <div style="padding: 0 24px; flex: 1; display: flex; flex-direction: column;">
+                        <h3 style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; margin-bottom: 12px; color: #2c2c2c;">${product.name}</h3>
+                        <p style="color: #717171; font-size: 14px; line-height: 1.5; margin-bottom: 16px; flex: 1;">${product.description || ''}</p>
+                        
+                        <!-- Price -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <span style="font-size: 28px; font-weight: 700; color: #2c2c2c;">$${product.price}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Add to Cart Button -->
+                    <button id="add-btn-${product.id}" onclick="${isInCart ? '' : 'addProductToCart(' + product.id + ')'}" style="background: ${isInCart ? '#059669' : '#2c2c2c'}; border: 1px solid ${isInCart ? '#059669' : '#2c2c2c'}; color: white; border-radius: 10px; padding: 14px; margin: 0 24px 24px 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; cursor: ${isInCart ? 'default' : 'pointer'}; white-space: nowrap; transition: all 0.3s ease;" ${isInCart ? 'disabled' : ''}>
+                        ${isInCart ? '✓ Added' : 'Add to Cart'}
+                    </button>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
         // Load user data
         async function loadUserData() {
             try {
@@ -374,7 +495,10 @@
             }
         }
 
+        // Initialize
         loadUserData();
+        loadProducts();
+        updateCart();
     </script>
 </body>
 </html>
