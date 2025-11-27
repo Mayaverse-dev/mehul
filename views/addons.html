@@ -316,11 +316,9 @@
             <a href="/dashboard">
                 <img src="/images/maya-logo.png" alt="MAYA">
             </a>
-        </div>
-        <div class="nav-right">
-            <span id="user-email"></span>
-            <span>|</span>
-            <a href="/logout">Logout</a>
+            </div>
+        <div class="nav-right" id="nav-right-content">
+            <!-- Will be populated based on login status -->
         </div>
     </div>
 
@@ -355,16 +353,38 @@
         let cart = JSON.parse(sessionStorage.getItem('cart')) || [];
         let userData = null;
 
-        // Load user data
+        // Load user data (if logged in)
         async function loadUserData() {
             try {
                 const response = await fetch('/api/user/data');
-                userData = await response.json();
-                document.getElementById('user-email').textContent = userData.email;
+                if (response.ok) {
+                    userData = await response.json();
+                    // User is logged in
+                    document.getElementById('nav-right-content').innerHTML = `
+                        <span>${userData.email}</span>
+                        <span>|</span>
+                        <a href="/logout">Logout</a>
+                    `;
+                } else {
+                    // User is not logged in (guest)
+                    userData = null;
+                    document.getElementById('nav-right-content').innerHTML = `
+                        <a href="/login">Login</a>
+                        <span>|</span>
+                        <a href="/">Continue Shopping</a>
+                    `;
+                }
                 
                 await loadCartItems();
             } catch (error) {
-                console.error('Error loading user data:', error);
+                // User is not logged in (guest)
+                userData = null;
+                document.getElementById('nav-right-content').innerHTML = `
+                    <a href="/login">Login</a>
+                    <span>|</span>
+                    <a href="/">Continue Shopping</a>
+                `;
+                await loadCartItems();
             }
         }
 
@@ -389,10 +409,10 @@
                 art_book: 'Limited Edition MAYA Art Book'
             };
 
-            // Check if user is a Kickstarter backer
-            const isKickstarterBacker = userData.backerNumber != null;
-            const hasKickstarterItems = userData.kickstarterItems && Object.keys(userData.kickstarterItems).length > 0;
-            const pledgePaid = userData.pledgeAmount > 0; // If they paid on Kickstarter
+            // Check if user is a Kickstarter backer (only if logged in)
+            const isKickstarterBacker = userData && userData.backerNumber != null;
+            const hasKickstarterItems = userData && userData.kickstarterItems && Object.keys(userData.kickstarterItems).length > 0;
+            const pledgePaid = userData && userData.pledgeAmount > 0; // If they paid on Kickstarter
 
             // Show Kickstarter pledge if they're a backer
             if (isKickstarterBacker && hasKickstarterItems) {
@@ -476,7 +496,7 @@
                     <div class="item-info">
                         <div class="item-name">${item.name}</div>
                         <div class="item-qty">Qty: ${item.quantity}</div>
-                    </div>
+                        </div>
                     <div class="qty-controls">
                         <button class="qty-btn" onclick="updateQuantity(${index}, -1)">-</button>
                         <div class="qty-display">${item.quantity}</div>

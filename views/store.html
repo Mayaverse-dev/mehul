@@ -312,7 +312,7 @@
 
         <!-- Floating Checkout Button (shown when cart has items) -->
         <div id="floating-checkout" style="position: fixed; bottom: 30px; right: 30px; display: none; z-index: 999;">
-            <button class="btn btn-large" onclick="openCartModal()" style="background: #059669; border-color: #059669; color: white; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);" onmouseover="this.style.background='#047857'; this.style.borderColor='#047857'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(5, 150, 105, 0.4)';" onmouseout="this.style.background='#059669'; this.style.borderColor='#059669'; this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(5, 150, 105, 0.3)';">
+            <button class="btn btn-large" onclick="window.location.href='/addons'" style="background: #059669; border-color: #059669; color: white; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);" onmouseover="this.style.background='#047857'; this.style.borderColor='#047857'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(5, 150, 105, 0.4)';" onmouseout="this.style.background='#059669'; this.style.borderColor='#059669'; this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(5, 150, 105, 0.3)';">
                 Proceed to Checkout → <span id="floating-total"></span>
             </button>
         </div>
@@ -833,7 +833,7 @@
         }
 
         function scrollToCart() {
-            openCartModal();
+            window.location.href = '/addons';
         }
 
         function closeCartModal(event) {
@@ -845,8 +845,7 @@
         }
 
         function proceedToCheckout() {
-            // Open cart modal instead of redirecting
-            openCartModal();
+            window.location.href = '/addons';
         }
 
         function openCartModal() {

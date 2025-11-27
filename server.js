@@ -322,7 +322,8 @@ app.get('/api/user/data', requireAuth, async (req, res) => {
 });
 
 // Add-ons page
-app.get('/addons', requireAuth, (req, res) => {
+// Cart/Add-ons page (works for both guests and logged-in users)
+app.get('/addons', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'addons.html'));
 });
 
@@ -773,21 +774,21 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
 // Get admin statistics
 app.get('/api/admin/stats', requireAdmin, async (req, res) => {
     try {
-        const stats = {};
-        
+    const stats = {};
+    
         const r1 = await query('SELECT COUNT(*) as total FROM users');
         stats.totalBackers = parseInt(r1[0].total);
         
         const r2 = await query('SELECT COUNT(*) as total FROM orders WHERE paid = 1');
         stats.completedOrders = parseInt(r2[0].total);
-        
+            
         const r3 = await query('SELECT SUM(total) as revenue FROM orders WHERE paid = 1');
         stats.totalRevenue = parseFloat(r3[0].revenue) || 0;
-        
+                
         const r4 = await query('SELECT COUNT(*) as total FROM orders WHERE paid = 0');
         stats.pendingOrders = parseInt(r4[0].total);
-        
-        res.json(stats);
+                    
+                    res.json(stats);
     } catch (err) {
         console.error('Error fetching stats:', err);
         res.status(500).json({ error: 'Database error' });
@@ -1109,10 +1110,10 @@ process.on('SIGINT', async () => {
         await pool.end();
         console.log('PostgreSQL connections closed.');
     } else if (db) {
-        db.close((err) => {
+    db.close((err) => {
             if (err) console.error(err.message);
             console.log('SQLite database connection closed.');
         });
-    }
-    process.exit(0);
+        }
+        process.exit(0);
 });
