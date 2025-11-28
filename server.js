@@ -9,6 +9,10 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Enable compression for all responses
+const compression = require('compression');
+app.use(compression());
+
 // Database setup - PostgreSQL (production) or SQLite (development fallback)
 let pool = null;
 let db = null;
@@ -198,7 +202,12 @@ async function createDefaultAdmin() {
 }
 
 // Middleware
-app.use(express.static('public'));
+// Serve static files with caching
+app.use(express.static('public', {
+    maxAge: '1d', // Cache for 1 day
+    etag: true,
+    lastModified: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({

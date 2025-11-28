@@ -10,19 +10,22 @@
     "seed-addons": "node scripts/seed-addons.js",
     "create-test-user": "node scripts/create-test-user.js"
   },
-  "keywords": ["pledge-manager", "kickstarter"],
+  "keywords": [
+    "pledge-manager",
+    "kickstarter"
+  ],
   "author": "Mehul",
   "license": "MIT",
   "dependencies": {
+    "bcrypt": "^5.1.1",
+    "compression": "^1.8.1",
+    "csv-parser": "^3.0.0",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "nodemailer": "^6.9.7",
     "pg": "^8.11.3",
     "sqlite3": "^5.1.6",
-    "bcrypt": "^5.1.1",
-    "stripe": "^14.5.0",
-    "nodemailer": "^6.9.7",
-    "express-session": "^1.17.3",
-    "csv-parser": "^3.0.0",
-    "dotenv": "^16.3.1"
+    "stripe": "^14.5.0"
   }
 }
-

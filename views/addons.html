@@ -491,7 +491,7 @@
                 itemDiv.className = 'cart-item';
                 itemDiv.innerHTML = `
                     <div class="item-image">
-                        ${product && product.image ? `<img src="/images/addons/${product.image}" alt="${item.name}">` : ''}
+                        ${product && product.image ? `<img src="/images/addons/${product.image}" alt="${item.name}" loading="lazy">` : ''}
                     </div>
                     <div class="item-info">
                         <div class="item-name">${item.name}</div>
