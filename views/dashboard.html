@@ -193,7 +193,7 @@
 
         /* View Cart Button */
         .btn-cart {
-            background: #2c2c2c;
+            background: #dc2626;
             color: white;
             border: none;
             border-radius: 11px;
@@ -467,7 +467,7 @@
                     </div>
                     
                     <!-- Add to Cart Button -->
-                    <button id="add-btn-${product.id}" onclick="${isInCart ? '' : 'addProductToCart(' + product.id + ')'}" style="background: ${isInCart ? '#059669' : '#2c2c2c'}; border: 1px solid ${isInCart ? '#059669' : '#2c2c2c'}; color: white; border-radius: 10px; padding: 14px; margin: 0 24px 24px 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; cursor: ${isInCart ? 'default' : 'pointer'}; white-space: nowrap; transition: all 0.3s ease;" ${isInCart ? 'disabled' : ''}>
+                    <button id="add-btn-${product.id}" onclick="${isInCart ? '' : 'addProductToCart(' + product.id + ')'}" style="background: ${isInCart ? '#059669' : '#dc2626'}; border: 1px solid ${isInCart ? '#059669' : '#dc2626'}; color: white; border-radius: 10px; padding: 14px; margin: 0 24px 24px 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; cursor: ${isInCart ? 'default' : 'pointer'}; white-space: nowrap; transition: all 0.3s ease;" ${isInCart ? 'disabled' : ''}>
                         ${isInCart ? '✓ Added' : 'Add to Cart'}
                     </button>
                 `;

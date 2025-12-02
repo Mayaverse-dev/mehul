@@ -232,7 +232,7 @@
                 </div>
 
                 <!-- Add to Cart Button -->
-                <button id="hero-add-btn" onclick="addHeroBookToCart()" style="background: #2c2c2c; border: 1px solid #2c2c2c; color: #f5f5f5; padding: 18px 40px; border-radius: 12px; width: fit-content; font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
+                <button id="hero-add-btn" onclick="addHeroBookToCart()" style="background: #dc2626; border: 1px solid #dc2626; color: #ffffff; padding: 18px 40px; border-radius: 12px; width: fit-content; font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
                     Add to Cart
                 </button>
             </div>
@@ -590,7 +590,7 @@
             } else {
                 // Book not in cart - show add button
                 btn.textContent = 'Add to Cart';
-                btn.style.background = '#2c2c2c';
+                btn.style.background = '#dc2626';
                 btn.style.borderColor = '#2c2c2c';
                 btn.style.cursor = 'pointer';
                 btn.disabled = false;
@@ -656,7 +656,7 @@
                     </div>
                     
                     <!-- Add to Cart Button -->
-                    <button id="add-btn-${product.id}" onclick="${isInCart ? '' : 'addProductToCart(' + product.id + ')'}" style="background: ${isInCart ? '#059669' : '#2c2c2c'}; border: 1px solid ${isInCart ? '#059669' : '#2c2c2c'}; color: white; border-radius: 10px; padding: 14px; margin: 0 24px 24px 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; cursor: ${isInCart ? 'default' : 'pointer'}; white-space: nowrap; transition: all 0.3s ease;" ${isInCart ? 'disabled' : ''}>
+                    <button id="add-btn-${product.id}" onclick="${isInCart ? '' : 'addProductToCart(' + product.id + ')'}" style="background: ${isInCart ? '#059669' : '#dc2626'}; border: 1px solid ${isInCart ? '#059669' : '#dc2626'}; color: white; border-radius: 10px; padding: 14px; margin: 0 24px 24px 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; cursor: ${isInCart ? 'default' : 'pointer'}; white-space: nowrap; transition: all 0.3s ease;" ${isInCart ? 'disabled' : ''}>
                         ${isInCart ? '✓ Added' : 'Add to Cart'}
                     </button>
                 `;
@@ -819,7 +819,7 @@
                         btn.onclick = null;
                     } else {
                         btn.textContent = 'Add to Cart';
-                        btn.style.background = '#2c2c2c';
+                        btn.style.background = '#dc2626';
                         btn.style.borderColor = '#2c2c2c';
                         btn.style.cursor = 'pointer';
                         btn.disabled = false;
