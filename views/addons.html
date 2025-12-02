@@ -169,7 +169,7 @@
             display: flex;
             align-items: center;
             gap: 24px;
-            padding: 20px 0;
+            padding: 15px 0;
             border-bottom: 1px solid #2a2a2a;
         }
 
@@ -182,31 +182,31 @@
         }
 
         .item-name {
-            font-size: 26px;
+            font-size: 18px;
             font-weight: 400;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
             color: #ffffff;
         }
 
         .item-qty-label {
-            font-size: 15px;
+            font-size: 14px;
             color: #ffffff;
         }
 
         .item-controls {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
         }
 
         .qty-btn {
-            width: 50px;
-            height: 50px;
+            width: 36px;
+            height: 36px;
             background: #808080;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             color: white;
-            font-size: 24px;
+            font-size: 18px;
             font-weight: 700;
             cursor: pointer;
             display: flex;
@@ -220,12 +220,12 @@
         }
 
         .qty-display {
-            width: 70px;
-            height: 50px;
+            width: 50px;
+            height: 36px;
             background: #808080;
-            border-radius: 8px;
+            border-radius: 6px;
             color: white;
-            font-size: 24px;
+            font-size: 18px;
             font-weight: 700;
             display: flex;
             align-items: center;
@@ -233,13 +233,13 @@
         }
 
         .delete-btn {
-            width: 50px;
-            height: 50px;
+            width: 36px;
+            height: 36px;
             background: #808080;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 24px;
+            font-size: 18px;
             color: #ffffff;
             display: flex;
             align-items: center;
@@ -252,11 +252,11 @@
         }
 
         .item-price {
-            font-size: 33px;
+            font-size: 20px;
             font-weight: 400;
             color: #ffffff;
             text-align: right;
-            min-width: 120px;
+            min-width: 80px;
         }
 
         /* Keep these for potential future use but hide for now */
@@ -550,7 +550,6 @@
                 cartSection.innerHTML = `
                     <div class="section-header">
                         <div class="section-title">Add-ons</div>
-                        <div class="section-price">$${cartTotal.toFixed(1)}</div>
                     </div>
                     ${cartItemsHTML}
                 `;
