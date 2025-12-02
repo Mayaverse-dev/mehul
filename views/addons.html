@@ -164,6 +164,101 @@
             margin-bottom: 4px;
         }
 
+        /* Cart Items with Controls */
+        .cart-item {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            padding: 20px 0;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .cart-item:last-child {
+            border-bottom: none;
+        }
+
+        .item-info {
+            flex: 1;
+        }
+
+        .item-name {
+            font-size: 26px;
+            font-weight: 400;
+            margin-bottom: 8px;
+            color: #ffffff;
+        }
+
+        .item-qty-label {
+            font-size: 15px;
+            color: #ffffff;
+        }
+
+        .item-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .qty-btn {
+            width: 50px;
+            height: 50px;
+            background: #808080;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 24px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .qty-btn:hover {
+            background: #6a6a6a;
+        }
+
+        .qty-display {
+            width: 70px;
+            height: 50px;
+            background: #808080;
+            border-radius: 8px;
+            color: white;
+            font-size: 24px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .delete-btn {
+            width: 50px;
+            height: 50px;
+            background: #808080;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 24px;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .delete-btn:hover {
+            background: #6a6a6a;
+        }
+
+        .item-price {
+            font-size: 33px;
+            font-weight: 400;
+            color: #ffffff;
+            text-align: right;
+            min-width: 120px;
+        }
+
         /* Keep these for potential future use but hide for now */
         .qty-controls {
             display: none;
@@ -424,29 +519,42 @@
             const productsResponse = await fetch('/api/addons');
             const products = await productsResponse.json();
 
-            // Show new cart items as "Add-ons" section
+            // Show new cart items as "Add-ons" section with individual items and controls
             if (cart.length > 0) {
-                const cartItems = [];
                 let cartTotal = 0;
-                
-                cart.forEach((item, index) => {
-                    cartItems.push(`${item.quantity} x ${item.name}`);
-                    cartTotal += item.price * item.quantity;
-                });
                 
                 const cartSection = document.createElement('div');
                 cartSection.className = 'cart-section';
+                
+                let cartItemsHTML = '';
+                cart.forEach((item, index) => {
+                    const itemTotal = item.price * item.quantity;
+                    cartTotal += itemTotal;
+                    
+                    cartItemsHTML += `
+                        <div class="cart-item">
+                            <div class="item-info">
+                                <div class="item-name">${item.name}</div>
+                                <div class="item-qty-label">Qty: ${item.quantity}</div>
+                            </div>
+                            <div class="item-controls">
+                                <button class="delete-btn" onclick="removeItem(${index})">🗑️</button>
+                                <div class="qty-display">${item.quantity}</div>
+                                <button class="qty-btn" onclick="updateQuantity(${index}, 1)">+</button>
+                            </div>
+                            <div class="item-price">$${itemTotal.toFixed(1)}</div>
+                        </div>
+                    `;
+                });
+                
                 cartSection.innerHTML = `
                     <div class="section-header">
-                        <div class="section-title">
-                            Add-ons
-                        </div>
+                        <div class="section-title">Add-ons</div>
                         <div class="section-price">$${cartTotal.toFixed(1)}</div>
                     </div>
-                    <ul class="section-items">
-                        ${cartItems.map(item => `<li>${item}</li>`).join('')}
-                    </ul>
+                    ${cartItemsHTML}
                 `;
+                
                 cartItemsContainer.appendChild(cartSection);
                 total += cartTotal;
             }
