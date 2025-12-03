@@ -917,7 +917,7 @@ app.get('/api/admin/export/orders', requireAdmin, async (req, res) => {
             LEFT JOIN users u ON o.user_id = u.id 
             ORDER BY o.created_at DESC`);
         
-        // Build CSV header with add-on columns
+        // Build CSV header with add-on columns and detailed shipping info
         let csv = 'Order ID,Backer Number,Backer Name,Email,';
         
         // Add column for each add-on
@@ -925,7 +925,9 @@ app.get('/api/admin/export/orders', requireAdmin, async (req, res) => {
             csv += `"${addon.name}",`;
         });
         
-        csv += 'Add-ons Subtotal,Shipping Cost,Total,Paid,Created,Shipping Address,Comped Items\n';
+        csv += 'Add-ons Subtotal,Shipping Cost,Total,Paid,Payment Status,Stripe Payment Intent ID,';
+        csv += 'Full Name,Address Line 1,Address Line 2,City,State,Postal Code,Country,Phone,';
+        csv += 'Created Date,Comped Items\n';
         
         // Build rows
         orders.forEach(order => {
@@ -948,11 +950,20 @@ app.get('/api/admin/export/orders', requireAdmin, async (req, res) => {
             csv += `${order.shipping_cost || 0},`;
             csv += `${order.total || 0},`;
             csv += `${order.paid ? 'Yes' : 'No'},`;
-            csv += `"${order.created_at || ''}",`;
+            csv += `"${order.payment_status || 'pending'}",`;
+            csv += `"${order.stripe_payment_intent_id || ''}",`;
             
-            // Format address
-            const addressStr = `${address.fullName || address.name || ''} | ${address.addressLine1 || address.address1 || ''} ${address.addressLine2 || address.address2 || ''} | ${address.city || ''}, ${address.state || ''} ${address.postalCode || address.postal || ''} | ${address.country || ''} | Phone: ${address.phone || ''}`;
-            csv += `"${addressStr}",`;
+            // Detailed shipping address fields
+            csv += `"${address.fullName || address.name || ''}",`;
+            csv += `"${address.addressLine1 || address.address1 || ''}",`;
+            csv += `"${address.addressLine2 || address.address2 || ''}",`;
+            csv += `"${address.city || ''}",`;
+            csv += `"${address.state || ''}",`;
+            csv += `"${address.postalCode || address.postal || ''}",`;
+            csv += `"${address.country || ''}",`;
+            csv += `"${address.phone || ''}",`;
+            
+            csv += `"${order.created_at || ''}",`;
             
             // Format comped items
             const compedStr = comped.map(c => `${c.name} x${c.quantity}${c.note ? ' (' + c.note + ')' : ''}`).join('; ');
