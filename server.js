@@ -369,6 +369,26 @@ app.post('/api/calculate-shipping', (req, res) => {
     res.json({ shippingCost });
 });
 
+// Get user session info (accessible to everyone)
+app.get('/api/user/session', (req, res) => {
+    if (req.session && req.session.userId) {
+        res.json({
+            isLoggedIn: true,
+            user: {
+                id: req.session.userId,
+                email: req.session.userEmail,
+                backer_number: req.session.backerNumber,
+                backer_name: req.session.backerName
+            }
+        });
+    } else {
+        res.json({
+            isLoggedIn: false,
+            user: null
+        });
+    }
+});
+
 // Save shipping address (accessible to both backers and guests)
 app.post('/api/shipping/save', (req, res) => {
     const shippingAddress = req.body;
