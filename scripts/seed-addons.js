@@ -10,51 +10,35 @@ const isPostgres = !!process.env.DATABASE_URL;
 // Add-ons data
 const addons = [
     {
-        name: 'MAYA Bookmark',
-        price: 15.00,
-        weight: 20,
-        description: 'Beautiful MAYA bookmarks featuring stunning artwork from the series',
-        image: 'maya-bookmark.png',
-        active: 1
-    },
-    {
-        name: 'MAYA Sticker',
-        price: 10.00,
-        weight: 10,
-        description: 'Premium vinyl stickers featuring characters from MAYA',
-        image: 'maya-sticker.png',
-        active: 1
-    },
-    {
-        name: 'MAYA Poster',
-        price: 25.00,
-        weight: 150,
-        description: 'High-quality art poster featuring the world of MAYA',
-        image: 'maya-poster.png',
-        active: 1
-    },
-    {
-        name: 'MAYA Notebook',
+        name: 'Flitt Locust Pendant',
         price: 20.00,
-        weight: 300,
-        description: 'Premium notebook with MAYA artwork cover',
-        image: 'maya-notebook.png',
+        weight: 50,
+        description: 'Beautifully crafted Flitt Locust Pendant from the MAYA series',
+        image: 'flitt-locust-pendant.jpg',
         active: 1
     },
     {
-        name: 'MAYA Patches',
-        price: 12.00,
-        weight: 25,
-        description: 'Embroidered patches featuring MAYA characters and symbols',
-        image: 'maya-patches.png',
+        name: 'MAYA: Seed Takes Root Audiobook',
+        price: 25.00,
+        weight: 0,
+        description: 'MAYA: Seed Takes Root Audiobook narrated by Hugo Weaving',
+        image: 'maya-audiobook.jpg',
         active: 1
     },
     {
-        name: 'MAYA Enamel Pin',
-        price: 18.00,
-        weight: 30,
-        description: 'High-quality enamel pins with intricate MAYA designs',
-        image: 'maya-enamel-pin.png',
+        name: 'Built Environments of MAYA Hardcover',
+        price: 35.00,
+        weight: 800,
+        description: 'Hardcover edition exploring the built environments of the MAYA universe',
+        image: 'built-environments.jpg',
+        active: 1
+    },
+    {
+        name: 'MAYA Lorebook',
+        price: 35.00,
+        weight: 600,
+        description: 'MAYA Lore: Neh - Its Species and Their Cultures (Edition Zero)',
+        image: 'maya-lorebook.jpg',
         active: 1
     }
 ];
