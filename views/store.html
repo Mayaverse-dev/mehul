@@ -601,15 +601,14 @@
             const grid = document.getElementById('products-grid');
             
             // Filter out the main book (hero product) - only show add-ons
-            const addOnsOnly = products.filter(p => 
-                !(p.name.toLowerCase().includes('hardcover') && 
-                  p.name.toLowerCase().includes('seed takes root'))
+            const otherPledges = products.filter(p => 
+                !(heroBook && p.id === heroBook.id)
             );
             
-            if (addOnsOnly.length === 0) {
+            if (otherPledges.length === 0) {
                 grid.innerHTML = `
                     <div style="text-align: center; padding: 40px; grid-column: 1 / -1;">
-                        <p style="color: var(--text-muted);">No products available at this time.</p>
+                        <p style="color: #ffffff;">No pledge tiers available at this time.</p>
                     </div>
                 `;
                 return;
@@ -617,7 +616,7 @@
 
             grid.innerHTML = '';
             
-            addOnsOnly.forEach(product => {
+            otherPledges.forEach(product => {
                 const card = document.createElement('div');
                 card.id = `product-card-${product.id}`;
                 card.style.cssText = 'display: flex; flex-direction: column; background: #1e1e1e; border-radius: 16px; min-height: 550px; position: relative; transition: all 0.3s ease;';
