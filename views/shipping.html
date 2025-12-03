@@ -548,6 +548,59 @@
             }
         }
 
+        // Calculate and update shipping cost based on country
+        async function updateShippingCost() {
+            const country = document.getElementById('country').value;
+            
+            if (!country) {
+                document.getElementById('shipping').textContent = '$0.00';
+                updateTotal();
+                return;
+            }
+
+            try {
+                // Get cart from session storage
+                const cart = JSON.parse(sessionStorage.getItem('cart') || '[]');
+                
+                // Calculate shipping
+                const response = await fetch('/api/calculate-shipping', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ country, cart })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.shippingCost !== undefined) {
+                    document.getElementById('shipping').textContent = '$' + data.shippingCost.toFixed(2);
+                } else {
+                    // Default shipping if calculation fails
+                    document.getElementById('shipping').textContent = '$5.00';
+                }
+                
+                updateTotal();
+            } catch (error) {
+                console.error('Error calculating shipping:', error);
+                document.getElementById('shipping').textContent = '$5.00';
+                updateTotal();
+            }
+        }
+
+        // Update total amount
+        function updateTotal() {
+            const subtotalText = document.getElementById('subtotal').textContent;
+            const shippingText = document.getElementById('shipping').textContent;
+            
+            const subtotal = parseFloat(subtotalText.replace('$', '')) || 0;
+            const shipping = parseFloat(shippingText.replace('$', '')) || 0;
+            
+            const total = subtotal + shipping;
+            document.getElementById('total').textContent = '$' + total.toFixed(2);
+        }
+
+        // Add event listener to country dropdown
+        document.getElementById('country').addEventListener('change', updateShippingCost);
+
         // Handle shipping form submission
         document.getElementById('shipping-form').addEventListener('submit', async (e) => {
             e.preventDefault();
