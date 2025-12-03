@@ -214,26 +214,66 @@
 
             <!-- Right: Pledge Details -->
             <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
-                <h1 style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 42px; line-height: 1.2; margin: 0 0 20px 0; color: #ffffff;">
+                <h1 style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 38px; line-height: 1.2; margin: 0 0 30px 0; color: #ffffff;">
                     The Benevolent Divya
                 </h1>
-                <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; line-height: 1.5; margin: 0 0 24px 0; color: #ffffff;">
-                    Deluxe Pledge Tier
-                </p>
-                <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 18px; line-height: 1.6; margin: 0 0 40px 0; color: #ffffff;">
-                    Deluxe pledge tier with rare collectibles. An epic sci-fiction fantasy with intricate worldbuilding. Six species, one planet, zero privacy. Enter the age of narrative warfare.
-                </p>
+
+                <!-- What You Get Box -->
+                <div style="background: #1e1e1e; border: 2px solid #2a2a2a; border-radius: 12px; padding: 0; margin-bottom: 30px; overflow: hidden;">
+                    <!-- Header -->
+                    <div style="background: #dc2626; padding: 12px 20px; text-align: center;">
+                        <h3 style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 16px; letter-spacing: 1px; color: #000000; margin: 0;">WHAT YOU GET</h3>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div style="padding: 24px; max-height: 350px; overflow-y: auto;">
+                        <!-- MAYA: Seed Takes Root -->
+                        <div style="margin-bottom: 20px;">
+                            <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14px; color: #dc2626; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;">MAYA : SEED TAKES ROOT</p>
+                            <ul style="list-style: none; padding: 0; margin: 0 0 0 12px;">
+                                <li style="color: #ffffff; font-size: 13px; margin-bottom: 4px;">• EBOOK (EDITION ZERO)</li>
+                                <li style="color: #ffffff; font-size: 13px; margin-bottom: 4px;">• HARDCOVER (EDITION ZERO)</li>
+                            </ul>
+                        </div>
+
+                        <!-- MAYA: Whispers in the Soil -->
+                        <div style="margin-bottom: 20px;">
+                            <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14px; color: #dc2626; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;">MAYA : WHISPERS IN THE SOIL</p>
+                            <ul style="list-style: none; padding: 0; margin: 0 0 0 12px;">
+                                <li style="color: #ffffff; font-size: 13px; margin-bottom: 4px;">• BOOK 2 | LIVE ACCESS</li>
+                                <li style="color: #ffffff; font-size: 13px; margin-bottom: 4px;">• BOOK 2 | HARDCOVER</li>
+                            </ul>
+                        </div>
+
+                        <!-- MAYA: It Becomes the Forest -->
+                        <div style="margin-bottom: 20px;">
+                            <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14px; color: #dc2626; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;">MAYA : IT BECOMES THE FOREST</p>
+                            <ul style="list-style: none; padding: 0; margin: 0 0 0 12px;">
+                                <li style="color: #ffffff; font-size: 13px; margin-bottom: 4px;">• BOOK 3 | LIVE ACCESS</li>
+                                <li style="color: #ffffff; font-size: 13px; margin-bottom: 4px;">• BOOK 3 | HARDCOVER</li>
+                            </ul>
+                        </div>
+
+                        <!-- Other Items -->
+                        <div style="padding-top: 8px; border-top: 1px solid #2a2a2a;">
+                            <p style="color: #dc2626; font-size: 13px; font-weight: 600; margin-bottom: 6px; text-transform: uppercase;">BUILT ENVIRONMENTS OF MAYA HARDCOVER (PHASE 1 & 2)</p>
+                            <p style="color: #dc2626; font-size: 13px; font-weight: 600; margin-bottom: 6px; text-transform: uppercase;">MAYA LORE : IT'S SPECIES AND THEIR CULTURES (EDITION ZERO)</p>
+                            <p style="color: #dc2626; font-size: 13px; font-weight: 600; margin-bottom: 6px; text-transform: uppercase;">FLITT LOCUST PENDANT</p>
+                            <p style="color: #dc2626; font-size: 13px; font-weight: 600; margin-bottom: 0; text-transform: uppercase;">MAYA : SEED TAKES ROOT AUDIOBOOK (NARRATED BY HUGO WEAVING)</p>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Price -->
-                <div style="margin-bottom: 40px;">
-                    <div style="font-family: 'Inter', sans-serif; font-weight: 700; color: #ffffff; font-size: 56px; line-height: 1;">
-                        $<span id="hero-book-price">50</span>
+                <div style="margin-bottom: 24px; text-align: center;">
+                    <div style="font-family: 'Inter', sans-serif; font-weight: 700; color: #ffffff; font-size: 48px; line-height: 1;">
+                        $<span id="hero-book-price">190</span>
                     </div>
                 </div>
 
                 <!-- Add to Cart Button -->
-                <button id="hero-add-btn" onclick="addHeroBookToCart()" style="background: #dc2626; border: 1px solid #dc2626; color: #ffffff; padding: 18px 40px; border-radius: 12px; width: fit-content; font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
-                    Add to Cart
+                <button id="hero-add-btn" onclick="addHeroBookToCart()" style="background: #dc2626; border: 1px solid #dc2626; color: #ffffff; padding: 18px 40px; border-radius: 12px; width: 100%; font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 700; cursor: pointer; transition: all 0.3s ease;">
+                    Buy Now
                 </button>
             </div>
         </div>
