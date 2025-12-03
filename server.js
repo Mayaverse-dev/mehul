@@ -354,8 +354,8 @@ app.get('/api/stripe-key', (req, res) => {
     });
 });
 
-// Shipping page
-app.get('/shipping', requireAuth, (req, res) => {
+// Shipping page (accessible to both backers and guests)
+app.get('/shipping', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'shipping.html'));
 });
 
