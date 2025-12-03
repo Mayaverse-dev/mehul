@@ -14,7 +14,7 @@ const addons = [
         price: 20.00,
         weight: 50,
         description: 'Beautifully crafted Flitt Locust Pendant from the MAYA series',
-        image: 'flitt-locust-pendant.jpg',
+        image: 'flitt-locust-pendant.png',
         active: 1
     },
     {
@@ -22,7 +22,7 @@ const addons = [
         price: 25.00,
         weight: 0,
         description: 'MAYA: Seed Takes Root Audiobook narrated by Hugo Weaving',
-        image: 'maya-audiobook.jpg',
+        image: 'maya-audiobook.png',
         active: 1
     },
     {
@@ -30,7 +30,7 @@ const addons = [
         price: 35.00,
         weight: 800,
         description: 'Hardcover edition exploring the built environments of the MAYA universe',
-        image: 'built-environments.jpg',
+        image: 'built-environments.png',
         active: 1
     },
     {
@@ -38,7 +38,7 @@ const addons = [
         price: 35.00,
         weight: 600,
         description: 'MAYA Lore: Neh - Its Species and Their Cultures (Edition Zero)',
-        image: 'maya-lorebook.jpg',
+        image: 'maya-lorebook.png',
         active: 1
     }
 ];
