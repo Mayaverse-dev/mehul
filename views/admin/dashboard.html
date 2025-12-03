@@ -17,48 +17,48 @@
             color: #ffffff;
             font-family: 'Inter', sans-serif;
             min-height: 100vh;
-            padding: 20px;
         }
 
-        /* Top Navbar */
-        .top-navbar {
-            background: #171717;
-            border-radius: 16px;
-            padding: 20px 30px;
+        /* Navbar Styles */
+        #navbar {
+            background: #1a1a1a;
+            padding: 10px 60px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 30px;
-            max-width: 1200px;
-            margin-left: auto;
-            margin-right: auto;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            transition: transform 0.3s ease;
         }
 
-        .nav-logo img {
-            height: 40px;
+        #navbar img {
+            height: 30px;
+            width: auto;
+            object-fit: contain;
         }
 
-        .nav-right {
+        #navbar .nav-right {
             display: flex;
             align-items: center;
             gap: 20px;
         }
 
-        .profile-icon, .menu-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: #2c2c2c;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        #navbar a, #navbar button {
+            background: none;
+            border: none;
             cursor: pointer;
+            font-size: 19px;
+            position: relative;
+            padding: 5px;
+            text-decoration: none;
             color: #ffffff;
-            font-size: 24px;
         }
 
-        .menu-icon {
-            font-size: 20px;
+        .navbar-spacer {
+            height: 50px;
         }
 
         /* Main Dashboard Container */
@@ -67,8 +67,7 @@
             border-radius: 16px;
             padding: 40px;
             max-width: 1200px;
-            margin-left: auto;
-            margin-right: auto;
+            margin: 30px auto;
         }
 
         /* Title and Toggle Section */
@@ -398,16 +397,19 @@
     </style>
 </head>
 <body>
-    <!-- Top Navbar -->
-    <div class="top-navbar">
-        <div class="nav-logo">
-            <img src="/images/logo.png" alt="MAYA" onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=\'color:#dc2626;font-size:24px;font-weight:700;\'>MAYA</span>'">
+    <!-- Navbar -->
+    <div id="navbar">
+        <div>
+            <img src="/images/maya-logo.png" alt="MAYA" onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=\'color:#dc2626;font-size:24px;font-weight:700;\'>MAYA</span>'">
         </div>
         <div class="nav-right">
-            <div class="profile-icon" onclick="window.location.href='/admin/logout'" title="Logout">👤</div>
-            <div class="menu-icon">☰</div>
+            <a href="/admin/logout" title="Logout">👤</a>
+            <button style="background: none; border: none; cursor: pointer; font-size: 19px; padding: 5px; color: #ffffff;">☰</button>
         </div>
     </div>
+    
+    <!-- Spacer for fixed navbar -->
+    <div class="navbar-spacer"></div>
 
     <!-- Main Dashboard -->
     <div class="dashboard-container">
@@ -864,6 +866,25 @@
 
         // Initialize
         renderBackersView();
+
+        // Smart navbar scroll behavior
+        let lastScrollTop = 0;
+        let navbarHeight = 50;
+        const navbar = document.getElementById('navbar');
+        
+        window.addEventListener('scroll', function() {
+            let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            
+            if (scrollTop > lastScrollTop && scrollTop > navbarHeight) {
+                // Scrolling down - hide navbar
+                navbar.style.transform = 'translateY(-100%)';
+            } else {
+                // Scrolling up - show navbar
+                navbar.style.transform = 'translateY(0)';
+            }
+            
+            lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
+        }, false);
     </script>
 </body>
 </html>
