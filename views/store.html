@@ -294,10 +294,10 @@
         <!-- Add-ons Section Header -->
         <div style="background: #1a1a1a; border-radius: 16px; padding: 30px; margin-bottom: 50px; max-width: 1200px; margin-left: auto; margin-right: auto; text-align: center;">
             <h2 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 28px; line-height: 1.4; margin: 0 0 8px 0; color: #ffffff;">
-                Choose Your Pledge Tier
+                Enhance Your Pledge
             </h2>
             <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 16px; line-height: 1.5; margin: 0; color: #ffffff;">
-                Select from our Kickstarter pledge tiers to start your MAYA journey
+                Add exclusive items to your order
             </p>
         </div>
 
@@ -601,14 +601,16 @@
             const grid = document.getElementById('products-grid');
             
             // Filter out the main book (hero product) - only show add-ons
-            const otherPledges = products.filter(p => 
-                !(heroBook && p.id === heroBook.id)
+            // Filter to show only add-ons (not pledge tiers or hero)
+            const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+            const addOnsOnly = products.filter(p => 
+                !pledgeNames.some(pledge => p.name.toLowerCase().includes(pledge))
             );
             
-            if (otherPledges.length === 0) {
+            if (addOnsOnly.length === 0) {
                 grid.innerHTML = `
                     <div style="text-align: center; padding: 40px; grid-column: 1 / -1;">
-                        <p style="color: #ffffff;">No pledge tiers available at this time.</p>
+                        <p style="color: #ffffff;">No add-ons available at this time.</p>
                     </div>
                 `;
                 return;
@@ -616,7 +618,7 @@
 
             grid.innerHTML = '';
             
-            otherPledges.forEach(product => {
+            addOnsOnly.forEach(product => {
                 const card = document.createElement('div');
                 card.id = `product-card-${product.id}`;
                 card.style.cssText = 'display: flex; flex-direction: column; background: #1e1e1e; border-radius: 16px; min-height: 550px; position: relative; transition: all 0.3s ease;';
@@ -633,7 +635,7 @@
                 card.innerHTML = `
                     <!-- Product Image -->
                     <div style="background: #0a0a0a; border-radius: 12px; margin: 24px; height: 280px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                        ${product.image ? `<img src="/images/pledges/${product.image}" alt="${product.name}" loading="lazy" style="max-width: 100%; max-height: 100%; object-fit: contain;">` : '<div style="display: flex; align-items: center; justify-content: center; font-size: 64px;">📦</div>'}
+                        ${product.image ? `<img src="/images/addons/${product.image}" alt="${product.name}" loading="lazy" style="max-width: 100%; max-height: 100%; object-fit: contain;">` : '<div style="display: flex; align-items: center; justify-content: center; font-size: 64px;">📦</div>'}
                     </div>
                     
                     <!-- Product Description -->
