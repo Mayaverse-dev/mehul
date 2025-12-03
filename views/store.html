@@ -209,19 +209,19 @@
         <div style="display: flex; gap: 80px; margin-bottom: 80px; align-items: center; max-width: 1200px; margin-left: auto; margin-right: auto; margin-bottom: 80px;">
             <!-- Left: Pledge Image -->
             <div style="flex: 0 0 550px; background: #1e1e1e; border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 600px;">
-                <img src="/images/pledges/resplendent-garuda.png" alt="The Resplendent Garuda" style="width: 100%; height: 100%; object-fit: cover;">
+                <img src="/images/pledges/benevolent-divya.png" alt="The Benevolent Divya" style="width: 100%; height: 100%; object-fit: cover;">
             </div>
 
             <!-- Right: Pledge Details -->
             <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
                 <h1 style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 42px; line-height: 1.2; margin: 0 0 20px 0; color: #ffffff;">
-                    The Resplendent Garuda
+                    The Benevolent Divya
                 </h1>
                 <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; line-height: 1.5; margin: 0 0 24px 0; color: #ffffff;">
-                    Premium Pledge Tier
+                    Deluxe Pledge Tier
                 </p>
                 <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 18px; line-height: 1.6; margin: 0 0 40px 0; color: #ffffff;">
-                    Premium pledge tier with exclusive items. An epic sci-fiction fantasy with intricate worldbuilding. Six species, one planet, zero privacy. Enter the age of narrative warfare.
+                    Deluxe pledge tier with rare collectibles. An epic sci-fiction fantasy with intricate worldbuilding. Six species, one planet, zero privacy. Enter the age of narrative warfare.
                 </p>
 
                 <!-- Price -->
@@ -515,9 +515,9 @@
                 const response = await fetch('/api/addons');
                 products = await response.json();
                 
-                // Find the hero pledge (The Resplendent Garuda)
+                // Find the hero pledge (The Benevolent Divya)
                 heroBook = products.find(p => 
-                    p.name.toLowerCase().includes('resplendent garuda')
+                    p.name.toLowerCase().includes('benevolent divya')
                 );
                 
                 // If hero book found, update price in hero section
