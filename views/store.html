@@ -681,6 +681,23 @@
             const product = products.find(p => p.id === productId);
             if (!product) return;
 
+            // Check if this is an add-on (not a pledge tier)
+            const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+            const isAddon = !pledgeNames.some(pledge => product.name.toLowerCase().includes(pledge));
+            
+            // If it's an add-on, check if there's a pledge in the cart
+            if (isAddon) {
+                const hasPledge = cart.some(item => {
+                    const cartProduct = products.find(p => p.id === item.id);
+                    return cartProduct && pledgeNames.some(pledge => cartProduct.name.toLowerCase().includes(pledge));
+                });
+                
+                if (!hasPledge) {
+                    alert('Please select a pledge tier first before adding add-ons to your order.');
+                    return;
+                }
+            }
+
             // Check if already in cart
             const cartItem = cart.find(item => item.id === productId);
             if (!cartItem) {
