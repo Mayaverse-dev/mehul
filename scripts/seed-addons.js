@@ -22,7 +22,7 @@ const addons = [
         price: 25.00,
         weight: 0,
         description: 'MAYA: Seed Takes Root Audiobook narrated by Hugo Weaving',
-        image: 'maya-audiobook.png',
+        image: 'maya-audiobook.webp',
         active: 1
     },
     {
