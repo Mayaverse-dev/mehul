@@ -627,6 +627,9 @@
                 const data = await response.json();
 
                 if (response.ok) {
+                    // Save to sessionStorage for checkout page
+                    sessionStorage.setItem('shippingAddress', JSON.stringify(formData));
+                    
                     // Redirect to checkout (same page for everyone)
                     window.location.href = '/checkout';
                 } else {
