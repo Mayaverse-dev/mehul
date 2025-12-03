@@ -382,8 +382,8 @@ app.post('/api/shipping/save', (req, res) => {
     });
 });
 
-// Checkout page
-app.get('/checkout', requireAuth, (req, res) => {
+// Checkout page (accessible to both backers and guests)
+app.get('/checkout', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'checkout.html'));
 });
 
