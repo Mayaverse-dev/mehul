@@ -195,7 +195,7 @@
                 </ul>
             </div>
 
-            <a href="/dashboard" class="continue-btn">Continue Shopping</a>
+            <a href="#" id="continue-btn" class="continue-btn">Continue Shopping</a>
 
             <p class="support-text">
                 Questions? Contact us for support regarding your order on<br>
@@ -207,6 +207,27 @@
     <script>
         // Clear cart after successful order
         sessionStorage.removeItem('cart');
+
+        // Check if user is logged in and redirect accordingly
+        async function setupContinueButton() {
+            const continueBtn = document.getElementById('continue-btn');
+            
+            try {
+                const response = await fetch('/api/user/data');
+                if (response.ok) {
+                    // User is logged in - go to dashboard
+                    continueBtn.href = '/dashboard';
+                } else {
+                    // Guest - go to store homepage
+                    continueBtn.href = '/';
+                }
+            } catch (error) {
+                // Default to store homepage
+                continueBtn.href = '/';
+            }
+        }
+
+        setupContinueButton();
     </script>
 </body>
 </html>
