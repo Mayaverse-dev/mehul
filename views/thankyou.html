@@ -3,108 +3,210 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Thank You - MAYA Pledge Manager</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <title>Order Confirmed - MAYA</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto:wght@700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 645px;
+            width: 100%;
+        }
+
+        .thank-you-card {
+            background: #1e1e1e;
+            border-radius: 16px;
+            padding: 50px 45px;
+            text-align: center;
+        }
+
+        .checkmark {
+            width: 57px;
+            height: 57px;
+            margin: 0 auto 30px;
+            background: #dc2626;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: white;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #d4d4d4;
+            margin-bottom: 20px;
+        }
+
+        .subtitle {
+            font-size: 15px;
+            font-weight: 500;
+            color: #aaaaaa;
+            margin-bottom: 8px;
+        }
+
+        .subtitle-light {
+            font-size: 15px;
+            font-weight: 500;
+            color: #aaaaaa;
+            margin-bottom: 40px;
+        }
+
+        .info-box {
+            background: #2a2a2a;
+            border-radius: 14px;
+            padding: 35px 40px;
+            text-align: left;
+            margin-bottom: 40px;
+        }
+
+        .info-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #d4d4d4;
+            margin-bottom: 20px;
+        }
+
+        .info-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .info-list li {
+            font-size: 20px;
+            font-weight: 400;
+            color: #d4d4d4;
+            line-height: 1.5;
+            margin-bottom: 12px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .info-list li:before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #d4d4d4;
+        }
+
+        .info-list li:last-child {
+            margin-bottom: 0;
+        }
+
+        .continue-btn {
+            background: #d4d4d4;
+            color: #000000;
+            border: none;
+            border-radius: 11px;
+            padding: 16px 60px;
+            font-size: 24px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s;
+            margin-bottom: 40px;
+        }
+
+        .continue-btn:hover {
+            background: #e5e5e5;
+            transform: translateY(-2px);
+        }
+
+        .support-text {
+            font-size: 15px;
+            font-weight: 600;
+            color: #717171;
+            line-height: 1.4;
+            margin-bottom: 0;
+        }
+
+        .support-text a {
+            color: #717171;
+            text-decoration: none;
+        }
+
+        .support-text a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .thank-you-card {
+                padding: 40px 30px;
+            }
+
+            .title {
+                font-size: 22px;
+            }
+
+            .info-box {
+                padding: 25px 20px;
+            }
+
+            .info-title,
+            .info-list li {
+                font-size: 18px;
+            }
+
+            .continue-btn {
+                font-size: 20px;
+                padding: 14px 50px;
+            }
+        }
+    </style>
 </head>
-<body>
-    <div class="header">
-        <div class="header-content">
-            <div>
-                <h1>MAYA Pledge Manager</h1>
-                <p>Order Complete</p>
-            </div>
-            <div class="user-info">
-                <a href="/logout" style="color: white;">Logout</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="container-narrow">
-        <!-- Progress Bar -->
-        <div class="progress-bar">
-            <div class="progress-step completed">
-                <div class="progress-circle">✓</div>
-                <div class="progress-label">Login</div>
-            </div>
-            <div class="progress-step completed">
-                <div class="progress-circle">✓</div>
-                <div class="progress-label">Your Order</div>
-            </div>
-            <div class="progress-step completed">
-                <div class="progress-circle">✓</div>
-                <div class="progress-label">Add-ons</div>
-            </div>
-            <div class="progress-step completed">
-                <div class="progress-circle">✓</div>
-                <div class="progress-label">Shipping</div>
-            </div>
-            <div class="progress-step completed">
-                <div class="progress-circle">✓</div>
-                <div class="progress-label">Payment</div>
-            </div>
-        </div>
-
-        <!-- Success Message -->
-        <div class="card" style="text-align: center; padding: 60px 40px;">
-            <div style="font-size: 80px; margin-bottom: 20px;">🎉</div>
+<body style="background: #0a0a0a !important; color: #ffffff !important;">
+    <div class="container">
+        <div class="thank-you-card">
+            <div class="checkmark">✓</div>
             
-            <h1 style="color: var(--primary-red); font-size: 32px; margin-bottom: 15px;">
-                Thank You!
-            </h1>
+            <h1 class="title">Pre-Order Confirmed!</h1>
             
-            <p style="font-size: 18px; color: var(--text-dark); margin-bottom: 30px;">
-                Your order has been successfully completed.
-            </p>
+            <p class="subtitle">Your card has been saved securely.</p>
+            <p class="subtitle-light">You will be charged when your items ship.</p>
 
-            <div class="alert alert-success" style="text-align: left; margin-bottom: 30px;">
-                <strong>✓ Payment Confirmed</strong><br>
-                <span style="font-size: 14px;">
-                    A confirmation email has been sent to your email address with all the order details.
-                </span>
-            </div>
-
-            <div style="background-color: var(--neutral-beige-light); padding: 30px; border-radius: 8px; margin-bottom: 30px; text-align: left;">
-                <h3 style="color: var(--primary-red); margin-bottom: 15px;">What happens next?</h3>
-                <ul style="list-style: none; padding: 0;">
-                    <li style="padding: 10px 0; border-bottom: 1px solid var(--border-color);">
-                        📧 <strong>Step 1:</strong> Check your email for order confirmation
-                    </li>
-                    <li style="padding: 10px 0; border-bottom: 1px solid var(--border-color);">
-                        📦 <strong>Step 2:</strong> Your items will be prepared for shipping
-                    </li>
-                    <li style="padding: 10px 0; border-bottom: 1px solid var(--border-color);">
-                        🚚 <strong>Step 3:</strong> You'll receive a tracking number when shipped
-                    </li>
-                    <li style="padding: 10px 0;">
-                        🎁 <strong>Step 4:</strong> Enjoy your MAYA collection!
-                    </li>
+            <div class="info-box">
+                <h2 class="info-title">What's Next?</h2>
+                <ul class="info-list">
+                    <li>You'll receive a confirmation email shortly</li>
+                    <li>Your order will be prepared once all items are available</li>
+                    <li>You'll receive an email notification when we charge your card</li>
+                    <li>Shipping updates will be sent via email</li>
                 </ul>
             </div>
 
-            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-                <a href="/dashboard" class="btn btn-primary">
-                    Return to Dashboard
-                </a>
-                <a href="/logout" class="btn btn-secondary">
-                    Logout
-                </a>
-            </div>
-        </div>
+            <a href="/dashboard" class="continue-btn">Continue Shopping</a>
 
-        <!-- Support Info -->
-        <div class="card" style="background-color: var(--neutral-beige-light); border: none;">
-            <h4 style="margin-bottom: 10px; color: var(--text-dark);">Need Help?</h4>
-            <p style="color: var(--text-muted); font-size: 14px;">
-                If you have any questions about your order, please contact us at 
-                <a href="mailto:support@entermaya.com" style="color: var(--primary-red);">support@entermaya.com</a>
+            <p class="support-text">
+                Questions? Contact us for support regarding your order on<br>
+                <a href="mailto:hello@entermaya.com">hello@entermaya.com</a>
             </p>
         </div>
     </div>
 
     <script>
-        // Clear any remaining session data
-        sessionStorage.clear();
+        // Clear cart after successful order
+        sessionStorage.removeItem('cart');
     </script>
 </body>
 </html>
-
