@@ -359,14 +359,27 @@ app.get('/shipping', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'shipping.html'));
 });
 
-// Calculate shipping
-app.post('/api/calculate-shipping', requireAuth, (req, res) => {
-    const { country, cartItems } = req.body;
+// Calculate shipping (accessible to both backers and guests)
+app.post('/api/calculate-shipping', (req, res) => {
+    const { country, cart } = req.body;
     
     // Load shipping calculation logic
-    const shippingCost = calculateShipping(country, cartItems);
+    const shippingCost = calculateShipping(country, cart || []);
     
     res.json({ shippingCost });
+});
+
+// Save shipping address (accessible to both backers and guests)
+app.post('/api/shipping/save', (req, res) => {
+    const shippingAddress = req.body;
+    
+    // Store shipping address in session
+    req.session.shippingAddress = shippingAddress;
+    
+    res.json({ 
+        success: true, 
+        message: 'Shipping address saved successfully' 
+    });
 });
 
 // Checkout page
