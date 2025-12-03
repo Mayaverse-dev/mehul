@@ -446,9 +446,9 @@ app.get('/logout', (req, res) => {
 // GUEST CHECKOUT ROUTES (No Auth Required)
 // ============================================
 
-// Guest shipping page
+// Guest shipping page (redirects to unified shipping page)
 app.get('/guest/shipping', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'guest-shipping.html'));
+    res.redirect('/shipping');
 });
 
 // Guest checkout page

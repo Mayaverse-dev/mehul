@@ -54,7 +54,7 @@
                     </form>
 
                     <div style="margin-top: 20px; text-align: center;">
-                        <button class="btn btn-secondary" onclick="window.location.href='/guest/shipping'">
+                        <button class="btn btn-secondary" onclick="window.location.href='/shipping'">
                             ← Back to Shipping
                         </button>
                     </div>
@@ -164,7 +164,7 @@
                 if (savedAddress) {
                     shippingAddress = JSON.parse(savedAddress);
                 } else {
-                    window.location.href = '/guest/shipping';
+                    window.location.href = '/shipping';
                     return;
                 }
             }
