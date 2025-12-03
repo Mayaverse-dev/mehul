@@ -407,8 +407,8 @@ app.get('/checkout', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'checkout.html'));
 });
 
-// Create payment intent
-app.post('/api/create-payment-intent', requireAuth, async (req, res) => {
+// Create payment intent (accessible to both backers and guests)
+app.post('/api/create-payment-intent', async (req, res) => {
     const { amount, cartItems, shippingAddress, shippingCost } = req.body;
     
     try {
