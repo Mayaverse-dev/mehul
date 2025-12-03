@@ -207,21 +207,21 @@
     <div class="container" style="max-width: 1400px; margin: 0 auto; padding: 60px 80px;">
         <!-- Hero Section -->
         <div style="display: flex; gap: 80px; margin-bottom: 80px; align-items: center; max-width: 1200px; margin-left: auto; margin-right: auto; margin-bottom: 80px;">
-            <!-- Left: Book Image -->
+            <!-- Left: Pledge Image -->
             <div style="flex: 0 0 550px; background: #1e1e1e; border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 600px;">
-                <img src="/images/addons/maya-book.jpeg?v=2" alt="MAYA: Seed Takes Root" style="width: 100%; height: 100%; object-fit: cover;">
+                <img src="/images/pledges/resplendent-garuda.png" alt="The Resplendent Garuda" style="width: 100%; height: 100%; object-fit: cover;">
             </div>
 
-            <!-- Right: Product Details -->
+            <!-- Right: Pledge Details -->
             <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
                 <h1 style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 42px; line-height: 1.2; margin: 0 0 20px 0; color: #ffffff;">
-                    MAYA : Seed Takes Root
+                    The Resplendent Garuda
                 </h1>
                 <p style="font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; line-height: 1.5; margin: 0 0 24px 0; color: #ffffff;">
-                    Written by Anand Gandhi and Zain Memon
+                    Premium Pledge Tier
                 </p>
                 <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 18px; line-height: 1.6; margin: 0 0 40px 0; color: #ffffff;">
-                    An epic sci-fiction fantasy with intricate worldbuilding. Six species, one planet, zero privacy. Enter the age of narrative warfare.
+                    Premium pledge tier with exclusive items. An epic sci-fiction fantasy with intricate worldbuilding. Six species, one planet, zero privacy. Enter the age of narrative warfare.
                 </p>
 
                 <!-- Price -->
@@ -294,10 +294,10 @@
         <!-- Add-ons Section Header -->
         <div style="background: #1a1a1a; border-radius: 16px; padding: 30px; margin-bottom: 50px; max-width: 1200px; margin-left: auto; margin-right: auto; text-align: center;">
             <h2 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 28px; line-height: 1.4; margin: 0 0 8px 0; color: #ffffff;">
-                Free and Paid Add-ons
+                Choose Your Pledge Tier
             </h2>
             <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 16px; line-height: 1.5; margin: 0; color: #ffffff;">
-                All items ship together
+                Select from our Kickstarter pledge tiers to start your MAYA journey
             </p>
         </div>
 
@@ -515,10 +515,9 @@
                 const response = await fetch('/api/addons');
                 products = await response.json();
                 
-                // Find the hero book (main hardcover) - look for keywords in name
+                // Find the hero pledge (The Resplendent Garuda)
                 heroBook = products.find(p => 
-                    p.name.toLowerCase().includes('hardcover') && 
-                    p.name.toLowerCase().includes('seed takes root')
+                    p.name.toLowerCase().includes('resplendent garuda')
                 );
                 
                 // If hero book found, update price in hero section
