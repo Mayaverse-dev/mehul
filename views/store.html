@@ -159,19 +159,16 @@
                 margin-bottom: 40px !important;
             }
 
-            /* Consistent mobile spacing between price/button and what you get */
-            .hero-price-button {
-                margin-bottom: 20px !important;
-            }
-
-            .hero-what-you-get {
-                margin-bottom: 0 !important;
-            }
-
             .container > div:first-of-type > div:first-child {
                 min-height: 300px !important;
                 max-height: 350px !important;
                 padding: 20px !important;
+            }
+
+            /* Ensure parent maintains flexbox for order to work */
+            .container > div:first-of-type > div:last-child {
+                display: flex !important;
+                flex-direction: column !important;
             }
 
             .container > div:first-of-type > div:last-child h1 {
@@ -182,13 +179,15 @@
                 font-size: 14px !important;
             }
 
-            /* Mobile: Price and button come first */
+            /* Mobile: Price and button come FIRST, What You Get comes SECOND */
             .hero-price-button {
                 order: 1 !important;
+                margin-bottom: 20px !important;
             }
 
             .hero-what-you-get {
                 order: 2 !important;
+                margin-bottom: 0 !important;
             }
 
             .container > div:first-of-type > div:last-child > div:first-child {
