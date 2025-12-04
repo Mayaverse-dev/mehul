@@ -419,11 +419,22 @@
                 const response = await fetch('/api/addons');
                 products = await response.json();
                 
-                // Filter out main book
-                const addOnsOnly = products.filter(p => 
-                    !(p.name.toLowerCase().includes('hardcover') && 
-                      p.name.toLowerCase().includes('seed takes root'))
-                );
+                // List of pledge tier names to exclude
+                const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+                
+                // Filter out main book and pledge tiers
+                const addOnsOnly = products.filter(p => {
+                    const name = p.name.toLowerCase();
+                    // Exclude main book
+                    if (name.includes('hardcover') && name.includes('seed takes root')) {
+                        return false;
+                    }
+                    // Exclude pledge tiers
+                    if (pledgeNames.some(pledge => name.includes(pledge))) {
+                        return false;
+                    }
+                    return true;
+                });
                 
                 displayProducts(addOnsOnly);
             } catch (error) {
