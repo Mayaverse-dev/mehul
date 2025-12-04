@@ -20,8 +20,8 @@ async function createTestUser() {
         backer_uid: 'TEST123',
         backer_name: 'Test Backer',
         reward_title: 'The Benevolent Divya',
-        backing_minimum: 150.00,
-        pledge_amount: 150.00,
+        backing_minimum: 190.00,
+        pledge_amount: 190.00,
         kickstarter_items: JSON.stringify({
             ebook: 1,
             hardcover: 1,
@@ -33,7 +33,7 @@ async function createTestUser() {
             pendant: 1
         }),
         kickstarter_addons: JSON.stringify({
-            pendant: 0,
+            'Flitt Locust Pendant': 1,
             audiobook_addon: 0,
             built_env_addon: 0,
             lorebook_addon: 0
