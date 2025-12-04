@@ -424,6 +424,32 @@
             window.location.href = '/addons';
         }
 
+        // Load pledge image based on reward title
+        async function loadPledgeImage(rewardTitle) {
+            try {
+                if (!rewardTitle) return;
+
+                // Fetch products to find the matching pledge
+                const response = await fetch('/api/addons');
+                const allProducts = await response.json();
+                
+                // Find the pledge tier matching the reward title
+                const matchingPledge = allProducts.find(p => 
+                    p.name.toLowerCase() === rewardTitle.toLowerCase()
+                );
+
+                if (matchingPledge && matchingPledge.image) {
+                    const pledgeImage = document.getElementById('pledge-image');
+                    pledgeImage.src = `/images/pledges/${matchingPledge.image}`;
+                    pledgeImage.alt = matchingPledge.name;
+                } else {
+                    console.log('No matching pledge image found for:', rewardTitle);
+                }
+            } catch (error) {
+                console.error('Error loading pledge image:', error);
+            }
+        }
+
         // Load products
         async function loadProducts() {
             try {
@@ -590,6 +616,9 @@
                 document.getElementById('user-email').textContent = userData.email;
                 document.getElementById('pledge-title').textContent = userData.rewardTitle || 'Your Kickstarter Pledge';
                 document.getElementById('pledge-amount-badge').textContent = (userData.pledgeAmount || 0).toFixed(0);
+
+                // Load pledge image based on reward title
+                loadPledgeImage(userData.rewardTitle);
 
                 // Build items list
                 const items = userData.kickstarterItems || {};
