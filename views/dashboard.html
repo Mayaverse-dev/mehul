@@ -302,8 +302,6 @@
     <div class="main-content">
         <!-- Pledge Card -->
         <div class="pledge-card">
-            <h1 class="pledge-title" id="pledge-title">Your Kickstarter Pledge</h1>
-            
             <!-- Hero Image -->
             <div class="pledge-hero">
                 <img src="https://www.figma.com/api/mcp/asset/985bdfee-d9bd-4b65-8a3a-e4e2ae217dac" alt="Your Pledge" id="pledge-image">
@@ -614,7 +612,6 @@
 
                 // Display user info
                 document.getElementById('user-email').textContent = userData.email;
-                document.getElementById('pledge-title').textContent = userData.rewardTitle || 'Your Kickstarter Pledge';
                 document.getElementById('pledge-amount-badge').textContent = (userData.pledgeAmount || 0).toFixed(0);
 
                 // Load pledge image based on reward title
