@@ -244,8 +244,21 @@
                     Deluxe pledge tier with rare collectibles. An epic sci-fiction fantasy with intricate worldbuilding. Six species, one planet, zero privacy. Enter the age of narrative warfare.
                 </p>
 
+                <!-- Price and Button -->
+                <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 30px;">
+                    <!-- Price -->
+                    <div style="font-family: 'Inter', sans-serif; font-weight: 700; color: #ffffff; font-size: 36px; line-height: 1;">
+                        $<span id="hero-book-price">190</span>
+                    </div>
+
+                    <!-- Add to Cart Button -->
+                    <button id="hero-add-btn" onclick="addHeroBookToCart()" style="background: #dc2626; border: 1px solid #dc2626; color: #ffffff; padding: 12px 28px; border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
+                        Add to Cart
+                    </button>
+                </div>
+
                 <!-- What You Get List -->
-                <div style="background: #1e1e1e; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+                <div style="background: #1e1e1e; border-radius: 8px; padding: 20px;">
                     <p style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 14px; color: #dc2626; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px;">What You Get:</p>
                     <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; line-height: 1.8; color: #ffffff;">
                         <li>• MAYA: Seed Takes Root (eBook + Hardcover)</li>
@@ -256,19 +269,6 @@
                         <li>• Flitt Locust Pendant</li>
                         <li>• Audiobook narrated by Hugo Weaving</li>
                     </ul>
-                </div>
-
-                <!-- Price and Button -->
-                <div style="display: flex; align-items: center; gap: 30px;">
-                    <!-- Price -->
-                    <div style="font-family: 'Inter', sans-serif; font-weight: 700; color: #ffffff; font-size: 56px; line-height: 1;">
-                        $<span id="hero-book-price">190</span>
-                    </div>
-
-                    <!-- Add to Cart Button -->
-                    <button id="hero-add-btn" onclick="addHeroBookToCart()" style="background: #dc2626; border: 1px solid #dc2626; color: #ffffff; padding: 18px 40px; border-radius: 12px; font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
-                        Add to Cart
-                    </button>
                 </div>
             </div>
         </div>
