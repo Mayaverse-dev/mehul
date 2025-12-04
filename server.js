@@ -286,8 +286,14 @@ app.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
         
+        // Save all user info to session
         req.session.userId = user.id;
         req.session.userEmail = user.email;
+        req.session.backerNumber = user.backer_number;
+        req.session.backerName = user.backer_name;
+        req.session.pledgeAmount = user.pledge_amount;
+        req.session.rewardTitle = user.reward_title;
+        
         res.json({ success: true, redirect: '/dashboard' });
     } catch (err) {
         console.error('Login error:', err);
