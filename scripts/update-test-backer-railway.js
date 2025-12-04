@@ -28,13 +28,26 @@ async function updateTestBacker() {
              SET reward_title = $1,
                  pledge_amount = $2,
                  backing_minimum = $3,
-                 kickstarter_addons = $4
-             WHERE email = $5
+                 kickstarter_items = $4,
+                 kickstarter_addons = $5
+             WHERE email = $6
              RETURNING email, backer_number, reward_title, pledge_amount`,
             [
                 'The Benevolent Divya',
                 190.00,
                 190.00,
+                JSON.stringify({
+                    ebook: 1,
+                    hardcover: 1,
+                    audiobook: 1,
+                    book2_hardcover: 1,
+                    book3_hardcover: 1,
+                    book2_live: 1,
+                    book3_live: 1,
+                    lorebook: 1,
+                    built_env: 1,
+                    pendant: 1
+                }),
                 JSON.stringify({
                     'Flitt Locust Pendant': 1,
                     'audiobook_addon': 0,

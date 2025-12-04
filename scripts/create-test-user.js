@@ -28,6 +28,8 @@ async function createTestUser() {
             audiobook: 1,
             book2_hardcover: 1,
             book3_hardcover: 1,
+            book2_live: 1,
+            book3_live: 1,
             lorebook: 1,
             built_env: 1,
             pendant: 1
