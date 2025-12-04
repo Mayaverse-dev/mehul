@@ -320,6 +320,17 @@
 
         </div>
 
+        <!-- Upgrade Pledge Section -->
+        <div id="upgrade-pledges-section" style="margin-top: 60px; display: none;">
+            <h2 style="font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 40px; text-align: center; margin-bottom: 16px; color: #ffffff;">Upgrade Your Pledge</h2>
+            <p style="text-align: center; color: #ffffff; font-size: 18px; margin-bottom: 50px;">Unlock more exclusive items by upgrading</p>
+
+            <!-- Upgrade Pledges Grid -->
+            <div id="upgrade-pledges-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 40px; margin-bottom: 60px;">
+                <!-- Upgrade pledges will be loaded here -->
+            </div>
+        </div>
+
         <!-- Add-ons Section -->
         <div style="margin-top: 60px;">
             <h2 style="font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 40px; text-align: center; margin-bottom: 16px; color: #ffffff;">Free and Paid Add-ons</h2>
@@ -422,7 +433,12 @@
                 // List of pledge tier names to exclude
                 const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
                 
-                // Filter out main book and pledge tiers
+                // Separate pledges and add-ons
+                const pledgeTiers = products.filter(p => {
+                    const name = p.name.toLowerCase();
+                    return pledgeNames.some(pledge => name.includes(pledge));
+                });
+                
                 const addOnsOnly = products.filter(p => {
                     const name = p.name.toLowerCase();
                     // Exclude main book
@@ -436,9 +452,87 @@
                     return true;
                 });
                 
+                // Load upgrade pledges for backer
+                loadUpgradePledges(pledgeTiers);
+                
                 displayProducts(addOnsOnly);
             } catch (error) {
                 console.error('Error loading products:', error);
+            }
+        }
+
+        // Load upgrade pledge options
+        async function loadUpgradePledges(pledgeTiers) {
+            try {
+                // Get current backer's pledge amount
+                const response = await fetch('/api/user/pledge-info');
+                const data = await response.json();
+                
+                const currentPledgeAmount = parseFloat(data.pledgeAmount) || 0;
+                
+                // Filter pledges that are more expensive than current
+                const upgradePledges = pledgeTiers.filter(p => p.price > currentPledgeAmount).sort((a, b) => a.price - b.price);
+                
+                if (upgradePledges.length > 0) {
+                    document.getElementById('upgrade-pledges-section').style.display = 'block';
+                    displayUpgradePledges(upgradePledges);
+                }
+            } catch (error) {
+                console.error('Error loading upgrade pledges:', error);
+            }
+        }
+
+        // Display upgrade pledges
+        function displayUpgradePledges(pledges) {
+            const grid = document.getElementById('upgrade-pledges-grid');
+            
+            grid.innerHTML = pledges.map(pledge => {
+                const imagePath = `/images/pledges/${pledge.image}`;
+                return `
+                    <div style="background: #1e1e1e; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
+                        <div style="width: 100%; aspect-ratio: 1; background: #2c2c2c; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                            <img src="${imagePath}" alt="${pledge.name}" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy" onerror="this.parentElement.innerHTML='<div style=\'font-size: 64px;\'>📦</div>'">
+                        </div>
+                        <div style="padding: 24px; flex: 1; display: flex; flex-direction: column;">
+                            <h3 style="font-size: 22px; font-weight: 700; color: #ffffff; margin: 0 0 8px 0;">${pledge.name}</h3>
+                            <p style="font-size: 15px; color: #a0a0a0; margin: 0 0 16px 0; flex: 1;">${pledge.description || 'Premium pledge tier'}</p>
+                            <div style="font-size: 28px; font-weight: 700; color: #ffffff; margin-bottom: 16px;">$${pledge.price.toFixed(2)}</div>
+                            <button onclick="upgradeToPledge(${pledge.id}, '${pledge.name}', ${pledge.price})" style="background: #dc2626; color: white; border: none; padding: 14px; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; width: 100%;">
+                                Upgrade to This Tier
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Upgrade to a higher pledge tier
+        function upgradeToPledge(pledgeId, pledgeName, pledgePrice) {
+            if (confirm(`Upgrade to ${pledgeName} for $${pledgePrice.toFixed(2)}?\n\nThis will replace your current pledge.`)) {
+                // Add to cart (will replace current pledge)
+                const cart = JSON.parse(sessionStorage.getItem('cart') || '[]');
+                
+                // Remove any existing pledges from cart
+                const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+                const cartWithoutPledges = cart.filter(item => {
+                    const name = item.name.toLowerCase();
+                    return !pledgeNames.some(pledge => name.includes(pledge));
+                });
+                
+                // Add new pledge
+                cartWithoutPledges.push({
+                    id: pledgeId,
+                    name: pledgeName,
+                    price: pledgePrice,
+                    quantity: 1
+                });
+                
+                sessionStorage.setItem('cart', JSON.stringify(cartWithoutPledges));
+                
+                alert('Pledge upgrade added to cart! Please proceed to checkout to complete the upgrade.');
+                
+                // Redirect to cart
+                window.location.href = '/addons';
             }
         }
 

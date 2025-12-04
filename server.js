@@ -389,6 +389,21 @@ app.get('/api/user/session', (req, res) => {
     }
 });
 
+// Get user's pledge info
+app.get('/api/user/pledge-info', (req, res) => {
+    if (req.session && req.session.userId) {
+        res.json({
+            pledgeAmount: req.session.pledgeAmount || 0,
+            rewardTitle: req.session.rewardTitle || ''
+        });
+    } else {
+        res.json({
+            pledgeAmount: 0,
+            rewardTitle: ''
+        });
+    }
+});
+
 // Save shipping address (accessible to both backers and guests)
 app.post('/api/shipping/save', (req, res) => {
     const shippingAddress = req.body;

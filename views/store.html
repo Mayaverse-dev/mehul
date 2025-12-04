@@ -303,6 +303,23 @@
             </div>
         </div>
 
+        <!-- Other Pledge Tiers Section -->
+        <div style="margin-bottom: 80px;">
+            <div style="background: #1a1a1a; border-radius: 16px; padding: 30px; margin-bottom: 50px; max-width: 1200px; margin-left: auto; margin-right: auto; text-align: center;">
+                <h2 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 28px; line-height: 1.4; margin: 0 0 8px 0; color: #ffffff;">
+                    Other Pledge Tiers
+                </h2>
+                <p style="font-family: 'Inter', sans-serif; font-weight: 400; font-size: 16px; line-height: 1.5; margin: 0; color: #ffffff;">
+                    Choose from our complete collection of pledge tiers
+                </p>
+            </div>
+
+            <!-- Pledge Tiers Grid -->
+            <div id="pledge-tiers-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 40px; margin-bottom: 60px; max-width: 1200px; margin-left: auto; margin-right: auto;">
+                <!-- Pledge tiers will be loaded here -->
+            </div>
+        </div>
+
         <!-- Add-ons Section Header -->
         <div style="background: #1a1a1a; border-radius: 16px; padding: 30px; margin-bottom: 50px; max-width: 1200px; margin-left: auto; margin-right: auto; text-align: center;">
             <h2 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 28px; line-height: 1.4; margin: 0 0 8px 0; color: #ffffff;">
@@ -537,6 +554,9 @@
                     document.getElementById('hero-book-price').textContent = heroBook.price.toFixed(0);
                 }
                 
+                // Load and display pledge tiers
+                displayPledgeTiers();
+                
                 displayProducts();
                 updateCart();
             } catch (error) {
@@ -547,6 +567,109 @@
                     </div>
                 `;
             }
+        }
+
+        // Display pledge tiers (excluding hero)
+        function displayPledgeTiers() {
+            const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+            
+            // Filter to show only pledge tiers, excluding the hero
+            const pledgeTiers = products.filter(p => {
+                const name = p.name.toLowerCase();
+                // Include if it's a pledge tier
+                if (pledgeNames.some(pledge => name.includes(pledge))) {
+                    // Exclude the hero pledge (Benevolent Divya)
+                    return !name.includes('benevolent divya');
+                }
+                return false;
+            }).sort((a, b) => a.price - b.price); // Sort by price
+
+            const grid = document.getElementById('pledge-tiers-grid');
+            
+            if (pledgeTiers.length === 0) {
+                grid.innerHTML = `<div style="text-align: center; padding: 40px; grid-column: 1 / -1;"><p style="color: #ffffff;">No other pledge tiers available.</p></div>`;
+                return;
+            }
+
+            grid.innerHTML = '';
+            
+            pledgeTiers.forEach(pledge => {
+                const imagePath = `/images/pledges/${pledge.image}`;
+                const card = document.createElement('div');
+                card.style.cssText = 'background: #1e1e1e; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.3s ease, box-shadow 0.3s ease;';
+                
+                card.innerHTML = `
+                    <div style="width: 100%; aspect-ratio: 1; background: #2c2c2c; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                        <img src="${imagePath}" alt="${pledge.name}" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy" onerror="this.parentElement.innerHTML='<div style=\\'font-size: 64px;\\'>📦</div>'">
+                    </div>
+                    <div style="padding: 24px; flex: 1; display: flex; flex-direction: column;">
+                        <h3 style="font-family: 'Inter', sans-serif; font-size: 22px; font-weight: 700; color: #ffffff; margin: 0 0 8px 0;">${pledge.name}</h3>
+                        <p style="font-family: 'Inter', sans-serif; font-size: 15px; color: #a0a0a0; margin: 0 0 16px 0; flex: 1;">${pledge.description || 'Premium pledge tier with exclusive rewards'}</p>
+                        <div style="font-family: 'Inter', sans-serif; font-size: 28px; font-weight: 700; color: #ffffff; margin-bottom: 16px;">$${pledge.price.toFixed(2)}</div>
+                        <button onclick="addPledgeToCart(${pledge.id})" id="add-pledge-btn-${pledge.id}" style="background: #dc2626; color: white; border: none; padding: 14px; border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; width: 100%;">
+                            Add to Cart
+                        </button>
+                    </div>
+                `;
+                
+                grid.appendChild(card);
+            });
+        }
+
+        // Add pledge to cart
+        function addPledgeToCart(pledgeId) {
+            const pledge = products.find(p => p.id === pledgeId);
+            if (!pledge) return;
+
+            // Remove any existing pledges from cart
+            const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+            cart = cart.filter(item => {
+                const product = products.find(p => p.id === item.id);
+                if (!product) return true;
+                const name = product.name.toLowerCase();
+                return !pledgeNames.some(pName => name.includes(pName));
+            });
+
+            // Add new pledge
+            const cartItem = cart.find(item => item.id === pledgeId);
+            if (!cartItem) {
+                cart.push({
+                    id: pledge.id,
+                    name: pledge.name,
+                    price: pledge.price,
+                    weight: pledge.weight || 0,
+                    quantity: 1
+                });
+            }
+
+            // Update button
+            const btn = document.getElementById(`add-pledge-btn-${pledgeId}`);
+            if (btn) {
+                btn.style.background = '#059669';
+                btn.textContent = '✓ Added';
+                btn.disabled = true;
+                btn.style.cursor = 'default';
+
+                // Reset other pledge buttons
+                const allPledges = products.filter(p => {
+                    const name = p.name.toLowerCase();
+                    return pledgeNames.some(pName => name.includes(pName));
+                });
+                allPledges.forEach(p => {
+                    if (p.id !== pledgeId) {
+                        const otherBtn = document.getElementById(`add-pledge-btn-${p.id}`);
+                        if (otherBtn) {
+                            otherBtn.style.background = '#dc2626';
+                            otherBtn.textContent = 'Add to Cart';
+                            otherBtn.disabled = false;
+                            otherBtn.style.cursor = 'pointer';
+                        }
+                    }
+                });
+            }
+
+            saveCart();
+            updateCart();
         }
 
         // Hero section add to cart
