@@ -14,7 +14,7 @@ const db = new sqlite3.Database('./database.db', (err) => {
 
 async function createTestUser() {
     const testUser = {
-        email: 'test@example.com',
+        email: 'testbacker@maya.com',
         password: 'test123',
         backer_number: 9999,
         backer_uid: 'TEST123',
