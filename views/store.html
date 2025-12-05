@@ -717,18 +717,13 @@
             const pledge = products.find(p => p.id === pledgeId);
             if (!pledge) return;
 
-            // Remove any existing pledges from cart
-            const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
-            cart = cart.filter(item => {
-                const product = products.find(p => p.id === item.id);
-                if (!product) return true;
-                const name = product.name.toLowerCase();
-                return !pledgeNames.some(pName => name.includes(pName));
-            });
-
-            // Add new pledge
+            // Check if pledge is already in cart
             const cartItem = cart.find(item => item.id === pledgeId);
-            if (!cartItem) {
+            if (cartItem) {
+                // Increase quantity if already in cart
+                cartItem.quantity++;
+            } else {
+                // Add new pledge to cart
                 cart.push({
                     id: pledge.id,
                     name: pledge.name,
@@ -738,30 +733,17 @@
                 });
             }
 
-            // Update button
+            // Update button to show it's been added
             const btn = document.getElementById(`add-pledge-btn-${pledgeId}`);
             if (btn) {
                 btn.style.background = '#059669';
                 btn.textContent = '✓ Added';
-                btn.disabled = true;
-                btn.style.cursor = 'default';
-
-                // Reset other pledge buttons
-                const allPledges = products.filter(p => {
-                    const name = p.name.toLowerCase();
-                    return pledgeNames.some(pName => name.includes(pName));
-                });
-                allPledges.forEach(p => {
-                    if (p.id !== pledgeId) {
-                        const otherBtn = document.getElementById(`add-pledge-btn-${p.id}`);
-                        if (otherBtn) {
-                            otherBtn.style.background = '#dc2626';
-                            otherBtn.textContent = 'Add to Cart';
-                            otherBtn.disabled = false;
-                            otherBtn.style.cursor = 'pointer';
-                        }
-                    }
-                });
+                
+                // Add animation
+                btn.classList.add('button-added');
+                setTimeout(() => {
+                    btn.classList.remove('button-added');
+                }, 600);
             }
 
             // Update cart display and save to sessionStorage
