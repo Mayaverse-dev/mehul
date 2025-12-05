@@ -529,10 +529,13 @@
 
                 if (error) {
                     console.error('Stripe setup error:', error);
-                    showError(error.message || 'Failed to save card. Please try again.');
+                    console.error('Error type:', error.type);
+                    console.error('Error code:', error.code);
+                    const errorMessage = `${error.message}${error.code ? ' (' + error.code + ')' : ''}`;
+                    showError(errorMessage || 'Failed to save card. Please try again.');
                     payButton.disabled = false;
                     payButton.innerHTML = 'Pay $<span id="payment-amount">' + document.getElementById('payment-amount').textContent + '</span>';
-                } else if (setupIntent.status === 'succeeded') {
+                } else if (setupIntent && setupIntent.status === 'succeeded') {
                     // Card saved successfully - update order with payment method
                     await fetch('/api/save-payment-method', {
                         method: 'POST',
@@ -553,7 +556,8 @@
                 }
             } catch (error) {
                 console.error('Payment error:', error);
-                showError('Failed to save card. Please try again.');
+                console.error('Error message:', error.message);
+                showError(error.message || 'Failed to save card. Please try again.');
                 payButton.disabled = false;
                 payButton.innerHTML = 'Pay $<span id="payment-amount">' + document.getElementById('payment-amount').textContent + '</span>';
             }
