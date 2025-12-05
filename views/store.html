@@ -616,6 +616,13 @@
                 const response = await fetch('/api/products');
                 products = await response.json();
                 
+                // Ensure all prices are numbers
+                products = products.map(p => ({
+                    ...p,
+                    price: typeof p.price === 'string' ? parseFloat(p.price) : p.price,
+                    weight: p.weight || 0
+                }));
+                
                 // Find the hero pledge (The Benevolent Divya)
                 heroBook = products.find(p => 
                     p.name.toLowerCase().includes('benevolent divya')
@@ -623,7 +630,7 @@
                 
                 // If hero book found, update price in hero section
                 if (heroBook) {
-                    document.getElementById('hero-book-price').textContent = heroBook.price.toFixed(0);
+                    document.getElementById('hero-book-price').textContent = Math.round(heroBook.price);
                 }
                 
                 // Load and display pledge tiers
@@ -633,11 +640,17 @@
                 updateCart();
             } catch (error) {
                 console.error('Error loading products:', error);
+                console.error('Error details:', error.message, error.stack);
                 document.getElementById('products-grid').innerHTML = `
                     <div style="text-align: center; padding: 40px; grid-column: 1 / -1;">
                         <p style="color: var(--error-red);">Failed to load products. Please refresh the page.</p>
+                        <p style="color: #666; font-size: 14px; margin-top: 10px;">${error.message}</p>
                     </div>
                 `;
+                // At least show pledge tiers if available
+                if (products && products.length > 0) {
+                    displayPledgeTiers();
+                }
             }
         }
 
