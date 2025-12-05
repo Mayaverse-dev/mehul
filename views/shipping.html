@@ -570,9 +570,12 @@
                 
                 if (response.ok && data.shippingCost !== undefined) {
                     document.getElementById('shipping').textContent = '$' + data.shippingCost.toFixed(2);
+                    // Save to sessionStorage for checkout page
+                    sessionStorage.setItem('shippingCost', data.shippingCost.toString());
                 } else {
                     // Default shipping if calculation fails
                     document.getElementById('shipping').textContent = '$5.00';
+                    sessionStorage.setItem('shippingCost', '5.00');
                 }
                 
                 updateTotal();
@@ -624,8 +627,13 @@
                 const data = await response.json();
 
                 if (response.ok) {
+                    // Get current shipping cost from display
+                    const shippingText = document.getElementById('shipping').textContent;
+                    const shippingCost = parseFloat(shippingText.replace('$', '')) || 0;
+                    
                     // Save to sessionStorage for checkout page
                     sessionStorage.setItem('shippingAddress', JSON.stringify(formData));
+                    sessionStorage.setItem('shippingCost', shippingCost.toString());
                     
                     // Redirect to checkout (same page for everyone)
                     window.location.href = '/checkout';
