@@ -467,22 +467,35 @@ app.post('/api/create-payment-intent', async (req, res) => {
         const userId = isAuthenticated ? req.session.userId : null;
         const userEmail = isAuthenticated ? req.session.userEmail : (shippingAddress?.email || null);
         
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount: Math.round(amount * 100), // Convert to cents
-            currency: 'usd',
+        // Create or get Stripe customer
+        const customer = await stripe.customers.create({
+            email: userEmail,
+            name: shippingAddress?.fullName || 'Customer',
             metadata: {
                 userId: userId || 'guest',
-                userEmail: userEmail || 'unknown'
+                orderType: 'pre-order'
+            }
+        });
+        
+        // Create Setup Intent to save card for later charging
+        const setupIntent = await stripe.setupIntents.create({
+            customer: customer.id,
+            payment_method_types: ['card'],
+            metadata: {
+                userId: userId || 'guest',
+                userEmail: userEmail || 'unknown',
+                orderAmount: amount.toString()
             }
         });
         
         // Create order in database
         const addonsSubtotal = amount - shippingCost;
-        await execute(`INSERT INTO orders (
+        const orderId = await execute(`INSERT INTO orders (
             user_id, new_addons, shipping_address, 
             shipping_cost, addons_subtotal, total, 
-            stripe_payment_intent_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)`, 
+            stripe_customer_id, stripe_setup_intent_id,
+            payment_status, paid
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`, 
         [
             userId,
             JSON.stringify(cartItems),
@@ -490,13 +503,41 @@ app.post('/api/create-payment-intent', async (req, res) => {
             shippingCost,
             addonsSubtotal,
             amount,
-            paymentIntent.id
+            customer.id,
+            setupIntent.id,
+            'pending',
+            0
         ]);
         
-        res.json({ clientSecret: paymentIntent.client_secret });
+        res.json({ 
+            clientSecret: setupIntent.client_secret,
+            customerId: customer.id 
+        });
     } catch (error) {
-        console.error('Error creating payment intent:', error);
+        console.error('Error creating setup intent:', error);
         res.status(500).json({ error: 'Payment setup failed' });
+    }
+});
+
+// Save payment method after setup intent succeeds
+app.post('/api/save-payment-method', async (req, res) => {
+    const { setupIntentId, paymentMethodId } = req.body;
+    
+    try {
+        // Update order with payment method ID
+        await execute(`UPDATE orders 
+            SET stripe_payment_method_id = $1, payment_status = $2 
+            WHERE stripe_setup_intent_id = $3`, 
+        [
+            paymentMethodId,
+            'card_saved',
+            setupIntentId
+        ]);
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error saving payment method:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 

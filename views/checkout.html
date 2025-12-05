@@ -352,7 +352,7 @@
         let stripe;
         let elements;
         let cardElement;
-        let paymentIntentClientSecret;
+        let setupIntentClientSecret;
 
         // Initialize Stripe
         async function initializeStripe() {
@@ -455,7 +455,7 @@
             }
         }
 
-        // Create payment intent
+        // Create setup intent (save card for later charging)
         async function createPaymentIntent(amount, cart, shippingAddress, shippingCost) {
             try {
                 const response = await fetch('/api/create-payment-intent', {
@@ -472,7 +472,7 @@
                 const data = await response.json();
                 
                 if (!response.ok) {
-                    console.error('Payment intent error:', data);
+                    console.error('Setup intent error:', data);
                     showError(data.error || 'Failed to initialize payment. Please refresh the page.');
                     return;
                 }
@@ -483,10 +483,10 @@
                     return;
                 }
                 
-                paymentIntentClientSecret = data.clientSecret;
-                console.log('Payment intent created successfully');
+                setupIntentClientSecret = data.clientSecret;
+                console.log('Setup intent created successfully - card will be saved for later charging');
             } catch (error) {
-                console.error('Error creating payment intent:', error);
+                console.error('Error creating setup intent:', error);
                 showError('Failed to initialize payment. Please refresh the page.');
             }
         }
@@ -495,48 +495,54 @@
         document.getElementById('payment-form').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            if (!stripe || !cardElement || !paymentIntentClientSecret) {
+            if (!stripe || !cardElement || !setupIntentClientSecret) {
                 showError('Payment not ready. Please wait or refresh the page.');
                 return;
             }
 
             const payButton = document.getElementById('pay-button');
             payButton.disabled = true;
-            payButton.textContent = 'Processing...';
+            payButton.textContent = 'Saving Card...';
 
             try {
                 const shippingAddress = JSON.parse(sessionStorage.getItem('shippingAddress'));
                 
-                const { error, paymentIntent } = await stripe.confirmCardPayment(paymentIntentClientSecret, {
-                    payment_method: {
-                        card: cardElement,
-                        billing_details: {
-                            name: shippingAddress.fullName,
-                            email: shippingAddress.email,
-                            address: {
-                                line1: shippingAddress.addressLine1,
-                                line2: shippingAddress.addressLine2,
-                                city: shippingAddress.city,
-                                state: shippingAddress.state,
-                                postal_code: shippingAddress.postalCode,
-                                country: shippingAddress.country
+                // Confirm setup to save card for later charging
+                const { error, setupIntent } = await stripe.confirmSetup({
+                    elements,
+                    confirmParams: {
+                        return_url: window.location.origin + '/thankyou',
+                        payment_method_data: {
+                            billing_details: {
+                                name: shippingAddress.fullName,
+                                email: shippingAddress.email,
+                                address: {
+                                    line1: shippingAddress.addressLine1,
+                                    line2: shippingAddress.addressLine2,
+                                    city: shippingAddress.city,
+                                    state: shippingAddress.state,
+                                    postal_code: shippingAddress.postalCode,
+                                    country: shippingAddress.country
+                                }
                             }
                         }
-                    }
+                    },
+                    redirect: 'if_required'
                 });
 
                 if (error) {
-                    console.error('Stripe payment error:', error);
-                    showError(error.message || 'Payment failed. Please try again.');
+                    console.error('Stripe setup error:', error);
+                    showError(error.message || 'Failed to save card. Please try again.');
                     payButton.disabled = false;
                     payButton.innerHTML = 'Pay $<span id="payment-amount">' + document.getElementById('payment-amount').textContent + '</span>';
-                } else if (paymentIntent.status === 'succeeded') {
-                    // Confirm payment in database
-                    await fetch('/api/confirm-payment', {
+                } else if (setupIntent.status === 'succeeded') {
+                    // Card saved successfully - update order with payment method
+                    await fetch('/api/save-payment-method', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            paymentIntentId: paymentIntent.id
+                            setupIntentId: setupIntent.id,
+                            paymentMethodId: setupIntent.payment_method
                         })
                     });
 
@@ -550,7 +556,7 @@
                 }
             } catch (error) {
                 console.error('Payment error:', error);
-                showError('Payment failed. Please try again.');
+                showError('Failed to save card. Please try again.');
                 payButton.disabled = false;
                 payButton.innerHTML = 'Pay $<span id="payment-amount">' + document.getElementById('payment-amount').textContent + '</span>';
             }
