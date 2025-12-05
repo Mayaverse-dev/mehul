@@ -580,9 +580,9 @@ app.get('/guest/shipping', (req, res) => {
     res.redirect('/shipping');
 });
 
-// Guest checkout page
+// Guest checkout page - redirect to unified checkout
 app.get('/guest/checkout', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'guest-checkout.html'));
+    res.redirect('/checkout');
 });
 
 // Guest calculate shipping
