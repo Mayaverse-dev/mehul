@@ -353,6 +353,22 @@ app.get('/api/addons', async (req, res) => {
     }
 });
 
+// Get all products (pledges + add-ons)
+app.get('/api/products', async (req, res) => {
+    try {
+        // Get pledges from products table
+        const pledges = await query('SELECT * FROM products WHERE type = $1 AND active = 1', ['pledge']);
+        // Get add-ons from addons table
+        const addons = await query('SELECT * FROM addons WHERE active = 1');
+        // Combine both
+        const allProducts = [...pledges, ...addons];
+        res.json(allProducts);
+    } catch (err) {
+        console.error('Error fetching products:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // Get Stripe publishable key
 app.get('/api/stripe-key', (req, res) => {
     res.json({ 

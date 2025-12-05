@@ -613,7 +613,7 @@
         // Load products
         async function loadProducts() {
             try {
-                const response = await fetch('/api/addons');
+                const response = await fetch('/api/products');
                 products = await response.json();
                 
                 // Find the hero pledge (The Benevolent Divya)
