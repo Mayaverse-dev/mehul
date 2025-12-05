@@ -468,7 +468,21 @@
                 });
 
                 const data = await response.json();
+                
+                if (!response.ok) {
+                    console.error('Payment intent error:', data);
+                    showError(data.error || 'Failed to initialize payment. Please refresh the page.');
+                    return;
+                }
+                
+                if (!data.clientSecret) {
+                    console.error('No client secret received:', data);
+                    showError('Payment initialization failed. Please refresh the page.');
+                    return;
+                }
+                
                 paymentIntentClientSecret = data.clientSecret;
+                console.log('Payment intent created successfully');
             } catch (error) {
                 console.error('Error creating payment intent:', error);
                 showError('Failed to initialize payment. Please refresh the page.');

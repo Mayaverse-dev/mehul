@@ -462,12 +462,17 @@ app.post('/api/create-payment-intent', async (req, res) => {
     const { amount, cartItems, shippingAddress, shippingCost } = req.body;
     
     try {
+        // Determine if user is authenticated or guest
+        const isAuthenticated = req.session && req.session.userId;
+        const userId = isAuthenticated ? req.session.userId : null;
+        const userEmail = isAuthenticated ? req.session.userEmail : (shippingAddress?.email || null);
+        
         const paymentIntent = await stripe.paymentIntents.create({
             amount: Math.round(amount * 100), // Convert to cents
             currency: 'usd',
             metadata: {
-                userId: req.session.userId,
-                userEmail: req.session.userEmail
+                userId: userId || 'guest',
+                userEmail: userEmail || 'unknown'
             }
         });
         
@@ -476,16 +481,17 @@ app.post('/api/create-payment-intent', async (req, res) => {
         await execute(`INSERT INTO orders (
             user_id, new_addons, shipping_address, 
             shipping_cost, addons_subtotal, total, 
-            stripe_payment_intent_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)`, 
+            stripe_payment_intent_id, payment_status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, 
         [
-            req.session.userId,
+            userId,
             JSON.stringify(cartItems),
             JSON.stringify(shippingAddress),
             shippingCost,
             addonsSubtotal,
             amount,
-            paymentIntent.id
+            paymentIntent.id,
+            'pending'
         ]);
         
         res.json({ clientSecret: paymentIntent.client_secret });
