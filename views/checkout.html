@@ -508,26 +508,22 @@
                 const shippingAddress = JSON.parse(sessionStorage.getItem('shippingAddress'));
                 
                 // Confirm setup to save card for later charging
-                const { error, setupIntent } = await stripe.confirmSetup({
-                    elements,
-                    confirmParams: {
-                        return_url: window.location.origin + '/thankyou',
-                        payment_method_data: {
-                            billing_details: {
-                                name: shippingAddress.fullName,
-                                email: shippingAddress.email,
-                                address: {
-                                    line1: shippingAddress.addressLine1,
-                                    line2: shippingAddress.addressLine2,
-                                    city: shippingAddress.city,
-                                    state: shippingAddress.state,
-                                    postal_code: shippingAddress.postalCode,
-                                    country: shippingAddress.country
-                                }
+                const { error, setupIntent } = await stripe.confirmCardSetup(setupIntentClientSecret, {
+                    payment_method: {
+                        card: cardElement,
+                        billing_details: {
+                            name: shippingAddress.fullName,
+                            email: shippingAddress.email,
+                            address: {
+                                line1: shippingAddress.addressLine1,
+                                line2: shippingAddress.addressLine2,
+                                city: shippingAddress.city,
+                                state: shippingAddress.state,
+                                postal_code: shippingAddress.postalCode,
+                                country: shippingAddress.country
                             }
                         }
-                    },
-                    redirect: 'if_required'
+                    }
                 });
 
                 if (error) {

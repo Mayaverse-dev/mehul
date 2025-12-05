@@ -490,12 +490,12 @@ app.post('/api/create-payment-intent', async (req, res) => {
         
         // Create order in database
         const addonsSubtotal = amount - shippingCost;
-        const orderId = await execute(`INSERT INTO orders (
+        await execute(`INSERT INTO orders (
             user_id, new_addons, shipping_address, 
             shipping_cost, addons_subtotal, total, 
             stripe_customer_id, stripe_setup_intent_id,
             payment_status, paid
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`, 
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, 
         [
             userId,
             JSON.stringify(cartItems),
