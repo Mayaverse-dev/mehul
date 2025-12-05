@@ -461,61 +461,94 @@ app.get('/checkout', (req, res) => {
 app.post('/api/create-payment-intent', async (req, res) => {
     const { amount, cartItems, shippingAddress, shippingCost } = req.body;
     
+    console.log('=== Payment Setup Request ===');
+    console.log('Amount:', amount);
+    console.log('Cart Items:', cartItems?.length);
+    console.log('Shipping Address:', shippingAddress?.email);
+    
     try {
+        // Validate inputs
+        if (!amount || !cartItems || !shippingAddress) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+        
         // Determine if user is authenticated or guest
         const isAuthenticated = req.session && req.session.userId;
         const userId = isAuthenticated ? req.session.userId : null;
-        const userEmail = isAuthenticated ? req.session.userEmail : (shippingAddress?.email || null);
+        const userEmail = shippingAddress.email || (isAuthenticated ? req.session.userEmail : null);
         
-        // Create or get Stripe customer
-        const customer = await stripe.customers.create({
-            email: userEmail,
-            name: shippingAddress?.fullName || 'Customer',
-            metadata: {
-                userId: userId || 'guest',
-                orderType: 'pre-order'
-            }
-        });
+        console.log('Creating Stripe customer...');
+        // Create Stripe customer
+        let customer;
+        try {
+            customer = await stripe.customers.create({
+                email: userEmail,
+                name: shippingAddress.fullName,
+                metadata: {
+                    userId: userId ? userId.toString() : 'guest',
+                    orderType: 'pre-order'
+                }
+            });
+            console.log('✓ Customer created:', customer.id);
+        } catch (stripeError) {
+            console.error('Stripe customer creation failed:', stripeError.message);
+            return res.status(500).json({ error: 'Failed to create customer', details: stripeError.message });
+        }
         
+        console.log('Creating setup intent...');
         // Create Setup Intent to save card for later charging
-        const setupIntent = await stripe.setupIntents.create({
-            customer: customer.id,
-            payment_method_types: ['card'],
-            metadata: {
-                userId: userId || 'guest',
-                userEmail: userEmail || 'unknown',
-                orderAmount: amount.toString()
-            }
-        });
+        let setupIntent;
+        try {
+            setupIntent = await stripe.setupIntents.create({
+                customer: customer.id,
+                payment_method_types: ['card'],
+                metadata: {
+                    userId: userId ? userId.toString() : 'guest',
+                    userEmail: userEmail || 'unknown',
+                    orderAmount: amount.toString()
+                }
+            });
+            console.log('✓ Setup intent created:', setupIntent.id);
+        } catch (stripeError) {
+            console.error('Setup intent creation failed:', stripeError.message);
+            return res.status(500).json({ error: 'Failed to create setup intent', details: stripeError.message });
+        }
         
+        console.log('Saving order to database...');
         // Create order in database
         const addonsSubtotal = amount - shippingCost;
-        await execute(`INSERT INTO orders (
-            user_id, new_addons, shipping_address, 
-            shipping_cost, addons_subtotal, total, 
-            stripe_customer_id, stripe_setup_intent_id,
-            payment_status, paid
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, 
-        [
-            userId,
-            JSON.stringify(cartItems),
-            JSON.stringify(shippingAddress),
-            shippingCost,
-            addonsSubtotal,
-            amount,
-            customer.id,
-            setupIntent.id,
-            'pending',
-            0
-        ]);
+        try {
+            await execute(`INSERT INTO orders (
+                user_id, new_addons, shipping_address, 
+                shipping_cost, addons_subtotal, total, 
+                stripe_customer_id, stripe_setup_intent_id,
+                payment_status, paid
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, 
+            [
+                userId,
+                JSON.stringify(cartItems),
+                JSON.stringify(shippingAddress),
+                shippingCost,
+                addonsSubtotal,
+                amount,
+                customer.id,
+                setupIntent.id,
+                'pending',
+                0
+            ]);
+            console.log('✓ Order saved to database');
+        } catch (dbError) {
+            console.error('Database insert failed:', dbError.message);
+            return res.status(500).json({ error: 'Failed to save order', details: dbError.message });
+        }
         
+        console.log('✓ Payment setup complete');
         res.json({ 
             clientSecret: setupIntent.client_secret,
             customerId: customer.id 
         });
     } catch (error) {
-        console.error('Error creating setup intent:', error);
-        console.error('Error details:', error.message);
+        console.error('Unexpected error:', error);
         res.status(500).json({ 
             error: 'Payment setup failed',
             details: error.message 
