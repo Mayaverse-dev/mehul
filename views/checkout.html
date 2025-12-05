@@ -397,7 +397,7 @@
         }
 
         // Load checkout data
-        function loadCheckoutData() {
+        async function loadCheckoutData() {
             const cart = JSON.parse(sessionStorage.getItem('cart')) || [];
             const shippingAddress = JSON.parse(sessionStorage.getItem('shippingAddress'));
             const shippingCost = parseFloat(sessionStorage.getItem('shippingCost')) || 0;
@@ -449,7 +449,9 @@
 
             // Create payment intent
             if (total > 0) {
-                createPaymentIntent(total, cart, shippingAddress, shippingCost);
+                await createPaymentIntent(total, cart, shippingAddress, shippingCost);
+            } else {
+                showError('Invalid cart total. Please refresh the page.');
             }
         }
 
@@ -524,7 +526,8 @@
                 });
 
                 if (error) {
-                    showError(error.message);
+                    console.error('Stripe payment error:', error);
+                    showError(error.message || 'Payment failed. Please try again.');
                     payButton.disabled = false;
                     payButton.innerHTML = 'Pay $<span id="payment-amount">' + document.getElementById('payment-amount').textContent + '</span>';
                 } else if (paymentIntent.status === 'succeeded') {
