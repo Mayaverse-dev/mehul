@@ -465,8 +465,16 @@ app.post('/api/create-payment-intent', async (req, res) => {
     console.log('Amount:', amount);
     console.log('Cart Items:', cartItems?.length);
     console.log('Shipping Address:', shippingAddress?.email);
+    console.log('Stripe configured:', !!stripe);
+    console.log('Stripe secret key exists:', !!process.env.STRIPE_SECRET_KEY);
     
     try {
+        // Check if Stripe is configured
+        if (!stripe || !process.env.STRIPE_SECRET_KEY) {
+            console.error('Stripe not configured!');
+            return res.status(500).json({ error: 'Payment system not configured', details: 'Stripe API key missing' });
+        }
+        
         // Validate inputs
         if (!amount || !cartItems || !shippingAddress) {
             return res.status(400).json({ error: 'Missing required fields' });

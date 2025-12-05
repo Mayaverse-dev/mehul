@@ -473,7 +473,8 @@
                 
                 if (!response.ok) {
                     console.error('Setup intent error:', data);
-                    showError(data.error || 'Failed to initialize payment. Please refresh the page.');
+                    const errorMsg = data.details ? `${data.error}: ${data.details}` : data.error;
+                    showError(errorMsg || 'Failed to initialize payment. Please refresh the page.');
                     return;
                 }
                 
