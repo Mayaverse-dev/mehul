@@ -515,7 +515,11 @@ app.post('/api/create-payment-intent', async (req, res) => {
         });
     } catch (error) {
         console.error('Error creating setup intent:', error);
-        res.status(500).json({ error: 'Payment setup failed' });
+        console.error('Error details:', error.message);
+        res.status(500).json({ 
+            error: 'Payment setup failed',
+            details: error.message 
+        });
     }
 });
 
