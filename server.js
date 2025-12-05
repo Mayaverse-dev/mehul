@@ -356,10 +356,23 @@ app.get('/api/addons', async (req, res) => {
 // Get all products (pledges + add-ons)
 app.get('/api/products', async (req, res) => {
     try {
-        // Get pledges from products table
-        const pledges = await query('SELECT * FROM products WHERE type = $1 AND active = 1', ['pledge']);
+        let pledges = [];
+        let addons = [];
+        
+        // Try to get pledges from products table (may not exist in all environments)
+        try {
+            pledges = await query('SELECT * FROM products WHERE type = $1 AND active = 1', ['pledge']);
+        } catch (pledgeErr) {
+            console.log('Products table not available or empty, skipping pledges');
+        }
+        
         // Get add-ons from addons table
-        const addons = await query('SELECT * FROM addons WHERE active = 1');
+        try {
+            addons = await query('SELECT * FROM addons WHERE active = 1');
+        } catch (addonErr) {
+            console.error('Error fetching addons:', addonErr);
+        }
+        
         // Combine both
         const allProducts = [...pledges, ...addons];
         res.json(allProducts);
