@@ -481,8 +481,8 @@ app.post('/api/create-payment-intent', async (req, res) => {
         await execute(`INSERT INTO orders (
             user_id, new_addons, shipping_address, 
             shipping_cost, addons_subtotal, total, 
-            stripe_payment_intent_id, payment_status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, 
+            stripe_payment_intent_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)`, 
         [
             userId,
             JSON.stringify(cartItems),
@@ -490,8 +490,7 @@ app.post('/api/create-payment-intent', async (req, res) => {
             shippingCost,
             addonsSubtotal,
             amount,
-            paymentIntent.id,
-            'pending'
+            paymentIntent.id
         ]);
         
         res.json({ clientSecret: paymentIntent.client_secret });
