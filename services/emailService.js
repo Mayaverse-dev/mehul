@@ -1,7 +1,12 @@
 const { Resend } = require('resend');
 
-// Initialize Resend client
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend client (only if API key is provided)
+let resend = null;
+if (process.env.RESEND_API_KEY) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+} else {
+    console.warn('⚠️  RESEND_API_KEY not set. Email functionality will be disabled.');
+}
 
 const FROM_EMAIL = 'fulfillment@entermaya.com';
 const FROM_NAME = 'MAYA Fulfillment';
@@ -112,7 +117,7 @@ function getEmailTemplate(title, content) {
  * Send card saved confirmation email
  */
 async function sendCardSavedConfirmation(order) {
-    if (!process.env.RESEND_API_KEY) {
+    if (!resend) {
         console.warn('⚠️  Resend API key not configured - skipping email');
         return { success: false, error: 'Resend not configured' };
     }
@@ -203,7 +208,7 @@ async function sendCardSavedConfirmation(order) {
  * Send payment successful email
  */
 async function sendPaymentSuccessful(order, paymentIntentId) {
-    if (!process.env.RESEND_API_KEY) {
+    if (!resend) {
         console.warn('⚠️  Resend API key not configured - skipping email');
         return { success: false, error: 'Resend not configured' };
     }
@@ -300,7 +305,7 @@ async function sendPaymentSuccessful(order, paymentIntentId) {
  * Send payment failed email
  */
 async function sendPaymentFailed(order, errorMessage, errorCode) {
-    if (!process.env.RESEND_API_KEY) {
+    if (!resend) {
         console.warn('⚠️  Resend API key not configured - skipping email');
         return { success: false, error: 'Resend not configured' };
     }
@@ -381,7 +386,7 @@ async function sendPaymentFailed(order, errorMessage, errorCode) {
  * Send admin bulk charge summary email
  */
 async function sendAdminBulkChargeSummary(results) {
-    if (!process.env.RESEND_API_KEY) {
+    if (!resend) {
         console.warn('⚠️  Resend API key not configured - skipping email');
         return { success: false, error: 'Resend not configured' };
     }
