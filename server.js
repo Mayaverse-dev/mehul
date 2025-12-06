@@ -5,6 +5,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const session = require('express-session');
 const nodemailer = require('nodemailer');
 const path = require('path');
+const emailService = require('./services/emailService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -173,7 +174,24 @@ async function initializeDatabase() {
             name TEXT,
             created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
         )`);
-                console.log('✓ Admins table ready');
+        console.log('✓ Admins table ready');
+
+        // Email logs table
+        await execute(`CREATE TABLE IF NOT EXISTS email_logs (
+            id ${idType} PRIMARY KEY ${autoIncrement},
+            order_id INTEGER,
+            user_id INTEGER,
+            recipient_email TEXT NOT NULL,
+            email_type TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            status TEXT DEFAULT 'sent',
+            resend_message_id TEXT,
+            error_message TEXT,
+            sent_at ${timestampType} DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (order_id) REFERENCES orders (id),
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )`);
+        console.log('✓ Email logs table ready');
 
         // Create default admin
         await createDefaultAdmin();
@@ -183,9 +201,32 @@ async function initializeDatabase() {
     }
 }
 
+// Helper function to log emails to database
+async function logEmail({ orderId, userId, recipientEmail, emailType, subject, status, resendMessageId, errorMessage }) {
+    try {
+        await execute(`INSERT INTO email_logs (
+            order_id, user_id, recipient_email, email_type, subject, 
+            status, resend_message_id, error_message
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, 
+        [
+            orderId || null,
+            userId || null,
+            recipientEmail,
+            emailType,
+            subject,
+            status,
+            resendMessageId || null,
+            errorMessage || null
+        ]);
+    } catch (err) {
+        console.error('⚠️  Failed to log email to database:', err.message);
+        // Don't fail the operation if logging fails
+    }
+}
+
 // Create default admin account
 async function createDefaultAdmin() {
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+    const adminEmail = process.env.ADMIN_EMAIL || 'hello@entermaya.com';
     const adminPassword = process.env.ADMIN_PASSWORD || 'changeme123';
     
     try {
@@ -661,6 +702,28 @@ app.post('/api/save-payment-method', async (req, res) => {
         console.log('  - Payment Method ID:', finalPaymentMethodId);
         console.log('  - Order status: card_saved');
         
+        // Send card saved confirmation email
+        try {
+            const order = await queryOne('SELECT * FROM orders WHERE stripe_payment_intent_id = $1', [paymentIntentId]);
+            if (order) {
+                const emailResult = await emailService.sendCardSavedConfirmation(order);
+                // Log email to database
+                await logEmail({
+                    orderId: order.id,
+                    userId: order.user_id,
+                    recipientEmail: JSON.parse(order.shipping_address || '{}').email,
+                    emailType: 'card_saved',
+                    subject: `Order #${order.id} - Card Saved for Autodebit`,
+                    status: emailResult.success ? 'sent' : 'failed',
+                    resendMessageId: emailResult.messageId || null,
+                    errorMessage: emailResult.error || null
+                });
+            }
+        } catch (emailError) {
+            console.error('⚠️  Failed to send card saved confirmation email:', emailError.message);
+            // Don't fail the request if email fails
+        }
+        
         res.json({ 
             success: true,
             paymentMethodId: finalPaymentMethodId
@@ -828,6 +891,29 @@ app.post('/api/guest/save-payment-method', async (req, res) => {
             [paymentMethodId, order.id]);
         
         console.log('✓ Payment method saved for order:', order.id);
+        
+        // Send card saved confirmation email
+        try {
+            const fullOrder = await queryOne('SELECT * FROM orders WHERE id = $1', [order.id]);
+            if (fullOrder) {
+                const emailResult = await emailService.sendCardSavedConfirmation(fullOrder);
+                // Log email to database
+                await logEmail({
+                    orderId: fullOrder.id,
+                    userId: fullOrder.user_id,
+                    recipientEmail: customerEmail,
+                    emailType: 'card_saved',
+                    subject: `Order #${fullOrder.id} - Card Saved for Autodebit`,
+                    status: emailResult.success ? 'sent' : 'failed',
+                    resendMessageId: emailResult.messageId || null,
+                    errorMessage: emailResult.error || null
+                });
+            }
+        } catch (emailError) {
+            console.error('⚠️  Failed to send card saved confirmation email:', emailError.message);
+            // Don't fail the request if email fails
+        }
+        
         res.json({ success: true });
     } catch (err) {
         console.error('Error saving payment method:', err);
@@ -919,6 +1005,25 @@ app.post('/api/admin/bulk-charge-orders', requireAdmin, async (req, res) => {
 
                 console.log(`  ✓ Order #${order.id} charged successfully`);
 
+                // Send payment successful email
+                try {
+                    const emailResult = await emailService.sendPaymentSuccessful(order, paymentIntent.id);
+                    // Log email to database
+                    await logEmail({
+                        orderId: order.id,
+                        userId: order.user_id,
+                        recipientEmail: shippingAddress.email,
+                        emailType: 'payment_success',
+                        subject: `Order #${order.id} - Payment Confirmation`,
+                        status: emailResult.success ? 'sent' : 'failed',
+                        resendMessageId: emailResult.messageId || null,
+                        errorMessage: emailResult.error || null
+                    });
+                } catch (emailError) {
+                    console.error(`  ⚠️  Failed to send payment success email for order ${order.id}:`, emailError.message);
+                    // Don't fail the charge if email fails
+                }
+
             } catch (error) {
                 console.error(`  ✗ Failed to charge order ${order.id}`);
                 console.error(`    - Error: ${error.message}`);
@@ -939,6 +1044,25 @@ app.post('/api/admin/bulk-charge-orders', requireAdmin, async (req, res) => {
                     error: error.message,
                     errorCode: error.code
                 });
+
+                // Send payment failed email
+                try {
+                    const emailResult = await emailService.sendPaymentFailed(order, error.message, error.code);
+                    // Log email to database
+                    await logEmail({
+                        orderId: order.id,
+                        userId: order.user_id,
+                        recipientEmail: shippingAddress.email,
+                        emailType: 'payment_failed',
+                        subject: `Order #${order.id} - Payment Failed`,
+                        status: emailResult.success ? 'sent' : 'failed',
+                        resendMessageId: emailResult.messageId || null,
+                        errorMessage: emailResult.error || null
+                    });
+                } catch (emailError) {
+                    console.error(`  ⚠️  Failed to send payment failed email for order ${order.id}:`, emailError.message);
+                    // Don't fail the operation if email fails
+                }
             }
         }
 
@@ -958,6 +1082,25 @@ app.post('/api/admin/bulk-charge-orders', requireAdmin, async (req, res) => {
             results.failed.forEach(fail => {
                 console.log(`  - Order #${fail.orderId}: ${fail.error}`);
             });
+        }
+
+        // Send admin summary email
+        try {
+            const emailResult = await emailService.sendAdminBulkChargeSummary(results);
+            // Log email to database
+            await logEmail({
+                orderId: null,
+                userId: null,
+                recipientEmail: process.env.ADMIN_EMAIL,
+                emailType: 'admin_bulk_charge_summary',
+                subject: `Bulk Charge Summary - ${results.charged.length} Succeeded, ${results.failed.length} Failed`,
+                status: emailResult.success ? 'sent' : 'failed',
+                resendMessageId: emailResult.messageId || null,
+                errorMessage: emailResult.error || null
+            });
+        } catch (emailError) {
+            console.error('⚠️  Failed to send admin bulk charge summary email:', emailError.message);
+            // Don't fail the operation if email fails
         }
         
         res.json({
@@ -1023,6 +1166,28 @@ app.post('/api/admin/charge-order/:orderId', requireAdmin, async (req, res) => {
                 WHERE id = $2`, 
                 [paymentIntent.id, orderId]);
             
+            // Send payment successful email
+            try {
+                const shippingAddress = typeof order.shipping_address === 'string' 
+                    ? JSON.parse(order.shipping_address) 
+                    : order.shipping_address;
+                const emailResult = await emailService.sendPaymentSuccessful(order, paymentIntent.id);
+                // Log email to database
+                await logEmail({
+                    orderId: order.id,
+                    userId: order.user_id,
+                    recipientEmail: shippingAddress?.email,
+                    emailType: 'payment_success',
+                    subject: `Order #${order.id} - Payment Confirmation`,
+                    status: emailResult.success ? 'sent' : 'failed',
+                    resendMessageId: emailResult.messageId || null,
+                    errorMessage: emailResult.error || null
+                });
+            } catch (emailError) {
+                console.error('⚠️  Failed to send payment success email:', emailError.message);
+                // Don't fail the charge if email fails
+            }
+            
             res.json({ 
                 success: true, 
                 paymentIntentId: paymentIntent.id,
@@ -1036,6 +1201,28 @@ app.post('/api/admin/charge-order/:orderId', requireAdmin, async (req, res) => {
                 SET payment_status = 'charge_failed' 
                 WHERE id = $1`, 
                 [orderId]);
+            
+            // Send payment failed email
+            try {
+                const shippingAddress = typeof order.shipping_address === 'string' 
+                    ? JSON.parse(order.shipping_address) 
+                    : order.shipping_address;
+                const emailResult = await emailService.sendPaymentFailed(order, stripeError.message, stripeError.code);
+                // Log email to database
+                await logEmail({
+                    orderId: order.id,
+                    userId: order.user_id,
+                    recipientEmail: shippingAddress?.email,
+                    emailType: 'payment_failed',
+                    subject: `Order #${order.id} - Payment Failed`,
+                    status: emailResult.success ? 'sent' : 'failed',
+                    resendMessageId: emailResult.messageId || null,
+                    errorMessage: emailResult.error || null
+                });
+            } catch (emailError) {
+                console.error('⚠️  Failed to send payment failed email:', emailError.message);
+                // Don't fail the operation if email fails
+            }
             
             res.status(500).json({ 
                 error: 'Failed to charge card: ' + stripeError.message 
@@ -1156,6 +1343,35 @@ app.get('/api/admin/orders', requireAdmin, async (req, res) => {
         res.json(orders);
     } catch (err) {
         console.error('Error fetching orders:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// Get email logs
+app.get('/api/admin/email-logs', requireAdmin, async (req, res) => {
+    try {
+        const emailLogs = await query(`SELECT el.*, o.id as order_id_from_orders, u.email as user_email_from_users, u.backer_name
+            FROM email_logs el
+            LEFT JOIN orders o ON el.order_id = o.id
+            LEFT JOIN users u ON el.user_id = u.id
+            ORDER BY el.sent_at DESC LIMIT 500`);
+        
+        const stats = {};
+        const totalEmails = emailLogs.length;
+        const successfulEmails = emailLogs.filter(log => log.status === 'sent').length;
+        const failedEmails = emailLogs.filter(log => log.status === 'failed').length;
+        
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const last24Hours = emailLogs.filter(log => new Date(log.sent_at) > twentyFourHoursAgo).length;
+
+        stats.totalEmails = totalEmails;
+        stats.successfulEmails = successfulEmails;
+        stats.failedEmails = failedEmails;
+        stats.last24Hours = last24Hours;
+
+        res.json({ logs: emailLogs, stats: stats });
+    } catch (err) {
+        console.error('Error fetching email logs:', err);
         res.status(500).json({ error: 'Database error' });
     }
 });

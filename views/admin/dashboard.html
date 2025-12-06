@@ -420,6 +420,7 @@
             <div class="toggle-buttons">
                 <button class="toggle-btn" id="btn-new-customers" onclick="switchView('new-customers')">New customers</button>
                 <button class="toggle-btn active" id="btn-backers" onclick="switchView('backers')">Backers</button>
+                <button class="toggle-btn" id="btn-email-logs" onclick="switchView('email-logs')">Email Logs</button>
             </div>
         </div>
 
@@ -488,12 +489,15 @@
             // Update button states
             document.getElementById('btn-new-customers').classList.toggle('active', view === 'new-customers');
             document.getElementById('btn-backers').classList.toggle('active', view === 'backers');
+            document.getElementById('btn-email-logs').classList.toggle('active', view === 'email-logs');
             
             // Render appropriate view
             if (view === 'backers') {
                 renderBackersView();
-            } else {
+            } else if (view === 'new-customers') {
                 renderNewCustomersView();
+            } else if (view === 'email-logs') {
+                renderEmailLogsView();
             }
         }
 
@@ -571,6 +575,124 @@
 
             // Load new customers data
             loadNewCustomersData();
+        }
+
+        // Render Email Logs View
+        function renderEmailLogsView() {
+            // Update stats
+            const statsGrid = document.getElementById('stats-grid');
+            statsGrid.innerHTML = `
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-total-emails">0</div>
+                    <div class="stat-label">Total Emails Sent</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-success-emails">0</div>
+                    <div class="stat-label">Successful</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-failed-emails">0</div>
+                    <div class="stat-label">Failed</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-recent-emails">0</div>
+                    <div class="stat-label">Last 24 Hours</div>
+                </div>
+            `;
+
+            // Update table headers
+            document.getElementById('table-head').innerHTML = `
+                <tr>
+                    <th>Sent At</th>
+                    <th>Type</th>
+                    <th>Recipient</th>
+                    <th>Order ID</th>
+                    <th>Subject</th>
+                    <th>Status</th>
+                    <th>Message ID</th>
+                </tr>
+            `;
+
+            // Load email logs data
+            loadEmailLogsData();
+        }
+
+        // Load Email Logs Data
+        async function loadEmailLogsData() {
+            try {
+                const response = await fetch('/api/admin/email-logs');
+                const data = await response.json();
+                
+                // Handle both old format (array) and new format (object with logs property)
+                const logs = Array.isArray(data) ? data : (data.logs || []);
+                const stats = data.stats || {};
+
+                // Update stats from API response or calculate
+                document.getElementById('stat-total-emails').textContent = stats.totalEmails || logs.length;
+                document.getElementById('stat-success-emails').textContent = stats.successfulEmails || logs.filter(log => log.status === 'sent').length;
+                document.getElementById('stat-failed-emails').textContent = stats.failedEmails || logs.filter(log => log.status === 'failed').length;
+                document.getElementById('stat-recent-emails').textContent = stats.last24Hours || (() => {
+                    const now = new Date();
+                    return logs.filter(log => {
+                        const sentAt = new Date(log.sent_at);
+                        return (now - sentAt) < 24 * 60 * 60 * 1000;
+                    }).length;
+                })();
+
+                // Render table
+                renderEmailLogsTable(logs);
+            } catch (error) {
+                console.error('Error loading email logs:', error);
+                document.getElementById('table-body').innerHTML = `
+                    <tr><td colspan="7" class="empty-state" style="color: #ef4444;">Error loading email logs: ${error.message}</td></tr>
+                `;
+            }
+        }
+
+        // Render Email Logs Table
+        function renderEmailLogsTable(logs) {
+            const tbody = document.getElementById('table-body');
+            
+            if (logs.length === 0) {
+                tbody.innerHTML = `
+                    <tr><td colspan="7" class="empty-state">No email logs found</td></tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = logs.map(log => {
+                const sentAt = new Date(log.sent_at);
+                const formattedDate = sentAt.toLocaleString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                const emailTypeLabels = {
+                    'card_saved': 'Card Saved',
+                    'payment_success': 'Payment Success',
+                    'payment_failed': 'Payment Failed',
+                    'admin_bulk_charge_summary': 'Admin Summary'
+                };
+
+                const statusBadge = log.status === 'sent' 
+                    ? '<span class="badge badge-success">Sent</span>'
+                    : '<span class="badge badge-error">Failed</span>';
+
+                return `
+                    <tr>
+                        <td>${formattedDate}</td>
+                        <td>${emailTypeLabels[log.email_type] || log.email_type}</td>
+                        <td>${log.recipient_email || 'N/A'}</td>
+                        <td>${log.order_id ? '#' + log.order_id : '-'}</td>
+                        <td style="text-align: left; max-width: 300px; overflow: hidden; text-overflow: ellipsis;" title="${log.subject || ''}">${log.subject || 'N/A'}</td>
+                        <td>${statusBadge}</td>
+                        <td style="font-size: 11px; font-family: monospace;">${log.resend_message_id || '-'}</td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         // Load Backers Data
