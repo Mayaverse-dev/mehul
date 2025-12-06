@@ -823,11 +823,18 @@
 
         // Bulk Charge Orders
         async function bulkChargeOrders() {
-            if (!confirm('⚠️ This will charge ALL customers who have saved cards.\n\nAre you sure?')) {
+            if (!confirm('⚠️ AUTODEBIT BULK CHARGE\n\nThis will charge ALL customers who have saved cards.\n\nAre you sure you want to proceed?')) {
                 return;
             }
 
+            // Show loading state
+            const button = event.target;
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Processing...';
+
             try {
+                console.log('Starting bulk charge...');
                 const response = await fetch('/api/admin/bulk-charge-orders', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
@@ -836,23 +843,41 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    let message = `✅ BULK CHARGE COMPLETE\n\n`;
-                    message += `Total: ${data.total}\n`;
-                    message += `✅ Charged: ${data.charged}\n`;
+                    let message = `✅ AUTODEBIT BULK CHARGE COMPLETE\n\n`;
+                    message += `📊 Total Orders: ${data.total}\n`;
+                    message += `✅ Successfully Charged: ${data.charged}\n`;
                     message += `❌ Failed: ${data.failed}\n`;
-                    alert(message);
                     
+                    if (data.totalAmountCharged) {
+                        message += `\n💰 Total Amount Charged: $${data.totalAmountCharged.toFixed(2)}\n`;
+                    }
+                    
+                    if (data.failed > 0 && data.details && data.details.failed) {
+                        message += `\n\nFailed Orders:\n`;
+                        data.details.failed.forEach(fail => {
+                            message += `  • Order #${fail.orderId}: ${fail.error}\n`;
+                        });
+                    }
+                    
+                    alert(message);
+                    console.log('Bulk charge results:', data);
+                    
+                    // Refresh data
                     if (currentView === 'backers') {
                         loadBackersData();
                     } else {
                         loadNewCustomersData();
                     }
                 } else {
-                    alert(`❌ Bulk charge failed:\n${data.error}`);
+                    alert(`❌ Bulk charge failed:\n${data.error}\n\nDetails: ${data.details || 'Unknown error'}`);
+                    console.error('Bulk charge error:', data);
                 }
             } catch (error) {
                 console.error('Error during bulk charge:', error);
-                alert('❌ Error processing bulk charge.');
+                alert(`❌ Error processing bulk charge:\n${error.message}`);
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
             }
         }
 

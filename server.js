@@ -355,30 +355,41 @@ app.get('/api/addons', async (req, res) => {
 
 // Get all products (pledges + add-ons)
 app.get('/api/products', async (req, res) => {
+    console.log('\n=== API: Get Products ===');
     try {
         let pledges = [];
         let addons = [];
         
-        // Try to get pledges from products table (may not exist in all environments)
+        // Get pledges from products table (Mehul's structure: pledges in products table)
         try {
             pledges = await query('SELECT * FROM products WHERE type = $1 AND active = 1', ['pledge']);
+            console.log(`✓ Found ${pledges.length} pledge(s) in products table`);
+            if (pledges.length > 0) {
+                console.log('  Pledges:', pledges.map(p => p.name).join(', '));
+            }
         } catch (pledgeErr) {
-            console.log('Products table not available or empty, skipping pledges');
+            console.log('⚠ Products table not available or error:', pledgeErr.message);
+            // Products table doesn't exist - no pledges available
+            pledges = [];
         }
         
-        // Get add-ons from addons table
+        // Get add-ons from addons table (Mehul's structure: add-ons only in addons table)
         try {
             addons = await query('SELECT * FROM addons WHERE active = 1');
+            console.log(`✓ Found ${addons.length} add-on(s) in addons table`);
         } catch (addonErr) {
-            console.error('Error fetching addons:', addonErr);
+            console.error('✗ Error fetching addons:', addonErr.message);
+            addons = [];
         }
         
         // Combine both
         const allProducts = [...pledges, ...addons];
+        console.log(`✓ Returning ${allProducts.length} total products (${pledges.length} pledges, ${addons.length} add-ons)`);
         res.json(allProducts);
     } catch (err) {
-        console.error('Error fetching products:', err);
-        res.status(500).json({ error: 'Database error' });
+        console.error('✗ Error fetching products:', err.message);
+        console.error('  Stack:', err.stack);
+        res.status(500).json({ error: 'Database error', details: err.message });
     }
 });
 
@@ -461,10 +472,11 @@ app.get('/checkout', (req, res) => {
 app.post('/api/create-payment-intent', async (req, res) => {
     const { amount, cartItems, shippingAddress, shippingCost } = req.body;
     
-    console.log('=== Payment Setup Request ===');
-    console.log('Amount:', amount);
-    console.log('Cart Items:', cartItems?.length);
-    console.log('Shipping Address:', shippingAddress?.email);
+    console.log('\n=== Payment Intent Creation Request ===');
+    console.log('Amount: $' + amount);
+    console.log('Cart Items:', cartItems?.length || 0);
+    console.log('Shipping Address Email:', shippingAddress?.email || 'N/A');
+    console.log('Shipping Cost: $' + (shippingCost || 0));
     console.log('Stripe configured:', !!stripe);
     console.log('Stripe secret key exists:', !!process.env.STRIPE_SECRET_KEY);
     
@@ -494,32 +506,51 @@ app.post('/api/create-payment-intent', async (req, res) => {
                 name: shippingAddress.fullName,
                 metadata: {
                     userId: userId ? userId.toString() : 'guest',
-                    orderType: 'pre-order'
+                    orderType: 'pre-order-autodebit'
                 }
             });
             console.log('✓ Customer created:', customer.id);
+            console.log('  - Email:', userEmail || 'N/A');
+            console.log('  - Name:', shippingAddress.fullName);
+            console.log('  - User ID:', userId || 'guest');
         } catch (stripeError) {
-            console.error('Stripe customer creation failed:', stripeError.message);
+            console.error('✗ Stripe customer creation failed');
+            console.error('  - Error:', stripeError.message);
+            console.error('  - Error type:', stripeError.type);
+            console.error('  - Error code:', stripeError.code);
             return res.status(500).json({ error: 'Failed to create customer', details: stripeError.message });
         }
         
-        console.log('Creating setup intent...');
-        // Create Setup Intent to save card for later charging
-        let setupIntent;
+        console.log('Creating Payment Intent with setup_future_usage...');
+        // Create Payment Intent with manual confirmation to save card for later charging
+        // Amount in cents, manual confirmation means no charge now
+        const amountInCents = Math.round(amount * 100);
+        let paymentIntent;
         try {
-            setupIntent = await stripe.setupIntents.create({
+            paymentIntent = await stripe.paymentIntents.create({
+                amount: amountInCents,
+                currency: 'usd',
                 customer: customer.id,
+                setup_future_usage: 'off_session', // Save card for future off-session charges
+                confirmation_method: 'automatic', // Allow frontend to confirm
+                capture_method: 'manual', // Authorize but don't capture (charge) immediately
                 payment_method_types: ['card'],
                 metadata: {
                     userId: userId ? userId.toString() : 'guest',
                     userEmail: userEmail || 'unknown',
-                    orderAmount: amount.toString()
+                    orderAmount: amount.toString(),
+                    orderType: 'pre-order-autodebit'
                 }
             });
-            console.log('✓ Setup intent created:', setupIntent.id);
+            console.log('✓ Payment Intent created:', paymentIntent.id);
+            console.log('  - Amount:', amountInCents, 'cents ($' + amount + ')');
+            console.log('  - Customer:', customer.id);
+            console.log('  - Status:', paymentIntent.status);
         } catch (stripeError) {
-            console.error('Setup intent creation failed:', stripeError.message);
-            return res.status(500).json({ error: 'Failed to create setup intent', details: stripeError.message });
+            console.error('✗ Payment Intent creation failed:', stripeError.message);
+            console.error('  - Error type:', stripeError.type);
+            console.error('  - Error code:', stripeError.code);
+            return res.status(500).json({ error: 'Failed to create payment intent', details: stripeError.message });
         }
         
         console.log('Saving order to database...');
@@ -529,7 +560,7 @@ app.post('/api/create-payment-intent', async (req, res) => {
             await execute(`INSERT INTO orders (
                 user_id, new_addons, shipping_address, 
                 shipping_cost, addons_subtotal, total, 
-                stripe_customer_id, stripe_setup_intent_id,
+                stripe_customer_id, stripe_payment_intent_id,
                 payment_status, paid
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, 
             [
@@ -540,23 +571,28 @@ app.post('/api/create-payment-intent', async (req, res) => {
                 addonsSubtotal,
                 amount,
                 customer.id,
-                setupIntent.id,
+                paymentIntent.id,
                 'pending',
                 0
             ]);
             console.log('✓ Order saved to database');
+            console.log('  - Order total: $' + amount);
+            console.log('  - Payment Intent ID:', paymentIntent.id);
         } catch (dbError) {
-            console.error('Database insert failed:', dbError.message);
+            console.error('✗ Database insert failed:', dbError.message);
             return res.status(500).json({ error: 'Failed to save order', details: dbError.message });
         }
         
-        console.log('✓ Payment setup complete');
+        console.log('✓ Payment setup complete - card will be saved for autodebit');
         res.json({ 
-            clientSecret: setupIntent.client_secret,
-            customerId: customer.id 
+            clientSecret: paymentIntent.client_secret,
+            customerId: customer.id,
+            paymentIntentId: paymentIntent.id
         });
     } catch (error) {
-        console.error('Unexpected error:', error);
+        console.error('\n✗ Unexpected error in payment setup');
+        console.error('  - Error:', error.message);
+        console.error('  - Stack:', error.stack);
         res.status(500).json({ 
             error: 'Payment setup failed',
             details: error.message 
@@ -564,24 +600,74 @@ app.post('/api/create-payment-intent', async (req, res) => {
     }
 });
 
-// Save payment method after setup intent succeeds
-app.post('/api/save-payment-method', async (req, res) => {
-    const { setupIntentId, paymentMethodId } = req.body;
+// Cancel payment authorization (release funds hold while keeping card saved)
+app.post('/api/cancel-payment-authorization', async (req, res) => {
+    const { paymentIntentId } = req.body;
+    
+    console.log('\n=== Cancelling Payment Authorization ===');
+    console.log('Payment Intent ID:', paymentIntentId);
     
     try {
+        // Cancel the payment intent (releases authorization hold)
+        const cancelled = await stripe.paymentIntents.cancel(paymentIntentId);
+        console.log('✓ Payment authorization cancelled');
+        console.log('  - Status:', cancelled.status);
+        console.log('  - Card still saved for future use via setup_future_usage');
+        
+        res.json({ success: true, status: cancelled.status });
+    } catch (err) {
+        console.error('✗ Error cancelling authorization:', err.message);
+        // Don't fail the request - card is already saved
+        res.json({ success: false, error: err.message });
+    }
+});
+
+// Save payment method after payment intent succeeds
+app.post('/api/save-payment-method', async (req, res) => {
+    const { paymentIntentId, paymentMethodId } = req.body;
+    
+    console.log('=== Saving Payment Method ===');
+    console.log('Payment Intent ID:', paymentIntentId);
+    console.log('Payment Method ID:', paymentMethodId);
+    
+    try {
+        // If paymentMethodId not provided, retrieve it from Payment Intent
+        let finalPaymentMethodId = paymentMethodId;
+        
+        if (!finalPaymentMethodId && paymentIntentId) {
+            console.log('Retrieving Payment Intent from Stripe...');
+            const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+            finalPaymentMethodId = paymentIntent.payment_method;
+            console.log('✓ Extracted payment method from Payment Intent:', finalPaymentMethodId);
+        }
+        
+        if (!finalPaymentMethodId) {
+            console.error('✗ No payment method ID available');
+            return res.status(400).json({ error: 'Payment method ID is required' });
+        }
+        
         // Update order with payment method ID
+        console.log('Updating order in database...');
         await execute(`UPDATE orders 
             SET stripe_payment_method_id = $1, payment_status = $2 
-            WHERE stripe_setup_intent_id = $3`, 
+            WHERE stripe_payment_intent_id = $3`, 
         [
-            paymentMethodId,
+            finalPaymentMethodId,
             'card_saved',
-            setupIntentId
+            paymentIntentId
         ]);
         
-        res.json({ success: true });
+        console.log('✓ Payment method saved successfully');
+        console.log('  - Payment Method ID:', finalPaymentMethodId);
+        console.log('  - Order status: card_saved');
+        
+        res.json({ 
+            success: true,
+            paymentMethodId: finalPaymentMethodId
+        });
     } catch (err) {
-        console.error('Error saving payment method:', err);
+        console.error('✗ Error saving payment method:', err.message);
+        console.error('  - Error type:', err.type);
         res.status(500).json({ error: err.message });
     }
 });
@@ -637,37 +723,51 @@ app.post('/api/guest/calculate-shipping', (req, res) => {
     res.json({ shippingCost });
 });
 
-// Guest create setup intent (save card, charge later)
+// Guest create payment intent (save card, charge later)
 app.post('/api/guest/create-payment-intent', async (req, res) => {
     const { amount, cartItems, shippingAddress, shippingCost, customerEmail } = req.body;
+    
+    console.log('\n=== Guest Payment Intent Creation ===');
+    console.log('Amount: $' + amount);
+    console.log('Customer Email:', customerEmail);
     
     try {
         // Create or retrieve Stripe customer
         const customer = await stripe.customers.create({
             email: customerEmail,
-            name: shippingAddress.name,
+            name: shippingAddress.name || shippingAddress.fullName,
             metadata: {
-                orderType: 'pre-order'
+                orderType: 'pre-order-autodebit',
+                userType: 'guest'
             }
         });
+        console.log('✓ Guest customer created:', customer.id);
         
-        // Create Setup Intent to save card for later charging
-        const setupIntent = await stripe.setupIntents.create({
+        // Create Payment Intent with automatic confirmation to save card for later charging
+        const amountInCents = Math.round(amount * 100);
+        const paymentIntent = await stripe.paymentIntents.create({
+            amount: amountInCents,
+            currency: 'usd',
             customer: customer.id,
+            setup_future_usage: 'off_session', // Save card for future off-session charges
+            confirmation_method: 'automatic', // Allow frontend to confirm
+            capture_method: 'manual', // Authorize but don't capture (charge) immediately
             payment_method_types: ['card'],
             metadata: {
                 customerEmail: customerEmail || 'guest',
-                orderType: 'pre-order',
-                totalAmount: Math.round(amount * 100).toString()
+                orderType: 'pre-order-autodebit',
+                userType: 'guest',
+                totalAmount: amountInCents.toString()
             }
         });
+        console.log('✓ Guest Payment Intent created:', paymentIntent.id);
         
         // Create guest order in database
         const addonsSubtotal = amount - shippingCost;
         await execute(`INSERT INTO orders (
             user_id, new_addons, shipping_address, 
             shipping_cost, addons_subtotal, total, 
-            stripe_customer_id, stripe_setup_intent_id,
+            stripe_customer_id, stripe_payment_intent_id,
             payment_status, paid
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, 
         [
@@ -678,15 +778,20 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
             addonsSubtotal,
             amount,
             customer.id,
-            setupIntent.id,
-            'card_saved', // Card saved, not charged yet
+            paymentIntent.id,
+            'pending', // Will be updated to 'card_saved' after confirmation
             0 // Not paid yet
         ]);
+        console.log('✓ Guest order saved to database');
         
-        res.json({ clientSecret: setupIntent.client_secret });
+        res.json({ 
+            clientSecret: paymentIntent.client_secret,
+            paymentIntentId: paymentIntent.id
+        });
     } catch (error) {
-        console.error('Error creating setup intent:', error);
-        res.status(500).json({ error: 'Payment setup failed' });
+        console.error('✗ Error creating guest Payment Intent:', error.message);
+        console.error('  - Error type:', error.type);
+        res.status(500).json({ error: 'Payment setup failed', details: error.message });
     }
 });
 
@@ -732,6 +837,10 @@ app.post('/api/guest/save-payment-method', async (req, res) => {
 
 // Admin endpoint to bulk charge all orders with saved cards
 app.post('/api/admin/bulk-charge-orders', requireAdmin, async (req, res) => {
+    console.log('\n=== BULK CHARGE ORDERS REQUEST ===');
+    console.log('Admin ID:', req.session.adminId);
+    console.log('Timestamp:', new Date().toISOString());
+    
     try {
         // Get all orders with saved cards that haven't been charged yet
         const orders = await query(`SELECT * FROM orders 
@@ -740,7 +849,10 @@ app.post('/api/admin/bulk-charge-orders', requireAdmin, async (req, res) => {
             AND stripe_customer_id IS NOT NULL 
             AND stripe_payment_method_id IS NOT NULL`);
 
+        console.log(`Found ${orders.length} orders with saved cards ready to charge`);
+
         if (orders.length === 0) {
+            console.log('✓ No orders to charge');
             return res.json({ 
                 success: true,
                 message: 'No orders to charge',
@@ -756,22 +868,37 @@ app.post('/api/admin/bulk-charge-orders', requireAdmin, async (req, res) => {
             total: orders.length
         };
 
+        console.log(`\nProcessing ${orders.length} orders...`);
+
         // Process each order
-        for (const order of orders) {
+        for (let i = 0; i < orders.length; i++) {
+            const order = orders[i];
+            console.log(`\n[${i + 1}/${orders.length}] Processing Order #${order.id}`);
+            console.log(`  - Amount: $${order.total}`);
+            console.log(`  - Customer: ${order.stripe_customer_id}`);
+            console.log(`  - Payment Method: ${order.stripe_payment_method_id}`);
+            
             try {
-                // Charge the saved card
+                // Charge the saved card using off-session payment
+                const amountInCents = Math.round(order.total * 100);
+                console.log(`  - Charging ${amountInCents} cents ($${order.total})...`);
+                
                 const paymentIntent = await stripe.paymentIntents.create({
-                    amount: Math.round(order.total * 100), // Convert to cents
+                    amount: amountInCents,
                     currency: 'usd',
                     customer: order.stripe_customer_id,
                     payment_method: order.stripe_payment_method_id,
-                    off_session: true,
-                    confirm: true,
+                    off_session: true, // Important: indicates customer is not present
+                    confirm: true, // Automatically confirm and charge
                     metadata: {
                         orderId: order.id.toString(),
-                        orderType: 'bulk-charge'
+                        orderType: 'bulk-charge-autodebit',
+                        chargedAt: new Date().toISOString()
                     }
                 });
+
+                console.log(`  ✓ Payment Intent created: ${paymentIntent.id}`);
+                console.log(`  ✓ Status: ${paymentIntent.status}`);
 
                 // Update order status
                 await execute(`UPDATE orders 
@@ -782,15 +909,21 @@ app.post('/api/admin/bulk-charge-orders', requireAdmin, async (req, res) => {
                     WHERE id = $2`, 
                     [paymentIntent.id, order.id]);
 
+                const shippingAddress = JSON.parse(order.shipping_address);
                 results.charged.push({
                     orderId: order.id,
-                    email: JSON.parse(order.shipping_address).email,
+                    email: shippingAddress.email,
                     amount: order.total,
                     paymentIntentId: paymentIntent.id
                 });
 
+                console.log(`  ✓ Order #${order.id} charged successfully`);
+
             } catch (error) {
-                console.error(`Failed to charge order ${order.id}:`, error);
+                console.error(`  ✗ Failed to charge order ${order.id}`);
+                console.error(`    - Error: ${error.message}`);
+                console.error(`    - Error type: ${error.type}`);
+                console.error(`    - Error code: ${error.code}`);
                 
                 // Mark as failed
                 await execute(`UPDATE orders 
@@ -798,27 +931,51 @@ app.post('/api/admin/bulk-charge-orders', requireAdmin, async (req, res) => {
                     WHERE id = $1`, 
                     [order.id]);
 
+                const shippingAddress = JSON.parse(order.shipping_address);
                 results.failed.push({
                     orderId: order.id,
-                    email: JSON.parse(order.shipping_address).email,
+                    email: shippingAddress.email,
                     amount: order.total,
-                    error: error.message
+                    error: error.message,
+                    errorCode: error.code
                 });
             }
         }
 
         // Return summary
+        console.log('\n=== BULK CHARGE SUMMARY ===');
+        console.log(`Total orders: ${results.total}`);
+        console.log(`✓ Successfully charged: ${results.charged.length}`);
+        console.log(`✗ Failed: ${results.failed.length}`);
+        
+        if (results.charged.length > 0) {
+            const totalCharged = results.charged.reduce((sum, order) => sum + order.amount, 0);
+            console.log(`Total amount charged: $${totalCharged.toFixed(2)}`);
+        }
+        
+        if (results.failed.length > 0) {
+            console.log('\nFailed orders:');
+            results.failed.forEach(fail => {
+                console.log(`  - Order #${fail.orderId}: ${fail.error}`);
+            });
+        }
+        
         res.json({
             success: true,
             message: `Bulk charge completed: ${results.charged.length} succeeded, ${results.failed.length} failed`,
             charged: results.charged.length,
             failed: results.failed.length,
             total: results.total,
+            totalAmountCharged: results.charged.reduce((sum, order) => sum + order.amount, 0),
             details: results
         });
     } catch (error) {
-        console.error('Error in bulk charge:', error);
-        res.status(500).json({ error: 'Failed to process bulk charge' });
+        console.error('\n✗ Error in bulk charge:', error.message);
+        console.error('  - Stack:', error.stack);
+        res.status(500).json({ 
+            error: 'Failed to process bulk charge',
+            details: error.message 
+        });
     }
 });
 

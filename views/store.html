@@ -613,8 +613,15 @@
         // Load products
         async function loadProducts() {
             try {
+                console.log('Loading products from API...');
                 const response = await fetch('/api/products');
+                
+                if (!response.ok) {
+                    throw new Error(`API returned ${response.status}: ${response.statusText}`);
+                }
+                
                 products = await response.json();
+                console.log(`✓ Loaded ${products.length} products from API`);
                 
                 // Ensure all prices are numbers
                 products = products.map(p => ({
@@ -628,9 +635,25 @@
                     p.name.toLowerCase().includes('benevolent divya')
                 );
                 
-                // If hero book found, update price in hero section
                 if (heroBook) {
-                    document.getElementById('hero-book-price').textContent = Math.round(heroBook.price);
+                    console.log('✓ Hero book found:', heroBook.name, `($${heroBook.price})`);
+                    // If hero book found, update price in hero section
+                    const priceEl = document.getElementById('hero-book-price');
+                    if (priceEl) {
+                        priceEl.textContent = Math.round(heroBook.price);
+                    }
+                } else {
+                    console.warn('⚠ Hero book "Benevolent Divya" not found in products');
+                    console.warn('  Available products:', products.map(p => p.name).join(', '));
+                    // Create a fallback hero book with hardcoded values
+                    heroBook = {
+                        id: 'hero-benevolent-divya',
+                        name: 'The Benevolent Divya',
+                        price: 190,
+                        weight: 0,
+                        type: 'pledge'
+                    };
+                    console.log('  Created fallback hero book for display');
                 }
                 
                 // Load and display pledge tiers
@@ -639,8 +662,19 @@
                 displayProducts();
                 updateCart();
             } catch (error) {
-                console.error('Error loading products:', error);
-                console.error('Error details:', error.message, error.stack);
+                console.error('✗ Error loading products:', error);
+                console.error('  - Error message:', error.message);
+                console.error('  - Error stack:', error.stack);
+                
+                // Create fallback hero book
+                heroBook = {
+                    id: 'hero-benevolent-divya',
+                    name: 'The Benevolent Divya',
+                    price: 190,
+                    weight: 0,
+                    type: 'pledge'
+                };
+                
                 document.getElementById('products-grid').innerHTML = `
                     <div style="text-align: center; padding: 40px; grid-column: 1 / -1;">
                         <p style="color: var(--error-red);">Failed to load products. Please refresh the page.</p>
@@ -752,8 +786,21 @@
 
         // Hero section add to cart
         function addHeroBookToCart() {
+            console.log('addHeroBookToCart called');
+            console.log('  - heroBook:', heroBook);
+            console.log('  - products:', products?.length || 0);
+            
             if (!heroBook) {
-                alert('Book not available. Please refresh the page.');
+                console.error('✗ Hero book not available');
+                console.error('  - Attempting to reload products...');
+                loadProducts().then(() => {
+                    if (heroBook) {
+                        console.log('  ✓ Products reloaded, hero book now available');
+                        addHeroBookToCart(); // Retry
+                    } else {
+                        alert('Book not available. Please refresh the page.\n\nIf this persists, the product may not be in the database.');
+                    }
+                });
                 return;
             }
 
@@ -1323,8 +1370,8 @@
             payBtn.innerHTML = 'Saving Card Details...';
 
             try {
-                // Use confirmCardSetup instead of confirmCardPayment to save card without charging
-                const { error, setupIntent } = await stripe.confirmCardSetup(paymentIntentClientSecret, {
+                // Use confirmCardPayment with manual confirmation to save card without charging
+                const { error, paymentIntent } = await stripe.confirmCardPayment(paymentIntentClientSecret, {
                     payment_method: {
                         card: cardElement,
                         billing_details: {
@@ -1338,9 +1385,10 @@
                     throw new Error(error.message);
                 }
 
-                if (setupIntent.status === 'succeeded') {
+                // Handle Payment Intent statuses (requires_capture for manual confirmation)
+                if (paymentIntent && (paymentIntent.status === 'requires_capture' || paymentIntent.status === 'succeeded')) {
                     // Save the payment method ID to the order
-                    const saved = await savePaymentMethod(setupIntent.payment_method);
+                    const saved = await savePaymentMethod(paymentIntent.payment_method, paymentIntent.id);
                     
                     if (!saved) {
                         throw new Error('Failed to save payment method');
@@ -1353,6 +1401,8 @@
                     // Close modal and redirect to thank you page
                     document.getElementById('cart-modal').style.display = 'none';
                     window.location.href = '/guest/thankyou';
+                } else {
+                    throw new Error('Unexpected payment status: ' + (paymentIntent?.status || 'unknown'));
                 }
             } catch (error) {
                 console.error('Card save error:', error);
@@ -1365,7 +1415,7 @@
             }
         }
 
-        async function savePaymentMethod(paymentMethodId) {
+        async function savePaymentMethod(paymentMethodId, paymentIntentId) {
             try {
                 const shippingData = {
                     name: document.getElementById('modal-name').value,
