@@ -569,24 +569,49 @@
             }
         }
 
+        // Store current pledge amount globally
+        let currentPledgeAmount = 0;
+
         // Load upgrade pledge options
         async function loadUpgradePledges(pledgeTiers) {
             try {
-                // Get current backer's pledge amount
-                const response = await fetch('/api/user/pledge-info');
-                const data = await response.json();
+                // Ensure we have the current pledge amount
+                if (currentPledgeAmount === 0) {
+                    try {
+                        const response = await fetch('/api/user/data');
+                        const userData = await response.json();
+                        currentPledgeAmount = parseFloat(userData.pledgeAmount) || 0;
+                    } catch (err) {
+                        console.warn('Could not fetch user data, using 0 as default');
+                        currentPledgeAmount = 0;
+                    }
+                }
                 
-                const currentPledgeAmount = parseFloat(data.pledgeAmount) || 0;
+                // Filter pledges that are STRICTLY more expensive than current (no downgrades)
+                // Using > (not >=) ensures only upgrades are shown
+                const upgradePledges = pledgeTiers.filter(p => {
+                    const pledgePrice = parseFloat(p.price) || 0;
+                    return pledgePrice > currentPledgeAmount;
+                }).sort((a, b) => {
+                    // Sort by price ascending (cheapest upgrade first)
+                    return (parseFloat(a.price) || 0) - (parseFloat(b.price) || 0);
+                });
                 
-                // Filter pledges that are more expensive than current
-                const upgradePledges = pledgeTiers.filter(p => p.price > currentPledgeAmount).sort((a, b) => a.price - b.price);
+                console.log(`Current pledge amount: $${currentPledgeAmount}`);
+                console.log(`Found ${upgradePledges.length} upgrade options`);
                 
                 if (upgradePledges.length > 0) {
                     document.getElementById('upgrade-pledges-section').style.display = 'block';
                     displayUpgradePledges(upgradePledges);
+                } else {
+                    // Hide upgrade section if no upgrades available
+                    document.getElementById('upgrade-pledges-section').style.display = 'none';
+                    console.log('No upgrade options available (user has highest tier or no pledges found)');
                 }
             } catch (error) {
                 console.error('Error loading upgrade pledges:', error);
+                // Hide upgrade section on error
+                document.getElementById('upgrade-pledges-section').style.display = 'none';
             }
         }
 
@@ -721,7 +746,11 @@
 
                 // Display user info
                 document.getElementById('user-email').textContent = userData.email;
-                document.getElementById('pledge-amount-badge').textContent = (userData.pledgeAmount || 0).toFixed(0);
+                const pledgeAmount = parseFloat(userData.pledgeAmount) || 0;
+                document.getElementById('pledge-amount-badge').textContent = pledgeAmount.toFixed(0);
+                
+                // Store current pledge amount for upgrade filtering
+                currentPledgeAmount = pledgeAmount;
 
                 // Load pledge image based on reward title
                 loadPledgeImage(userData.rewardTitle);
