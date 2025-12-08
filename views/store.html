@@ -688,6 +688,23 @@
             }
         }
 
+        // Map pledge image names to upgrade pledge image names
+        function getUpgradePledgeImage(pledgeImage) {
+            const imageMap = {
+                'benevolent-divya.png': 'divya.png',
+                'founders-of-neh.png': 'founders.png',
+                'resplendant-garuda.png': 'garuda.png',
+                'resplendent-garuda.png': 'garuda.png',
+                'industrious-manushya.png': 'manushya.png',
+                'humble-vaanar.png': 'vaanar.png'
+            };
+            
+            // Try to find mapped name, fallback to original
+            const imageName = pledgeImage || '';
+            const mappedName = imageMap[imageName.toLowerCase()] || imageName;
+            return `/images/upgrade pledges/${mappedName}`;
+        }
+
         // Display pledge tiers (excluding hero)
         function displayPledgeTiers() {
             const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
@@ -713,7 +730,7 @@
             grid.innerHTML = '';
             
             pledgeTiers.forEach((pledge, index) => {
-                const imagePath = `/images/pledges/${pledge.image}`;
+                const imagePath = getUpgradePledgeImage(pledge.image);
                 const accordion = document.createElement('div');
                 accordion.style.cssText = 'background: #1e1e1e; border-radius: 16px; overflow: hidden;';
                 
