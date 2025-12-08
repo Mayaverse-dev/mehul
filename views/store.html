@@ -609,6 +609,41 @@
         let elements = null;
         let cardElement = null;
         let paymentIntentClientSecret = null;
+        let isBacker = false; // Track if user is a Kickstarter backer
+
+        // Check if user is a backer
+        async function checkIfBacker() {
+            try {
+                const response = await fetch('/api/user/session');
+                const data = await response.json();
+                isBacker = data.isLoggedIn && data.user && data.user.backer_number != null;
+            } catch (error) {
+                console.error('Error checking user status:', error);
+                isBacker = false;
+            }
+        }
+
+        // Check if cart has a pledge
+        function hasPledgeInCart() {
+            const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+            return cart.some(item => {
+                const cartProduct = products.find(p => p.id === item.id);
+                if (!cartProduct) return false;
+                // Check by name or type field
+                const isPledgeByName = pledgeNames.some(pledge => cartProduct.name.toLowerCase().includes(pledge));
+                const isPledgeByType = cartProduct.type === 'pledge';
+                return isPledgeByName || isPledgeByType;
+            });
+        }
+
+        // Check if product is an add-on
+        function isAddon(product) {
+            if (!product) return false;
+            const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+            const isPledgeByName = pledgeNames.some(pledge => product.name.toLowerCase().includes(pledge));
+            const isPledgeByType = product.type === 'pledge';
+            return !isPledgeByName && !isPledgeByType;
+        }
 
         // Load products
         async function loadProducts() {
@@ -978,17 +1013,9 @@
             if (!product) return;
 
             // Check if this is an add-on (not a pledge tier)
-            const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
-            const isAddon = !pledgeNames.some(pledge => product.name.toLowerCase().includes(pledge));
-            
-            // If it's an add-on, check if there's a pledge in the cart
-            if (isAddon) {
-                const hasPledge = cart.some(item => {
-                    const cartProduct = products.find(p => p.id === item.id);
-                    return cartProduct && pledgeNames.some(pledge => cartProduct.name.toLowerCase().includes(pledge));
-                });
-                
-                if (!hasPledge) {
+            // If it's an add-on and user is not a backer, require a pledge in cart
+            if (isAddon(product) && !isBacker) {
+                if (!hasPledgeInCart()) {
                     alert('Please select a pledge tier first before adding add-ons to your order.');
                     return;
                 }
@@ -1028,6 +1055,13 @@
                 // Add to cart if not already there
                 const product = products.find(p => p.id === productId);
                 if (product) {
+                    // Check if this is an add-on and user is not a backer
+                    if (isAddon(product) && !isBacker) {
+                        if (!hasPledgeInCart()) {
+                            alert('Please select a pledge tier first before adding add-ons to your order.');
+                            return;
+                        }
+                    }
                     cart.push({
                         id: product.id,
                         name: product.name,
@@ -1516,6 +1550,8 @@
             }
         }
 
+        // Initialize: check if user is backer and load products
+        checkIfBacker();
         loadProducts();
 
         // Smart navbar scroll behavior
