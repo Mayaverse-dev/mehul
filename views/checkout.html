@@ -660,8 +660,23 @@
                         sessionStorage.removeItem('shippingAddress');
                         sessionStorage.removeItem('shippingCost');
 
-                        // Redirect to thank you page
-                        window.location.href = '/thankyou';
+                        // Check if user is logged in, redirect accordingly
+                        try {
+                            const sessionResponse = await fetch('/api/user/session');
+                            const sessionData = await sessionResponse.json();
+                            
+                            if (sessionData.isLoggedIn) {
+                                // Logged-in user - redirect to authenticated thank you page
+                                window.location.href = '/thankyou';
+                            } else {
+                                // Guest user - redirect to guest thank you page
+                                window.location.href = '/guest/thankyou';
+                            }
+                        } catch (error) {
+                            // If session check fails, assume guest and redirect to guest thank you page
+                            console.warn('Could not check session, redirecting to guest thank you page');
+                            window.location.href = '/guest/thankyou';
+                        }
                     } else if (paymentIntent.status === 'requires_action') {
                         // Handle 3D Secure or other actions
                         console.log('⚠ Payment requires additional action');
