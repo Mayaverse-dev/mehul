@@ -863,9 +863,20 @@
             // Filter out the main book (hero product) - only show add-ons
             // Filter to show only add-ons (not pledge tiers or hero)
             const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
-            const addOnsOnly = products.filter(p => 
+            let addOnsOnly = products.filter(p => 
                 !pledgeNames.some(pledge => p.name.toLowerCase().includes(pledge))
             );
+            
+            // Remove duplicates by name (keep first occurrence)
+            const seen = new Set();
+            addOnsOnly = addOnsOnly.filter(p => {
+                const key = p.name.toLowerCase().trim();
+                if (seen.has(key)) {
+                    return false;
+                }
+                seen.add(key);
+                return true;
+            });
             
             if (addOnsOnly.length === 0) {
                 grid.innerHTML = `
