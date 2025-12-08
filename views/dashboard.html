@@ -288,7 +288,7 @@
             </a>
             </div>
         <div class="nav-right">
-            <button onclick="scrollToAddons()" class="cart-button" title="Cart" style="display: flex; align-items: center; position: relative;">
+            <button onclick="window.location.href='/addons'" class="cart-button" title="Cart" style="display: flex; align-items: center; position: relative;">
                 <img src="/images/icons/cart-01.svg" alt="Cart" style="height: 24px; width: 24px;">
                 <span id="cart-badge" class="cart-badge" style="display: none;">0</span>
             </button>
@@ -353,18 +353,12 @@
         </div>
     </div>
 
+
     <script>
         // Cart functionality
         let cart = JSON.parse(sessionStorage.getItem('cart')) || [];
         let products = [];
 
-        // Scroll to add-ons section
-        function scrollToAddons() {
-            const addonsSection = document.getElementById('products-grid');
-            if (addonsSection) {
-                addonsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        }
 
         // Update cart display
         function updateCart() {
