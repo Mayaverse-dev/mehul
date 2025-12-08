@@ -251,6 +251,116 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            #navbar {
+                padding: 10px 20px !important;
+            }
+
+            .breadcrumb {
+                font-size: 13px;
+                margin-bottom: 20px;
+            }
+
+            .checkout-layout {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+
+            .form-section {
+                padding: 24px;
+            }
+
+            .form-title {
+                font-size: 22px;
+                margin-bottom: 20px;
+                padding-bottom: 15px;
+            }
+
+            .summary-box {
+                position: static;
+                margin-top: 20px;
+            }
+
+            .summary-title {
+                font-size: 22px;
+            }
+
+            .summary-label,
+            .summary-value {
+                font-size: 18px;
+            }
+
+            .summary-section-title {
+                font-size: 14px;
+            }
+
+            .summary-item {
+                font-size: 13px;
+            }
+
+            .summary-address {
+                font-size: 13px;
+            }
+
+            .btn-pay {
+                font-size: 18px;
+                padding: 14px 30px;
+            }
+
+            .security-note {
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+            }
+
+            .form-section {
+                padding: 20px;
+            }
+
+            .form-title {
+                font-size: 20px;
+            }
+
+            .summary-box {
+                padding: 20px;
+            }
+
+            .summary-title {
+                font-size: 20px;
+            }
+
+            .summary-label,
+            .summary-value {
+                font-size: 16px;
+            }
+
+            .summary-section-title {
+                font-size: 13px;
+            }
+
+            .summary-item {
+                font-size: 12px;
+            }
+
+            .summary-address {
+                font-size: 12px;
+            }
+
+            .btn-pay {
+                font-size: 16px;
+                padding: 12px 20px;
+            }
+        }
     </style>
 </head>
 <body>
