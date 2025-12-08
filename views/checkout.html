@@ -477,11 +477,18 @@
                 itemsDiv.innerHTML = cart.map(item => {
                     const itemTotal = item.price * item.quantity;
                     subtotal += itemTotal;
+                    
+                    // For pledge upgrades, show additional info
+                    let description = `Qty: ${item.quantity}`;
+                    if (item.isPledgeUpgrade && item.originalPrice && item.currentPledgeAmount) {
+                        description = `Upgrade: $${item.currentPledgeAmount.toFixed(2)} → $${item.originalPrice.toFixed(2)} (Pay difference)`;
+                    }
+                    
                     return `
                         <div class="summary-item">
                             <div>
                                 <strong>${item.name}</strong><br>
-                                <small style="color: #717171;">Qty: ${item.quantity}</small>
+                                <small style="color: #717171;">${description}</small>
                             </div>
                             <div>$${itemTotal.toFixed(2)}</div>
                         </div>

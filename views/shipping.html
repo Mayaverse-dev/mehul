@@ -528,6 +528,7 @@
                 const cart = JSON.parse(sessionStorage.getItem('cart') || '[]');
                 
                 // Calculate subtotal
+                // For pledge upgrades, only the difference is stored as price, so we just sum all items
                 let subtotal = 0;
                 cart.forEach(item => {
                     subtotal += item.price * item.quantity;

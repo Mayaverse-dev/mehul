@@ -519,15 +519,63 @@
             const productsResponse = await fetch('/api/addons');
             const products = await productsResponse.json();
 
+            // Separate pledge upgrades from regular add-ons
+            const pledgeUpgrades = cart.filter(item => item.isPledgeUpgrade);
+            const regularItems = cart.filter(item => !item.isPledgeUpgrade);
+
+            // Show pledge upgrade if exists
+            if (pledgeUpgrades.length > 0) {
+                const upgradeSection = document.createElement('div');
+                upgradeSection.className = 'cart-section';
+                
+                let upgradeHTML = '';
+                pledgeUpgrades.forEach((upgrade, index) => {
+                    const upgradeIndex = cart.indexOf(upgrade);
+                    const upgradeAmount = upgrade.price * upgrade.quantity;
+                    const originalPrice = upgrade.originalPrice || upgrade.price;
+                    const currentPledge = upgrade.currentPledgeAmount || userData.pledgeAmount || 0;
+                    
+                    upgradeHTML += `
+                        <div class="cart-item">
+                            <div class="item-info">
+                                <div class="item-name">${upgrade.name.replace(' (Upgrade)', '')}</div>
+                                <div class="item-qty-label" style="color: #059669;">
+                                    Upgrade: $${currentPledge.toFixed(2)} → $${originalPrice.toFixed(2)} (Pay difference: $${upgradeAmount.toFixed(2)})
+                                </div>
+                            </div>
+                            <div class="item-controls">
+                                <button class="delete-btn" onclick="removeItem(${upgradeIndex})">🗑️</button>
+                            </div>
+                            <div class="item-price">$${upgradeAmount.toFixed(1)}</div>
+                        </div>
+                    `;
+                });
+                
+                upgradeSection.innerHTML = `
+                    <div class="section-header">
+                        <div class="section-title">Pledge Upgrade</div>
+                    </div>
+                    ${upgradeHTML}
+                `;
+                
+                cartItemsContainer.appendChild(upgradeSection);
+                
+                // Add upgrade amount to total
+                pledgeUpgrades.forEach(upgrade => {
+                    total += upgrade.price * upgrade.quantity;
+                });
+            }
+
             // Show new cart items as "Add-ons" section with individual items and controls
-            if (cart.length > 0) {
+            if (regularItems.length > 0) {
                 let cartTotal = 0;
                 
                 const cartSection = document.createElement('div');
                 cartSection.className = 'cart-section';
                 
                 let cartItemsHTML = '';
-                cart.forEach((item, index) => {
+                regularItems.forEach((item) => {
+                    const itemIndex = cart.indexOf(item);
                     const itemTotal = item.price * item.quantity;
                     cartTotal += itemTotal;
                     
@@ -538,9 +586,9 @@
                                 <div class="item-qty-label">Qty: ${item.quantity}</div>
                             </div>
                             <div class="item-controls">
-                                <button class="delete-btn" onclick="removeItem(${index})">🗑️</button>
+                                <button class="delete-btn" onclick="removeItem(${itemIndex})">🗑️</button>
                                 <div class="qty-display">${item.quantity}</div>
-                                <button class="qty-btn" onclick="updateQuantity(${index}, 1)">+</button>
+                                <button class="qty-btn" onclick="updateQuantity(${itemIndex}, 1)">+</button>
                             </div>
                             <div class="item-price">$${itemTotal.toFixed(1)}</div>
                         </div>
