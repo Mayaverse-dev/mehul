@@ -759,35 +759,31 @@
                 return;
             }
             
-            if (confirm(`Upgrade to ${pledgeName}?\n\nCurrent pledge: $${currentPledge.toFixed(2)}\nNew pledge: $${newPledgePrice.toFixed(2)}\nAmount to pay: $${difference.toFixed(2)}`)) {
-                // Add to cart (will replace current pledge)
-                const cart = JSON.parse(sessionStorage.getItem('cart') || '[]');
-                
-                // Remove any existing pledges from cart
-                const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
-                const cartWithoutPledges = cart.filter(item => {
-                    const name = item.name.toLowerCase();
-                    return !pledgeNames.some(pledge => name.includes(pledge)) && !item.isPledgeUpgrade;
-                });
-                
-                // Add new pledge upgrade with only the difference as price
-                cartWithoutPledges.push({
-                    id: pledgeId,
-                    name: `${pledgeName} (Upgrade)`,
-                    price: difference, // Only charge the difference
-                    originalPrice: newPledgePrice, // Store original price for display
-                    currentPledgeAmount: currentPledge, // Store current pledge for reference
-                    isPledgeUpgrade: true, // Flag to identify pledge upgrades
-                    quantity: 1
-                });
-                
-                sessionStorage.setItem('cart', JSON.stringify(cartWithoutPledges));
-                
-                alert(`Pledge upgrade added to cart! You will only be charged $${difference.toFixed(2)} (the difference).`);
-                
-                // Redirect to cart
-                window.location.href = '/addons';
-            }
+            // Add to cart (will replace current pledge) - no confirmation needed for backers
+            const cart = JSON.parse(sessionStorage.getItem('cart') || '[]');
+            
+            // Remove any existing pledges from cart
+            const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+            const cartWithoutPledges = cart.filter(item => {
+                const name = item.name.toLowerCase();
+                return !pledgeNames.some(pledge => name.includes(pledge)) && !item.isPledgeUpgrade;
+            });
+            
+            // Add new pledge upgrade with only the difference as price
+            cartWithoutPledges.push({
+                id: pledgeId,
+                name: `${pledgeName} (Upgrade)`,
+                price: difference, // Only charge the difference
+                originalPrice: newPledgePrice, // Store original price for display
+                currentPledgeAmount: currentPledge, // Store current pledge for reference
+                isPledgeUpgrade: true, // Flag to identify pledge upgrades
+                quantity: 1
+            });
+            
+            sessionStorage.setItem('cart', JSON.stringify(cartWithoutPledges));
+            
+            // Redirect to cart
+            window.location.href = '/addons';
         }
 
         // Display products
