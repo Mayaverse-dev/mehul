@@ -422,26 +422,110 @@
             window.location.href = '/addons';
         }
 
+        // Map pledge names to image filenames
+        const pledgeImageMap = {
+            'the humble vaanar': 'humble-vaanar.png',
+            'humble vaanar': 'humble-vaanar.png',
+            'the industrious manushya': 'industrious-manushya.png',
+            'industrious manushya': 'industrious-manushya.png',
+            'the resplendent garuda': 'resplendant-garuda.png',
+            'resplendent garuda': 'resplendant-garuda.png',
+            'resplendant garuda': 'resplendant-garuda.png',
+            'the benevolent divya': 'benevolent-divya.png',
+            'benevolent divya': 'benevolent-divya.png',
+            'founders of neh': 'founders-of-neh.png',
+            'founder of neh': 'founders-of-neh.png'
+        };
+
         // Load pledge image based on reward title
         async function loadPledgeImage(rewardTitle) {
             try {
-                if (!rewardTitle) return;
+                if (!rewardTitle) {
+                    console.log('No reward title provided');
+                    return;
+                }
 
-                // Fetch products to find the matching pledge
-                const response = await fetch('/api/addons');
-                const allProducts = await response.json();
-                
-                // Find the pledge tier matching the reward title
-                const matchingPledge = allProducts.find(p => 
-                    p.name.toLowerCase() === rewardTitle.toLowerCase()
-                );
+                const pledgeImage = document.getElementById('pledge-image');
+                if (!pledgeImage) {
+                    console.error('Pledge image element not found');
+                    return;
+                }
 
-                if (matchingPledge && matchingPledge.image) {
-                    const pledgeImage = document.getElementById('pledge-image');
-                    pledgeImage.src = `/images/pledges/${matchingPledge.image}`;
-                    pledgeImage.alt = matchingPledge.name;
+                // First, try direct mapping
+                const rewardTitleLower = rewardTitle.toLowerCase().trim();
+                let imageFilename = pledgeImageMap[rewardTitleLower];
+
+                // If not found in direct map, try fetching from API
+                if (!imageFilename) {
+                    console.log('Checking API for pledge:', rewardTitle);
+                    try {
+                        const response = await fetch('/api/products');
+                        const allProducts = await response.json();
+                        
+                        // Find the pledge tier matching the reward title (fuzzy match)
+                        const matchingPledge = allProducts.find(p => {
+                            const productName = (p.name || '').toLowerCase();
+                            const productType = (p.type || '').toLowerCase();
+                            
+                            // Must be a pledge type
+                            if (productType !== 'pledge') return false;
+                            
+                            // Exact match
+                            if (productName === rewardTitleLower) return true;
+                            
+                            // Contains match
+                            if (productName.includes(rewardTitleLower) || rewardTitleLower.includes(productName)) {
+                                return true;
+                            }
+                            
+                            // Check if reward title contains key words from product name
+                            const productWords = productName.split(/\s+/);
+                            const rewardWords = rewardTitleLower.split(/\s+/);
+                            const matchingWords = productWords.filter(word => 
+                                rewardWords.some(rw => rw.includes(word) || word.includes(rw))
+                            );
+                            
+                            return matchingWords.length >= 2; // At least 2 words match
+                        });
+
+                        if (matchingPledge && matchingPledge.image) {
+                            imageFilename = matchingPledge.image;
+                            console.log('✓ Found matching pledge in API:', matchingPledge.name);
+                        }
+                    } catch (apiError) {
+                        console.warn('Error fetching from API, using fallback:', apiError);
+                    }
                 } else {
-                    console.log('No matching pledge image found for:', rewardTitle);
+                    console.log('✓ Found pledge image in map:', imageFilename);
+                }
+
+                // Set the image
+                if (imageFilename) {
+                    pledgeImage.src = `/images/pledges/${imageFilename}`;
+                    pledgeImage.alt = rewardTitle;
+                    console.log('✓ Pledge image loaded:', imageFilename);
+                } else {
+                    // Fallback: try to guess from reward title keywords
+                    if (rewardTitleLower.includes('vaanar')) {
+                        imageFilename = 'humble-vaanar.png';
+                    } else if (rewardTitleLower.includes('manushya')) {
+                        imageFilename = 'industrious-manushya.png';
+                    } else if (rewardTitleLower.includes('garuda')) {
+                        imageFilename = 'resplendant-garuda.png';
+                    } else if (rewardTitleLower.includes('divya') || rewardTitleLower.includes('benevolent')) {
+                        imageFilename = 'benevolent-divya.png';
+                    } else if (rewardTitleLower.includes('founder') || rewardTitleLower.includes('neh')) {
+                        imageFilename = 'founders-of-neh.png';
+                    }
+                    
+                    if (imageFilename) {
+                        pledgeImage.src = `/images/pledges/${imageFilename}`;
+                        pledgeImage.alt = rewardTitle;
+                        console.log('✓ Pledge image loaded via fallback:', imageFilename);
+                    } else {
+                        console.warn('⚠ No matching pledge image found for:', rewardTitle);
+                        // Keep default image or show placeholder
+                    }
                 }
             } catch (error) {
                 console.error('Error loading pledge image:', error);
