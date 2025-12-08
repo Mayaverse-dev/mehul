@@ -657,12 +657,18 @@
             
             grid.innerHTML = pledges.map((pledge, index) => {
                 const imagePath = `/images/pledges/${pledge.image}`;
+                // Ensure price is a number
+                const pledgePrice = parseFloat(pledge.price) || 0;
+                const priceDisplay = pledgePrice.toFixed(2);
+                // Escape pledge name for use in onclick
+                const pledgeNameEscaped = (pledge.name || '').replace(/'/g, "\\'");
+                
                 return `
                     <div style="background: #1e1e1e; border-radius: 16px; overflow: hidden;">
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; cursor: pointer; border-bottom: 1px solid #2c2c2c;" onclick="toggleUpgradePledge(${index})">
                             <div style="flex: 1;">
                                 <h3 style="font-size: 20px; font-weight: 700; color: #ffffff; margin: 0 0 4px 0;">${pledge.name}</h3>
-                                <div style="font-size: 22px; font-weight: 700; color: #dc2626; margin: 0;">$${pledge.price.toFixed(2)}</div>
+                                <div style="font-size: 22px; font-weight: 700; color: #dc2626; margin: 0;">$${priceDisplay}</div>
                             </div>
                             <button style="background: none; border: none; cursor: pointer; padding: 0; font-size: 20px; color: #ffffff; transform-origin: center; transition: transform 0.3s;" id="upgrade-pledge-arrow-${index}">
                                 ▼
@@ -675,7 +681,7 @@
                                 </div>
                                 <div style="flex: 1; min-width: 250px;">
                                     <p style="font-size: 15px; color: #a0a0a0; margin: 0 0 20px 0;">${pledge.description || 'Premium pledge tier'}</p>
-                                    <button onclick="upgradeToPledge(${pledge.id}, '${pledge.name}', ${pledge.price})" style="background: #dc2626; color: white; border: none; padding: 14px 24px; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; width: 100%;">
+                                    <button onclick="upgradeToPledge(${pledge.id}, '${pledgeNameEscaped}', ${pledgePrice})" style="background: #dc2626; color: white; border: none; padding: 14px 24px; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; width: 100%;">
                                         Upgrade to This Tier
                                     </button>
                                 </div>
@@ -702,7 +708,9 @@
 
         // Upgrade to a higher pledge tier
         function upgradeToPledge(pledgeId, pledgeName, pledgePrice) {
-            if (confirm(`Upgrade to ${pledgeName} for $${pledgePrice.toFixed(2)}?\n\nThis will replace your current pledge.`)) {
+            // Ensure pledgePrice is a number
+            const price = parseFloat(pledgePrice) || 0;
+            if (confirm(`Upgrade to ${pledgeName} for $${price.toFixed(2)}?\n\nThis will replace your current pledge.`)) {
                 // Add to cart (will replace current pledge)
                 const cart = JSON.parse(sessionStorage.getItem('cart') || '[]');
                 
