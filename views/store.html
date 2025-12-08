@@ -1400,7 +1400,7 @@
 
                     // Close modal and redirect to thank you page
                     document.getElementById('cart-modal').style.display = 'none';
-                    window.location.href = '/guest/thankyou';
+                    window.location.href = '/thankyou';
                 } else {
                     throw new Error('Unexpected payment status: ' + (paymentIntent?.status || 'unknown'));
                 }

@@ -755,7 +755,7 @@ app.post('/api/confirm-payment', requireAuth, async (req, res) => {
 });
 
 // Thank you page
-app.get('/thankyou', requireAuth, (req, res) => {
+app.get('/thankyou', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'thankyou.html'));
 });
 
@@ -1251,8 +1251,9 @@ app.post('/api/guest/confirm-payment', async (req, res) => {
 });
 
 // Guest thank you page
+// Guest thank you route redirects to common thank you page
 app.get('/guest/thankyou', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'guest-thankyou.html'));
+    res.redirect('/thankyou');
 });
 
 // ============================================
