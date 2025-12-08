@@ -371,15 +371,22 @@
             const stickyBtn = document.getElementById('sticky-checkout-btn');
             const cartBadge = document.getElementById('cart-badge');
             
-            const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+            // Calculate addon items in cart
+            const addonItems = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
             
+            // For logged-in backers, always show at least 1 (representing their Kickstarter pledge)
+            // Plus any addons they've added
+            const totalItems = addonItems + 1; // 1 for pledge + addons
+            
+            // Always show badge for logged-in backers (they have their pledge)
+            cartBadge.style.display = 'flex';
+            cartBadge.textContent = totalItems;
+            
+            // Show sticky checkout button if there are addons in cart
             if (cart.length > 0) {
                 stickyBtn.style.display = 'block';
-                cartBadge.style.display = 'flex';
-                cartBadge.textContent = totalItems;
             } else {
                 stickyBtn.style.display = 'none';
-                cartBadge.style.display = 'none';
             }
         }
 
