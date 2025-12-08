@@ -439,6 +439,9 @@
                     }
                 });
                 
+                // Clear container before mounting to avoid Stripe warning
+                const cardElementContainer = document.getElementById('card-element');
+                cardElementContainer.innerHTML = '';
                 cardElement.mount('#card-element');
             } catch (error) {
                 console.error('Error initializing Stripe:', error);
