@@ -535,33 +535,46 @@
         // Load products
         async function loadProducts() {
             try {
-                const response = await fetch('/api/addons');
+                // Fetch from /api/products to get both pledges and addons
+                const response = await fetch('/api/products');
                 products = await response.json();
                 
-                // List of pledge tier names to exclude
+                console.log(`Loaded ${products.length} total products from API`);
+                
+                // List of pledge tier names to identify pledges
                 const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
                 
                 // Separate pledges and add-ons
                 const pledgeTiers = products.filter(p => {
-                    const name = p.name.toLowerCase();
-                    return pledgeNames.some(pledge => name.includes(pledge));
+                    const name = (p.name || '').toLowerCase();
+                    const type = (p.type || '').toLowerCase();
+                    // Check by type first, then by name
+                    return type === 'pledge' || pledgeNames.some(pledge => name.includes(pledge));
                 });
                 
+                console.log(`Found ${pledgeTiers.length} pledge tiers:`, pledgeTiers.map(p => p.name));
+                
                 const addOnsOnly = products.filter(p => {
-                    const name = p.name.toLowerCase();
-                    // Exclude main book
-                    if (name.includes('hardcover') && name.includes('seed takes root')) {
+                    const name = (p.name || '').toLowerCase();
+                    const type = (p.type || '').toLowerCase();
+                    // Exclude pledges
+                    if (type === 'pledge' || pledgeNames.some(pledge => name.includes(pledge))) {
                         return false;
                     }
-                    // Exclude pledge tiers
-                    if (pledgeNames.some(pledge => name.includes(pledge))) {
+                    // Exclude main book
+                    if (name.includes('hardcover') && name.includes('seed takes root')) {
                         return false;
                     }
                     return true;
                 });
                 
-                // Load upgrade pledges for backer
-                loadUpgradePledges(pledgeTiers);
+                console.log(`Found ${addOnsOnly.length} add-ons`);
+                
+                // Load upgrade pledges for backer (after user data is loaded)
+                // Wait a bit to ensure currentPledgeAmount is set
+                setTimeout(() => {
+                    loadUpgradePledges(pledgeTiers);
+                }, 100);
                 
                 displayProducts(addOnsOnly);
             } catch (error) {
@@ -575,43 +588,66 @@
         // Load upgrade pledge options
         async function loadUpgradePledges(pledgeTiers) {
             try {
+                console.log('loadUpgradePledges called with', pledgeTiers?.length || 0, 'pledge tiers');
+                
                 // Ensure we have the current pledge amount
                 if (currentPledgeAmount === 0) {
                     try {
                         const response = await fetch('/api/user/data');
                         const userData = await response.json();
                         currentPledgeAmount = parseFloat(userData.pledgeAmount) || 0;
+                        console.log('Fetched current pledge amount from API:', currentPledgeAmount);
                     } catch (err) {
-                        console.warn('Could not fetch user data, using 0 as default');
+                        console.warn('Could not fetch user data, using 0 as default:', err);
                         currentPledgeAmount = 0;
                     }
+                }
+                
+                if (!pledgeTiers || pledgeTiers.length === 0) {
+                    console.warn('No pledge tiers provided to loadUpgradePledges');
+                    document.getElementById('upgrade-pledges-section').style.display = 'none';
+                    return;
                 }
                 
                 // Filter pledges that are STRICTLY more expensive than current (no downgrades)
                 // Using > (not >=) ensures only upgrades are shown
                 const upgradePledges = pledgeTiers.filter(p => {
                     const pledgePrice = parseFloat(p.price) || 0;
-                    return pledgePrice > currentPledgeAmount;
+                    const isUpgrade = pledgePrice > currentPledgeAmount;
+                    console.log(`  Checking ${p.name}: $${pledgePrice} vs current $${currentPledgeAmount} -> ${isUpgrade ? 'UPGRADE' : 'skip'}`);
+                    return isUpgrade;
                 }).sort((a, b) => {
                     // Sort by price ascending (cheapest upgrade first)
                     return (parseFloat(a.price) || 0) - (parseFloat(b.price) || 0);
                 });
                 
                 console.log(`Current pledge amount: $${currentPledgeAmount}`);
-                console.log(`Found ${upgradePledges.length} upgrade options`);
+                console.log(`Found ${upgradePledges.length} upgrade options:`, upgradePledges.map(p => `${p.name} ($${p.price})`));
                 
                 if (upgradePledges.length > 0) {
-                    document.getElementById('upgrade-pledges-section').style.display = 'block';
-                    displayUpgradePledges(upgradePledges);
+                    const upgradeSection = document.getElementById('upgrade-pledges-section');
+                    if (upgradeSection) {
+                        upgradeSection.style.display = 'block';
+                        displayUpgradePledges(upgradePledges);
+                        console.log('✓ Upgrade section displayed');
+                    } else {
+                        console.error('Upgrade section element not found!');
+                    }
                 } else {
                     // Hide upgrade section if no upgrades available
-                    document.getElementById('upgrade-pledges-section').style.display = 'none';
+                    const upgradeSection = document.getElementById('upgrade-pledges-section');
+                    if (upgradeSection) {
+                        upgradeSection.style.display = 'none';
+                    }
                     console.log('No upgrade options available (user has highest tier or no pledges found)');
                 }
             } catch (error) {
                 console.error('Error loading upgrade pledges:', error);
                 // Hide upgrade section on error
-                document.getElementById('upgrade-pledges-section').style.display = 'none';
+                const upgradeSection = document.getElementById('upgrade-pledges-section');
+                if (upgradeSection) {
+                    upgradeSection.style.display = 'none';
+                }
             }
         }
 
