@@ -670,6 +670,26 @@
             return `/images/upgrade pledges/${mappedName}`;
         }
 
+        // Get pledge description text
+        function getPledgeDescription(pledgeName) {
+            const descriptions = {
+                'the humble vaanar': 'Begin your journey into MAYA with the first part in a planned trilogy. Get the paperback Edition Zero of MAYA: Seed Take Root. -381 pages -Beautiful debossed gold and silver foil cover -A detailed appendix of the world + Maya : Seed Takes Root ebook (DRM free) + All Unlocked Paperback stretch goals',
+                'humble vaanar': 'Begin your journey into MAYA with the first part in a planned trilogy. Get the paperback Edition Zero of MAYA: Seed Take Root. -381 pages -Beautiful debossed gold and silver foil cover -A detailed appendix of the world + Maya : Seed Takes Root ebook (DRM free) + All Unlocked Paperback stretch goals',
+                'the industrious manushya': 'Experience the true authorial vision of MAYA. Get the definitive hardcover Edition Zero of MAYA: Seed Takes Root. -342 pages -A cover with a magical art reveal -A detailed appendix of the world -A magical character reveal effect on the cover + Maya : Seed Takes Root ebook (DRM free) + All Unlocked Hardcover stretch goals',
+                'industrious manushya': 'Experience the true authorial vision of MAYA. Get the definitive hardcover Edition Zero of MAYA: Seed Takes Root. -342 pages -A cover with a magical art reveal -A detailed appendix of the world -A magical character reveal effect on the cover + Maya : Seed Takes Root ebook (DRM free) + All Unlocked Hardcover stretch goals',
+                'the resplendent garuda': 'Sign up for the entire trilogy! Book 1 will ship after this campaign ends, and you will get live access to Books 2 and 3. Both these books have been fully plotted and outlined, but you will be the first people in the world to read them as they evolve (including incomplete drafts), and be part of the authors\' inner circle. This pledge includes: 1. MAYA: Seed Takes Root | Book 1 Edition Zero Hardcover 2. MAYA: Whispers In The Soil | Book 2 Live Access 3. MAYA: It Becomes The Forest | Book 3 Live Access 4. MAYA : Seed Takes Root ebook (DRM free) Bonus : Book 2 Edition Zero Hardcover, Book 3 Edition Zero Hardcover',
+                'resplendent garuda': 'Sign up for the entire trilogy! Book 1 will ship after this campaign ends, and you will get live access to Books 2 and 3. Both these books have been fully plotted and outlined, but you will be the first people in the world to read them as they evolve (including incomplete drafts), and be part of the authors\' inner circle. This pledge includes: 1. MAYA: Seed Takes Root | Book 1 Edition Zero Hardcover 2. MAYA: Whispers In The Soil | Book 2 Live Access 3. MAYA: It Becomes The Forest | Book 3 Live Access 4. MAYA : Seed Takes Root ebook (DRM free) Bonus : Book 2 Edition Zero Hardcover, Book 3 Edition Zero Hardcover',
+                'resplendant garuda': 'Sign up for the entire trilogy! Book 1 will ship after this campaign ends, and you will get live access to Books 2 and 3. Both these books have been fully plotted and outlined, but you will be the first people in the world to read them as they evolve (including incomplete drafts), and be part of the authors\' inner circle. This pledge includes: 1. MAYA: Seed Takes Root | Book 1 Edition Zero Hardcover 2. MAYA: Whispers In The Soil | Book 2 Live Access 3. MAYA: It Becomes The Forest | Book 3 Live Access 4. MAYA : Seed Takes Root ebook (DRM free) Bonus : Book 2 Edition Zero Hardcover, Book 3 Edition Zero Hardcover',
+                'the benevolent divya': 'The complete, expansive MAYA experience. Get everything - in its most glorious form. Includes everything from the previous pledge + 1. MAYA: Seed Takes Root Audiobook (Narrated by Hugo Weaving) 2. MAYA Lore Hardcover 3. Built Environments of MAYA Hardcover 4. MAYA : Seed Takes Root ebook (DRM free) + ALL Unlocked Stretch Goals!',
+                'benevolent divya': 'The complete, expansive MAYA experience. Get everything - in its most glorious form. Includes everything from the previous pledge + 1. MAYA: Seed Takes Root Audiobook (Narrated by Hugo Weaving) 2. MAYA Lore Hardcover 3. Built Environments of MAYA Hardcover 4. MAYA : Seed Takes Root ebook (DRM free) + ALL Unlocked Stretch Goals!',
+                'founders of neh': 'Everything in the "Benevolent Divya" reward tier + Limited Edition Signed Artbook documenting the Process + A character in the MAYA universe named after you (adapted to fit the grammar of Neh eg. We already have a character named "Waaz Nayak" named after a certain real-world innovator.',
+                'founder of neh': 'Everything in the "Benevolent Divya" reward tier + Limited Edition Signed Artbook documenting the Process + A character in the MAYA universe named after you (adapted to fit the grammar of Neh eg. We already have a character named "Waaz Nayak" named after a certain real-world innovator.'
+            };
+            
+            const nameKey = (pledgeName || '').toLowerCase().trim();
+            return descriptions[nameKey] || pledgeName || 'Premium pledge tier';
+        }
+
         // Display upgrade pledges
         function displayUpgradePledges(pledges) {
             const grid = document.getElementById('upgrade-pledges-grid');
@@ -699,7 +719,7 @@
                                     <img src="${imagePath}" alt="${pledge.name}" style="width: 120%; height: 120%; object-fit: contain; object-position: center;" loading="lazy" onerror="this.parentElement.innerHTML='<div style=\\'font-size: 64px;\\'>📦</div>'">
                                 </div>
                                 <div style="flex: 1; min-width: 250px;">
-                                    <p style="font-size: 15px; color: #a0a0a0; margin: 0 0 20px 0;">${pledge.description || 'Premium pledge tier'}</p>
+                                    <p style="font-size: 15px; color: #a0a0a0; margin: 0 0 20px 0; line-height: 1.6;">${getPledgeDescription(pledge.name)}</p>
                                     <button onclick="upgradeToPledge(${pledge.id}, '${pledgeNameEscaped}', ${pledgePrice})" style="background: #dc2626; color: white; border: none; padding: 14px 24px; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; width: auto; min-width: 200px;">
                                         Upgrade to This Tier
                                     </button>
