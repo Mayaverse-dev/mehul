@@ -533,17 +533,12 @@
             <form id="pin-form" style="display:none;">
                 <p class="form-hint">Enter your 6-digit PIN for quick login.</p>
                 <div class="form-group">
-                    <label class="form-label" for="pin">PIN</label>
-                    <input 
-                        type="password" 
-                        id="pin" 
-                        name="pin" 
-                        class="form-input" 
-                        placeholder="••••••"
-                        pattern="[0-9]*"
-                        inputmode="numeric"
-                        maxlength="6"
-                        autocomplete="one-time-code">
+                    <label class="form-label" style="text-align:center; margin-bottom:12px;">Secure PIN</label>
+                    <div class="pin-container" id="login-pin-container">
+                        <input type="password" class="form-input pin-input" maxlength="3" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+                        <span class="pin-dash">&mdash;</span>
+                        <input type="password" class="form-input pin-input" maxlength="3" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+                    </div>
                 </div>
                 <button type="submit" class="btn-login" id="pin-submit-btn">
                     Login with PIN
@@ -577,17 +572,12 @@
             <form id="setpin-form" style="display:none;">
                 <p class="form-hint">Create a 6-digit PIN for easy login next time.</p>
                 <div class="form-group">
-                    <label class="form-label" for="new-pin">New PIN</label>
-                    <input 
-                        type="password" 
-                        id="new-pin" 
-                        name="new-pin" 
-                        class="form-input" 
-                        placeholder="••••••"
-                        pattern="[0-9]*"
-                        inputmode="numeric"
-                        maxlength="6"
-                        autocomplete="new-password">
+                    <label class="form-label" style="text-align:center; margin-bottom:12px;">New Secure PIN</label>
+                    <div class="pin-container" id="set-pin-container">
+                        <input type="password" class="form-input pin-input" maxlength="3" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password">
+                        <span class="pin-dash">&mdash;</span>
+                        <input type="password" class="form-input pin-input" maxlength="3" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password">
+                    </div>
                 </div>
                 <button type="submit" class="btn-login" id="setpin-submit-btn">
                     Save PIN
@@ -612,11 +602,36 @@
         const setPinForm = document.getElementById('setpin-form');
         const otpEmailLabel = document.getElementById('otp-email-label');
         const emailInput = document.getElementById('email');
-        const pinInput = document.getElementById('pin');
         const otpInput = document.getElementById('otp');
-        const newPinInput = document.getElementById('new-pin');
         const forceOtpBtn = document.getElementById('force-otp-btn');
         const resendOtpBtn = document.getElementById('resend-otp-btn');
+
+        // Setup Split PIN Logic
+        function setupPinInputs(containerId) {
+            const container = document.getElementById(containerId);
+            const inputs = container.querySelectorAll('input');
+            
+            inputs.forEach((input, index) => {
+                input.addEventListener('input', (e) => {
+                    if (e.target.value.length === 3) {
+                        if (index < inputs.length - 1) inputs[index + 1].focus();
+                    }
+                });
+                
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Backspace' && e.target.value.length === 0) {
+                        if (index > 0) inputs[index - 1].focus();
+                    }
+                });
+            });
+
+            return () => {
+                return Array.from(inputs).map(i => i.value).join('');
+            };
+        }
+
+        const getLoginPin = setupPinInputs('login-pin-container');
+        const getSetPin = setupPinInputs('set-pin-container');
 
         let currentEmail = '';
 
@@ -676,7 +691,7 @@
 
         pinForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const pin = pinInput.value.trim();
+            const pin = getLoginPin().trim();
             if (!/^[0-9]{6}$/.test(pin)) {
                 showError('PIN must be 6 digits');
                 return;
@@ -731,7 +746,7 @@
 
         setPinForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const pin = newPinInput.value.trim();
+            const pin = getSetPin().trim();
             if (!/^[0-9]{6}$/.test(pin)) {
                 showError('PIN must be 6 digits');
                 return;

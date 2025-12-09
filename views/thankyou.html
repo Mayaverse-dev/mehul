@@ -245,6 +245,14 @@
             <p class="subtitle">Your card has been saved securely.</p>
             <p class="subtitle-light">You will be charged when your items ship.</p>
 
+            <!-- Order Summary Section -->
+            <div id="order-summary" class="info-box" style="display:none; margin-bottom: 30px;">
+                <h2 class="info-title">Order Summary</h2>
+                <div id="summary-content" style="font-size: 15px; color: #d4d4d4;">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
             <div class="info-box">
                 <h2 class="info-title">What's Next?</h2>
                 <ul class="info-list">
@@ -315,6 +323,60 @@
         }
 
         setupContinueButton();
+
+        // Load Order Summary
+        async function loadOrderSummary() {
+            try {
+                const res = await fetch('/api/order/summary');
+                if (!res.ok) return; // No summary available (maybe expired session or direct access)
+                
+                const data = await res.json();
+                const summaryDiv = document.getElementById('order-summary');
+                const contentDiv = document.getElementById('summary-content');
+                
+                // Format items
+                let itemsHtml = '<div style="margin-bottom: 15px;">';
+                data.items.forEach(item => {
+                    itemsHtml += `<div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <span>${item.quantity}x ${item.name}</span>
+                        <span>$${(item.price * item.quantity).toFixed(2)}</span>
+                    </div>`;
+                });
+                itemsHtml += '</div>';
+
+                // Format address
+                const addr = data.shippingAddress;
+                const addressHtml = `<div style="margin-bottom: 15px; padding: 10px; background: #1e1e1e; border-radius: 8px;">
+                    <div style="font-weight:600; margin-bottom:5px; color:#fff;">Shipping Address</div>
+                    ${addr.fullName}<br>
+                    ${addr.addressLine1}${addr.addressLine2 ? ', ' + addr.addressLine2 : ''}<br>
+                    ${addr.city}, ${addr.state} ${addr.postalCode}<br>
+                    ${addr.country}
+                </div>`;
+
+                // Format totals
+                const totalsHtml = `<div style="border-top: 1px solid #444; padding-top: 10px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <span>Subtotal</span>
+                        <span>$${data.addonsSubtotal.toFixed(2)}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <span>Shipping</span>
+                        <span>$${data.shippingCost.toFixed(2)}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-weight:700; font-size: 18px; color:#fff; margin-top:10px;">
+                        <span>Total</span>
+                        <span>$${data.total.toFixed(2)}</span>
+                    </div>
+                </div>`;
+
+                contentDiv.innerHTML = itemsHtml + addressHtml + totalsHtml;
+                summaryDiv.style.display = 'block';
+            } catch (err) {
+                console.error('Error loading summary:', err);
+            }
+        }
+        loadOrderSummary();
 
         // Guest -> Create PIN flow
         (function setupSecureBox() {

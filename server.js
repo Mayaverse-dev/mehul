@@ -1155,6 +1155,13 @@ app.post('/api/create-payment-intent', async (req, res) => {
             console.log('✓ Order saved to database');
             console.log('  - Order total: $' + amount);
             console.log('  - Payment Intent ID:', paymentIntent.id);
+
+            // Store order ID in session for summary page
+            const savedOrder = await queryOne('SELECT id FROM orders WHERE stripe_payment_intent_id = $1', [paymentIntent.id]);
+            if (savedOrder) {
+                req.session.lastOrderId = savedOrder.id;
+                req.session.save(); // Ensure session is saved
+            }
         } catch (dbError) {
             console.error('✗ Database insert failed:', dbError.message);
             return res.status(500).json({ error: 'Failed to save order', details: dbError.message });
@@ -1395,6 +1402,13 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
             0 // Not paid yet
         ]);
         console.log('✓ Guest order saved to database');
+        
+        // Store order ID in session for summary page
+        const savedOrder = await queryOne('SELECT id FROM orders WHERE stripe_payment_intent_id = $1', [paymentIntent.id]);
+        if (savedOrder) {
+            req.session.lastOrderId = savedOrder.id;
+            req.session.save(); // Ensure session is saved
+        }
         
         res.json({ 
             clientSecret: paymentIntent.client_secret,
@@ -1803,6 +1817,46 @@ app.post('/api/guest/confirm-payment', async (req, res) => {
 // Guest thank you route redirects to common thank you page
 app.get('/guest/thankyou', (req, res) => {
     res.redirect('/thankyou');
+});
+
+// Get order summary for thank you page
+app.get('/api/order/summary', async (req, res) => {
+    try {
+        const orderId = req.session.lastOrderId;
+        if (!orderId) {
+            return res.status(404).json({ error: 'No recent order found' });
+        }
+
+        const order = await queryOne('SELECT * FROM orders WHERE id = $1', [orderId]);
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        // Parse JSON fields
+        let shippingAddress = {};
+        let newAddons = [];
+        try {
+            shippingAddress = JSON.parse(order.shipping_address || '{}');
+            newAddons = JSON.parse(order.new_addons || '[]');
+        } catch (e) {
+            console.error('Error parsing order JSON:', e);
+        }
+
+        // Return safe summary data
+        res.json({
+            id: order.id,
+            total: order.total,
+            shippingCost: order.shipping_cost,
+            addonsSubtotal: order.addons_subtotal,
+            shippingAddress,
+            items: newAddons,
+            status: order.payment_status,
+            date: order.created_at
+        });
+    } catch (err) {
+        console.error('Error fetching order summary:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // ============================================

@@ -593,7 +593,12 @@
                     
                     // Pre-fill email for backers
                     if (data.user.email) {
-                        document.getElementById('email').value = data.user.email;
+                        const emailInput = document.getElementById('email');
+                        emailInput.value = data.user.email;
+                        emailInput.readOnly = true;
+                        emailInput.style.opacity = '0.7';
+                        emailInput.style.cursor = 'not-allowed';
+                        emailInput.title = 'Email cannot be changed for existing backers';
                     }
                 } else {
                     document.getElementById('nav-user-link').href = '/login';
