@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const session = require('express-session');
 const nodemailer = require('nodemailer');
@@ -13,6 +14,11 @@ const PORT = process.env.PORT || 3000;
 // Enable compression for all responses
 const compression = require('compression');
 app.use(compression());
+
+// Auth constants
+const OTP_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const MAGIC_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
+const LOGIN_STALE_DAYS = 7; // Require OTP if last login older than this
 
 // Database setup - PostgreSQL (production) or SQLite (development fallback)
 let pool = null;
@@ -127,6 +133,14 @@ async function initializeDatabase() {
         )`);
         console.log('✓ Users table ready');
 
+        // Add new auth-related columns if they do not exist
+        await addColumnIfMissing('users', 'pin_hash TEXT');
+        await addColumnIfMissing('users', 'otp_code TEXT');
+        await addColumnIfMissing('users', `otp_expires_at ${timestampType}`);
+        await addColumnIfMissing('users', 'magic_link_token TEXT');
+        await addColumnIfMissing('users', `magic_link_expires_at ${timestampType}`);
+        await addColumnIfMissing('users', `last_login_at ${timestampType}`);
+
         // Add-ons table
         await execute(`CREATE TABLE IF NOT EXISTS addons (
             id ${idType} PRIMARY KEY ${autoIncrement},
@@ -199,6 +213,68 @@ async function initializeDatabase() {
     } catch (err) {
         console.error('Error initializing database:', err);
     }
+}
+
+// Attempt to add a column; ignore if it already exists
+async function addColumnIfMissing(table, columnDef) {
+    try {
+        await execute(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`);
+        console.log(`✓ Added column to ${table}: ${columnDef}`);
+    } catch (err) {
+        // SQLite/Postgres will throw if column exists; ignore
+        const msg = err.message || '';
+        if (msg.includes('duplicate column') || msg.includes('already exists')) {
+            return;
+        }
+        console.warn(`⚠️  Could not add column ${columnDef} to ${table}:`, err.message);
+    }
+}
+
+// Generate a 4-digit OTP code
+function generateOtpCode() {
+    return String(crypto.randomInt(0, 10000)).padStart(4, '0');
+}
+
+// Generate a magic link token
+function generateMagicToken() {
+    return crypto.randomUUID();
+}
+
+// Determine if a user's last login is stale and needs OTP re-verification
+function isLoginStale(user) {
+    if (!user || !user.last_login_at) return true;
+    const last = new Date(user.last_login_at).getTime();
+    return Date.now() - last > LOGIN_STALE_DAYS * 24 * 60 * 60 * 1000;
+}
+
+// Set session data for authenticated user
+function setUserSession(req, user) {
+    req.session.userId = user.id;
+    req.session.userEmail = user.email;
+    req.session.backerNumber = user.backer_number;
+    req.session.backerName = user.backer_name;
+    req.session.pledgeAmount = user.pledge_amount;
+    req.session.rewardTitle = user.reward_title;
+}
+
+// Ensure a user exists for the given email; create a shadow user if missing
+async function ensureUserByEmail(email, name) {
+    if (!email) return null;
+    const normalized = email.trim().toLowerCase();
+    let user = await queryOne('SELECT * FROM users WHERE email = $1', [normalized]);
+    if (user) return user;
+
+    const randomPassword = `shadow-${crypto.randomUUID()}`;
+    const hash = await bcrypt.hash(randomPassword, 10);
+
+    await execute(
+        `INSERT INTO users (email, password, backer_name, created_at)
+         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+        [normalized, hash, name || null]
+    );
+
+    user = await queryOne('SELECT * FROM users WHERE email = $1', [normalized]);
+    return user;
 }
 
 // Helper function to log emails to database
@@ -289,6 +365,110 @@ function requireAdmin(req, res, next) {
 }
 
 // ============================================
+// Auth helper utilities
+// ============================================
+const PIN_LOGIN_GRACE_DAYS = 7;
+const OTP_TTL_MINUTES = 15;
+const MAGIC_TTL_HOURS = 48;
+
+function generateOtpCode() {
+    return crypto.randomInt(1000, 10000).toString().padStart(4, '0');
+}
+
+function generateMagicToken() {
+    return crypto.randomBytes(24).toString('hex');
+}
+
+function isLoginStale(lastLoginAt) {
+    if (!lastLoginAt) return true;
+    const last = new Date(lastLoginAt).getTime();
+    if (Number.isNaN(last)) return true;
+    const diffDays = (Date.now() - last) / (1000 * 60 * 60 * 24);
+    return diffDays > PIN_LOGIN_GRACE_DAYS;
+}
+
+async function setSessionFromUser(req, user) {
+    req.session.userId = user.id;
+    req.session.userEmail = user.email;
+    req.session.backerNumber = user.backer_number;
+    req.session.backerName = user.backer_name;
+    req.session.pledgeAmount = user.pledge_amount;
+    req.session.rewardTitle = user.reward_title;
+}
+
+async function getUserByEmail(email) {
+    const normalized = (email || '').trim().toLowerCase();
+    if (!normalized) return null;
+    return await queryOne('SELECT * FROM users WHERE email = $1', [normalized]);
+}
+
+async function createShadowUser(email) {
+    const normalized = (email || '').trim().toLowerCase();
+    if (!normalized) return null;
+    const dummyPassword = await bcrypt.hash(`shadow-${crypto.randomBytes(8).toString('hex')}`, 10);
+    await execute(`INSERT INTO users (email, password) VALUES ($1, $2)`, [normalized, dummyPassword]);
+    return await getUserByEmail(normalized);
+}
+
+// Generate a random password placeholder for shadow accounts
+function generateRandomPassword(length = 16) {
+    return crypto.randomBytes(length).toString('hex').slice(0, length);
+}
+
+function generateOtp() {
+    return String(crypto.randomInt(1000, 10000)).padStart(4, '0');
+}
+
+function setSessionFromUser(req, user) {
+    req.session.userId = user.id;
+    req.session.userEmail = user.email;
+    req.session.backerNumber = user.backer_number;
+    req.session.backerName = user.backer_name;
+    req.session.pledgeAmount = user.pledge_amount;
+    req.session.rewardTitle = user.reward_title;
+}
+
+function needsOtp(user) {
+    if (!user) return true;
+    if (!user.pin_hash) return true;
+    if (!user.last_login_at) return true;
+    const last = new Date(user.last_login_at);
+    const staleMs = LOGIN_STALE_DAYS * 24 * 60 * 60 * 1000;
+    return Date.now() - last.getTime() > staleMs;
+}
+
+async function updateLastLogin(userId) {
+    const now = new Date().toISOString();
+    await execute('UPDATE users SET last_login_at = $1 WHERE id = $2', [now, userId]);
+}
+
+// Find existing user by email or create a shadow user (no PIN yet)
+async function findOrCreateShadowUser(email, name = '') {
+    if (!email) throw new Error('Email is required to create shadow user');
+
+    // Check if user exists
+    const existing = await queryOne('SELECT id FROM users WHERE email = $1', [email]);
+    if (existing && existing.id) return existing.id;
+
+    // Create placeholder password
+    const password = generateRandomPassword();
+    const hash = await bcrypt.hash(password, 10);
+
+    // Insert user
+    if (isPostgres) {
+        const created = await queryOne(
+            'INSERT INTO users (email, password, backer_name) VALUES ($1, $2, $3) RETURNING id',
+            [email, hash, name || null]
+        );
+        return created.id;
+    } else {
+        await execute('INSERT INTO users (email, password, backer_name) VALUES (?, ?, ?)', [email, hash, name || null]);
+        const created = await queryOne('SELECT id FROM users WHERE email = $1', [email]);
+        return created?.id;
+    }
+}
+
+// ============================================
 // PUBLIC & USER ROUTES
 // ============================================
 
@@ -304,7 +484,7 @@ app.get('/test-component', (req, res) => {
 
 // Login page
 app.get('/login', (req, res) => {
-    if (req.session.userId) {
+    if (req.session.userId && !req.query.setPin) {
         res.redirect('/dashboard');
     } else {
         res.sendFile(path.join(__dirname, 'views', 'login.html'));
@@ -339,6 +519,173 @@ app.post('/login', async (req, res) => {
     } catch (err) {
         console.error('Login error:', err);
         res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// ============================================
+// NEW AUTH ROUTES (Email + OTP/PIN + Magic Links)
+// ============================================
+
+// Start auth flow: decide PIN vs OTP
+app.post('/api/auth/initiate', async (req, res) => {
+    try {
+        const { email, forceOtp } = req.body;
+        if (!email) return res.status(400).json({ error: 'Email is required' });
+
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = await ensureUserByEmail(normalizedEmail);
+        if (!user) return res.status(500).json({ error: 'Could not create user' });
+
+        const stale = isLoginStale(user);
+        const needsOtp = forceOtp || !user.pin_hash || stale;
+
+        if (needsOtp) {
+            const code = generateOtpCode();
+            const expiresAt = new Date(Date.now() + OTP_TTL_MS);
+            await execute(
+                `UPDATE users SET otp_code = $1, otp_expires_at = $2 WHERE id = $3`,
+                [code, expiresAt.toISOString(), user.id]
+            );
+            await emailService.sendOTP(normalizedEmail, code);
+            return res.json({ status: 'otp_sent' });
+        }
+
+        return res.json({ status: 'pin_required' });
+    } catch (err) {
+        console.error('Auth initiate error:', err);
+        res.status(500).json({ error: 'Failed to start auth' });
+    }
+});
+
+// Verify OTP
+app.post('/api/auth/verify-otp', async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
+
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = await queryOne('SELECT * FROM users WHERE email = $1', [normalizedEmail]);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        if (!user.otp_code || !user.otp_expires_at) {
+            return res.status(400).json({ error: 'No active code. Please request a new one.' });
+        }
+
+        const expires = new Date(user.otp_expires_at).getTime();
+        if (Date.now() > expires) return res.status(400).json({ error: 'Code expired. Please request a new one.' });
+        if (String(otp).trim() !== String(user.otp_code).trim()) return res.status(400).json({ error: 'Invalid code' });
+
+        // Clear OTP and set session
+        await execute(
+            `UPDATE users SET otp_code = NULL, otp_expires_at = NULL, last_login_at = CURRENT_TIMESTAMP WHERE id = $1`,
+            [user.id]
+        );
+
+        const freshUser = await queryOne('SELECT * FROM users WHERE id = $1', [user.id]);
+        setUserSession(req, freshUser);
+
+        if (!freshUser.pin_hash) {
+            return res.json({ success: true, requiresPin: true });
+        }
+
+        return res.json({ success: true, redirect: '/dashboard' });
+    } catch (err) {
+        console.error('Verify OTP error:', err);
+        res.status(500).json({ error: 'Failed to verify code' });
+    }
+});
+
+// Login with PIN
+app.post('/api/auth/login-pin', async (req, res) => {
+    try {
+        const { email, pin } = req.body;
+        if (!email || !pin) return res.status(400).json({ error: 'Email and PIN are required' });
+
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = await queryOne('SELECT * FROM users WHERE email = $1', [normalizedEmail]);
+        if (!user || !user.pin_hash) return res.status(400).json({ error: 'PIN not set. Please verify with code.' });
+
+        // If stale, force OTP and send it
+        if (isLoginStale(user)) {
+            const code = generateOtpCode();
+            const expiresAt = new Date(Date.now() + OTP_TTL_MS);
+            await execute(
+                `UPDATE users SET otp_code = $1, otp_expires_at = $2 WHERE id = $3`,
+                [code, expiresAt.toISOString(), user.id]
+            );
+            await emailService.sendOTP(normalizedEmail, code);
+            return res.json({ needOtp: true, status: 'otp_sent' });
+        }
+
+        const match = await bcrypt.compare(pin, user.pin_hash);
+        if (!match) return res.status(401).json({ error: 'Invalid PIN' });
+
+        await execute(`UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1`, [user.id]);
+        const freshUser = await queryOne('SELECT * FROM users WHERE id = $1', [user.id]);
+        setUserSession(req, freshUser);
+
+        return res.json({ success: true, redirect: '/dashboard' });
+    } catch (err) {
+        console.error('PIN login error:', err);
+        res.status(500).json({ error: 'Failed to login' });
+    }
+});
+
+// Set PIN (requires active session)
+app.post('/api/auth/set-pin', requireAuth, async (req, res) => {
+    try {
+        const { pin } = req.body;
+        if (!pin || !/^[0-9]{6}$/.test(pin)) {
+            return res.status(400).json({ error: 'PIN must be 6 digits' });
+        }
+
+        const hash = await bcrypt.hash(pin, 10);
+        await execute(
+            `UPDATE users SET pin_hash = $1, last_login_at = CURRENT_TIMESTAMP WHERE id = $2`,
+            [hash, req.session.userId]
+        );
+
+        return res.json({ success: true, redirect: '/dashboard' });
+    } catch (err) {
+        console.error('Set PIN error:', err);
+        res.status(500).json({ error: 'Failed to set PIN' });
+    }
+});
+
+// Magic link handler
+app.get('/auth/magic', async (req, res) => {
+    try {
+        const { token } = req.query;
+        if (!token) return res.status(400).send('Missing token');
+
+        const user = await queryOne(
+            'SELECT * FROM users WHERE magic_link_token = $1 AND magic_link_expires_at IS NOT NULL',
+            [token]
+        );
+
+        if (!user) return res.status(400).send('Invalid or expired link');
+
+        const expires = new Date(user.magic_link_expires_at).getTime();
+        if (Date.now() > expires) return res.status(400).send('Link expired');
+
+        // Clear token and log the user in
+        await execute(
+            `UPDATE users 
+             SET magic_link_token = NULL, magic_link_expires_at = NULL, last_login_at = CURRENT_TIMESTAMP 
+             WHERE id = $1`,
+            [user.id]
+        );
+
+        const freshUser = await queryOne('SELECT * FROM users WHERE id = $1', [user.id]);
+        setUserSession(req, freshUser);
+
+        if (!freshUser.pin_hash) {
+            return res.redirect('/login?setPin=1');
+        }
+        return res.redirect('/dashboard');
+    } catch (err) {
+        console.error('Magic link error:', err);
+        res.status(500).send('Failed to process link');
     }
 });
 
@@ -476,6 +823,189 @@ app.get('/api/user/session', (req, res) => {
     }
 });
 
+// =============================
+// New Auth (PIN / OTP / Magic)
+// =============================
+
+// Initiate login (decide PIN or OTP)
+app.post('/api/auth/initiate', async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
+        // Ensure user exists
+        await findOrCreateShadowUser(email);
+        const user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const requireOtp = needsOtp(user);
+
+        if (requireOtp || !user.pin_hash) {
+            const otp = generateOtp();
+            const expires = new Date(Date.now() + OTP_TTL_MS).toISOString();
+            await execute('UPDATE users SET otp_code = $1, otp_expires_at = $2 WHERE id = $3', [otp, expires, user.id]);
+
+            try {
+                await emailService.sendOTP(email, otp);
+            } catch (err) {
+                console.error('OTP send error:', err.message);
+            }
+
+            return res.json({ status: 'otp_sent' });
+        }
+
+        // PIN flow
+        return res.json({ status: 'pin_required' });
+    } catch (err) {
+        console.error('Initiate auth error:', err);
+        res.status(500).json({ error: 'Auth initiation failed' });
+    }
+});
+
+// Verify OTP
+app.post('/api/auth/verify-otp', async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
+
+        const user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        if (!user.otp_code || !user.otp_expires_at) {
+            return res.status(400).json({ error: 'No OTP requested' });
+        }
+
+        const expires = new Date(user.otp_expires_at).getTime();
+        if (Date.now() > expires) {
+            return res.status(400).json({ error: 'OTP expired' });
+        }
+
+        if (String(user.otp_code) !== String(otp)) {
+            return res.status(400).json({ error: 'Invalid OTP' });
+        }
+
+        // Clear OTP
+        await execute('UPDATE users SET otp_code = NULL, otp_expires_at = NULL WHERE id = $1', [user.id]);
+
+        // Set session
+        setSessionFromUser(req, user);
+        await updateLastLogin(user.id);
+
+        if (user.pin_hash) {
+            return res.json({ success: true, requiresPin: false, redirect: '/dashboard' });
+        } else {
+            req.session.requirePinSetup = true;
+            return res.json({ success: true, requiresPin: true });
+        }
+    } catch (err) {
+        console.error('Verify OTP error:', err);
+        res.status(500).json({ error: 'OTP verification failed' });
+    }
+});
+
+// Login with PIN
+app.post('/api/auth/login-pin', async (req, res) => {
+    try {
+        const { email, pin } = req.body;
+        if (!email || !pin) return res.status(400).json({ error: 'Email and PIN are required' });
+        if (!/^[0-9]{6}$/.test(pin)) return res.status(400).json({ error: 'PIN must be 6 digits' });
+
+        const user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        // If stale, require OTP
+        if (needsOtp(user)) {
+            const otp = generateOtp();
+            const expires = new Date(Date.now() + OTP_TTL_MS).toISOString();
+            await execute('UPDATE users SET otp_code = $1, otp_expires_at = $2 WHERE id = $3', [otp, expires, user.id]);
+            try {
+                await emailService.sendOTP(email, otp);
+            } catch (err) {
+                console.error('OTP send error:', err.message);
+            }
+            return res.json({ status: 'otp_sent', reason: 'stale_login' });
+        }
+
+        if (!user.pin_hash) {
+            return res.status(400).json({ error: 'No PIN set for this account. Please use OTP to set a PIN.' });
+        }
+
+        const valid = await bcrypt.compare(pin, user.pin_hash);
+        if (!valid) return res.status(401).json({ error: 'Invalid PIN' });
+
+        setSessionFromUser(req, user);
+        await updateLastLogin(user.id);
+        req.session.requirePinSetup = false;
+        return res.json({ success: true, redirect: '/dashboard' });
+    } catch (err) {
+        console.error('Login PIN error:', err);
+        res.status(500).json({ error: 'PIN login failed' });
+    }
+});
+
+// Set PIN (after OTP or Magic Link)
+app.post('/api/auth/set-pin', async (req, res) => {
+    try {
+        const { pin } = req.body;
+        if (!req.session || !req.session.userId) {
+            return res.status(401).json({ error: 'Not authenticated' });
+        }
+        if (!pin || !/^[0-9]{6}$/.test(pin)) {
+            return res.status(400).json({ error: 'PIN must be 6 digits' });
+        }
+
+        const hash = await bcrypt.hash(pin, 10);
+        await execute('UPDATE users SET pin_hash = $1 WHERE id = $2', [hash, req.session.userId]);
+        await updateLastLogin(req.session.userId);
+        req.session.requirePinSetup = false;
+
+        return res.json({ success: true, redirect: '/dashboard' });
+    } catch (err) {
+        console.error('Set PIN error:', err);
+        res.status(500).json({ error: 'Failed to set PIN' });
+    }
+});
+
+// Magic link handler
+app.get('/auth/magic', async (req, res) => {
+    try {
+        const token = req.query.token;
+        if (!token) return res.status(400).send('Missing token');
+
+        const user = await queryOne(
+            'SELECT * FROM users WHERE magic_link_token = $1 AND magic_link_expires_at IS NOT NULL',
+            [token]
+        );
+
+        if (!user) {
+            return res.status(400).send('Invalid or expired link');
+        }
+
+        const expires = new Date(user.magic_link_expires_at).getTime();
+        if (Date.now() > expires) {
+            return res.status(400).send('Link expired');
+        }
+
+        // Clear magic link
+        await execute('UPDATE users SET magic_link_token = NULL, magic_link_expires_at = NULL WHERE id = $1', [user.id]);
+
+        setSessionFromUser(req, user);
+
+        if (!user.pin_hash) {
+            req.session.requirePinSetup = true;
+            return res.redirect('/login?setPin=1');
+        } else {
+            await updateLastLogin(user.id);
+            return res.redirect('/dashboard');
+        }
+    } catch (err) {
+        console.error('Magic link error:', err);
+        res.status(500).send('Server error');
+    }
+});
+
 // Get user's pledge info
 app.get('/api/user/pledge-info', (req, res) => {
     if (req.session && req.session.userId) {
@@ -535,8 +1065,14 @@ app.post('/api/create-payment-intent', async (req, res) => {
         
         // Determine if user is authenticated or guest
         const isAuthenticated = req.session && req.session.userId;
-        const userId = isAuthenticated ? req.session.userId : null;
+        let userId = isAuthenticated ? req.session.userId : null;
         const userEmail = shippingAddress.email || (isAuthenticated ? req.session.userEmail : null);
+
+        // Shadow user creation for guests to link orders
+        if (!userId && userEmail) {
+            const shadowUser = await ensureUserByEmail(userEmail, shippingAddress.fullName || shippingAddress.name);
+            userId = shadowUser ? shadowUser.id : null;
+        }
         
         console.log('Creating Stripe customer...');
         // Create Stripe customer
@@ -605,7 +1141,7 @@ app.post('/api/create-payment-intent', async (req, res) => {
                 payment_status, paid
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, 
             [
-                userId,
+                userId || 0,
                 JSON.stringify(cartItems),
                 JSON.stringify(shippingAddress),
                 shippingCost,
@@ -786,7 +1322,7 @@ app.post('/api/guest/calculate-shipping', (req, res) => {
     res.json({ shippingCost });
 });
 
-// Guest create payment intent (save card, charge later)
+// Guest create payment intent (save card, charge later) with shadow user linking
 app.post('/api/guest/create-payment-intent', async (req, res) => {
     const { amount, cartItems, shippingAddress, shippingCost, customerEmail } = req.body;
     
@@ -795,13 +1331,26 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
     console.log('Customer Email:', customerEmail);
     
     try {
+        // Determine email and create/find shadow user
+        const emailForOrder = customerEmail || shippingAddress?.email;
+        if (!emailForOrder) {
+            return res.status(400).json({ error: 'Email is required for guest checkout' });
+        }
+
+        const shadowUser = await ensureUserByEmail(emailForOrder, shippingAddress?.name || shippingAddress?.fullName);
+        const shadowUserId = shadowUser ? shadowUser.id : null;
+
+        // Ensure shipping address carries the email
+        const shippingWithEmail = { ...(shippingAddress || {}), email: emailForOrder };
+
         // Create or retrieve Stripe customer
         const customer = await stripe.customers.create({
-            email: customerEmail,
+            email: emailForOrder,
             name: shippingAddress.name || shippingAddress.fullName,
             metadata: {
                 orderType: 'pre-order-autodebit',
-                userType: 'guest'
+                userType: 'guest-shadow',
+                userId: shadowUserId ? shadowUserId.toString() : 'guest'
             }
         });
         console.log('✓ Guest customer created:', customer.id);
@@ -834,9 +1383,9 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
             payment_status, paid
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, 
         [
-            0, // user_id = 0 for guests
+            shadowUserId || 0,
             JSON.stringify(cartItems),
-            JSON.stringify({...shippingAddress, email: customerEmail}),
+            JSON.stringify(shippingWithEmail),
             shippingCost,
             addonsSubtotal,
             amount,

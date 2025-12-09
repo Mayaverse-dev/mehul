@@ -133,6 +133,66 @@
             transform: translateY(-2px);
         }
 
+        .secure-box {
+            background: #2a2a2a;
+            border-radius: 14px;
+            padding: 28px 30px;
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        .secure-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #d4d4d4;
+            margin-bottom: 10px;
+        }
+
+        .secure-subtitle {
+            font-size: 14px;
+            color: #aaaaaa;
+            margin-bottom: 14px;
+        }
+
+        .secure-input {
+            width: 100%;
+            padding: 14px;
+            border-radius: 10px;
+            border: 2px solid #3a3a3a;
+            background: #0a0a0a;
+            color: #ffffff;
+            margin-bottom: 12px;
+        }
+
+        .secure-btn {
+            width: 100%;
+            background: #dc2626;
+            color: #ffffff;
+            border: none;
+            border-radius: 10px;
+            padding: 14px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .secure-hint {
+            font-size: 13px;
+            color: #9ca3af;
+            margin-top: 6px;
+        }
+
+        .secure-error {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 12px;
+            display: none;
+        }
+
         .support-text {
             font-size: 15px;
             font-weight: 600;
@@ -195,6 +255,30 @@
                 </ul>
             </div>
 
+            <div id="secure-box" class="secure-box" style="display:none;">
+                <div id="secure-error" class="secure-error"></div>
+                <h3 class="secure-title">Create a PIN for easy login</h3>
+                <p class="secure-subtitle">Save your details for next time. We'll send a quick code to verify.</p>
+
+                <div id="secure-email-step">
+                    <input type="email" id="secure-email" class="secure-input" placeholder="your@email.com" autocomplete="email">
+                    <button id="secure-email-btn" class="secure-btn">Send Code</button>
+                </div>
+
+                <div id="secure-otp-step" style="display:none;">
+                    <p class="secure-subtitle">Enter the 4-digit code we sent you.</p>
+                    <input type="text" id="secure-otp" class="secure-input" placeholder="1234" maxlength="4" inputmode="numeric" pattern="[0-9]*">
+                    <button id="secure-otp-btn" class="secure-btn">Verify Code</button>
+                    <p class="secure-hint"><button id="secure-resend-btn" class="secure-btn" style="margin-top:10px; background:#0a0a0a; border:2px solid #3a3a3a;">Resend Code</button></p>
+                </div>
+
+                <div id="secure-pin-step" style="display:none;">
+                    <p class="secure-subtitle">Set a 6-digit PIN for quick login.</p>
+                    <input type="password" id="secure-pin" class="secure-input" placeholder="••••••" maxlength="6" inputmode="numeric" pattern="[0-9]*">
+                    <button id="secure-pin-btn" class="secure-btn">Save PIN</button>
+                </div>
+            </div>
+
             <a href="#" id="continue-btn" class="continue-btn">Continue Shopping</a>
 
             <p class="support-text">
@@ -217,17 +301,140 @@
                 if (response.ok) {
                     // User is logged in - go to dashboard
                     continueBtn.href = '/dashboard';
+                    document.getElementById('secure-box').style.display = 'none';
                 } else {
                     // Guest - go to store homepage
                     continueBtn.href = '/';
+                    document.getElementById('secure-box').style.display = 'block';
                 }
             } catch (error) {
                 // Default to store homepage
                 continueBtn.href = '/';
+                document.getElementById('secure-box').style.display = 'block';
             }
         }
 
         setupContinueButton();
+
+        // Guest -> Create PIN flow
+        (function setupSecureBox() {
+            const box = document.getElementById('secure-box');
+            const errorEl = document.getElementById('secure-error');
+            const emailInput = document.getElementById('secure-email');
+            const emailBtn = document.getElementById('secure-email-btn');
+            const otpInput = document.getElementById('secure-otp');
+            const otpBtn = document.getElementById('secure-otp-btn');
+            const resendBtn = document.getElementById('secure-resend-btn');
+            const pinInput = document.getElementById('secure-pin');
+            const pinBtn = document.getElementById('secure-pin-btn');
+            const emailStep = document.getElementById('secure-email-step');
+            const otpStep = document.getElementById('secure-otp-step');
+            const pinStep = document.getElementById('secure-pin-step');
+
+            let currentEmail = '';
+
+            function showError(msg) {
+                errorEl.textContent = msg || 'Something went wrong';
+                errorEl.style.display = 'block';
+            }
+            function clearError() {
+                errorEl.style.display = 'none';
+            }
+            function showStage(stage) {
+                emailStep.style.display = stage === 'email' ? 'block' : 'none';
+                otpStep.style.display = stage === 'otp' ? 'block' : 'none';
+                pinStep.style.display = stage === 'pin' ? 'block' : 'none';
+            }
+
+            async function initiate(email) {
+                clearError();
+                try {
+                    const res = await fetch('/api/auth/initiate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Failed to send code');
+                    if (data.status === 'otp_sent') {
+                        showStage('otp');
+                    } else {
+                        // Even if PIN required, allow user to pick PIN flow from here by forcing OTP
+                        showStage('otp');
+                    }
+                } catch (err) {
+                    showError(err.message);
+                }
+            }
+
+            emailBtn.addEventListener('click', async () => {
+                clearError();
+                const email = (emailInput.value || '').trim().toLowerCase();
+                if (!email) {
+                    showError('Email is required');
+                    return;
+                }
+                currentEmail = email;
+                await initiate(email);
+            });
+
+            otpBtn.addEventListener('click', async () => {
+                clearError();
+                const code = (otpInput.value || '').trim();
+                if (!/^[0-9]{4}$/.test(code)) {
+                    showError('Code must be 4 digits');
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/auth/verify-otp', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: currentEmail, otp: code })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Invalid code');
+                    if (data.requiresPin) {
+                        showStage('pin');
+                    } else {
+                        window.location.href = data.redirect || '/dashboard';
+                    }
+                } catch (err) {
+                    showError(err.message);
+                }
+            });
+
+            resendBtn.addEventListener('click', async () => {
+                if (!currentEmail) {
+                    showError('Enter your email first');
+                    return;
+                }
+                await initiate(currentEmail);
+            });
+
+            pinBtn.addEventListener('click', async () => {
+                clearError();
+                const pin = (pinInput.value || '').trim();
+                if (!/^[0-9]{6}$/.test(pin)) {
+                    showError('PIN must be 6 digits');
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/auth/set-pin', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pin })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Failed to save PIN');
+                    window.location.href = data.redirect || '/dashboard';
+                } catch (err) {
+                    showError(err.message);
+                }
+            });
+
+            // Start hidden; display controlled in setupContinueButton
+            showStage('email');
+        })();
     </script>
 </body>
 </html>

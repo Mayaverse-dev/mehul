@@ -9,8 +9,9 @@ const testUser = {
     backer_uid: 'TEST123',
     backer_name: 'Test Backer',
     reward_title: 'The Benevolent Divya',
-    backing_minimum: 190.00,
-    pledge_amount: 190.00,
+    // Set to Divya pledge value
+    backing_minimum: 380.00,
+    pledge_amount: 380.00,
     kickstarter_items: JSON.stringify({
         ebook: 1,
         hardcover: 1,

@@ -2,7 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const csv = require('csv-parser');
 const bcrypt = require('bcrypt');
-const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 // Database setup - PostgreSQL or SQLite
 let pool = null;
@@ -67,98 +67,9 @@ if (!fs.existsSync(csvFilePath)) {
 
 console.log('📂 Reading CSV file:', csvFilePath);
 
-// Email transporter (optional)
-let emailTransporter = null;
-if (process.env.EMAIL_HOST && process.env.EMAIL_USER) {
-    emailTransporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST,
-        port: process.env.EMAIL_PORT || 587,
-        secure: false,
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASSWORD
-        }
-    });
-    console.log('✓ Email configured - will send welcome emails');
-} else {
-    console.log('⚠️  Email not configured - skipping welcome emails');
-}
-
-// Generate random password
-function generatePassword(length = 8) {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
-    let password = '';
-    for (let i = 0; i < length; i++) {
-        password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
-}
-
-// Send welcome email
-async function sendWelcomeEmail(email, password, backerName) {
-    if (!emailTransporter) return false;
-
-    const mailOptions = {
-        from: process.env.EMAIL_FROM || 'MAYA Pledge Manager <noreply@example.com>',
-        to: email,
-        subject: 'Welcome to MAYA Pledge Manager',
-        html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background-color: #2c2c2c; color: white; padding: 30px; text-align: center;">
-                    <h1 style="margin: 0;">MAYA Pledge Manager</h1>
-                    <p style="margin: 10px 0 0 0;">Your Kickstarter Journey Continues</p>
-                </div>
-                
-                <div style="padding: 30px; background-color: #f5f5f5;">
-                    <p>Hello ${backerName || 'Backer'},</p>
-                    
-                    <p>Thank you for backing MAYA on Kickstarter! We're excited to have you as part of our community.</p>
-                    
-                    <p>Your pledge manager is now ready. You can:</p>
-                    <ul>
-                        <li>Review your Kickstarter pledge</li>
-                        <li>Add exclusive add-ons to your order</li>
-                        <li>Provide your shipping address</li>
-                        <li>Complete your order</li>
-                    </ul>
-                    
-                    <div style="background-color: white; padding: 20px; margin: 20px 0; border-left: 4px solid #2c2c2c;">
-                        <h3 style="margin-top: 0; color: #2c2c2c;">Your Login Credentials</h3>
-                        <p><strong>Email:</strong> ${email}</p>
-                        <p><strong>Password:</strong> <code style="background-color: #f5f5f5; padding: 5px 10px; border-radius: 4px;">${password}</code></p>
-                    </div>
-                    
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="${process.env.APP_URL || 'https://maya-store-production.up.railway.app'}" 
-                           style="background-color: #2c2c2c; color: white; padding: 15px 40px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-                            Access Pledge Manager
-                        </a>
-                    </div>
-                    
-                    <p style="font-size: 14px; color: #666;">
-                        If you have any questions, please reply to this email.
-                    </p>
-                    
-                    <p style="font-size: 14px; color: #666;">
-                        Thank you for your support!<br>
-                        The MAYA Team
-                    </p>
-                </div>
-                
-                <div style="background-color: #d9d9d9; color: #666; padding: 20px; text-align: center; font-size: 12px;">
-                    <p style="margin: 0;">© 2025 MAYA. All rights reserved.</p>
-                </div>
-            </div>
-        `
-    };
-
-    try {
-        await emailTransporter.sendMail(mailOptions);
-        return true;
-    } catch (error) {
-        console.error('Email error for', email, ':', error.message);
-        return false;
-    }
+// Generate random password (placeholder for legacy column)
+function generatePassword(length = 12) {
+    return crypto.randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
 }
 
 // Item name mappings (adjust these based on your actual Kickstarter CSV column names)
@@ -236,7 +147,7 @@ fs.createReadStream(csvFilePath)
                     }
                 }
 
-                // Generate password
+                // Generate placeholder password (legacy column only)
                 const password = generatePassword();
                 const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -272,14 +183,6 @@ fs.createReadStream(csvFilePath)
                 ]);
 
                 importedCount++;
-
-                // Send welcome email
-                if (emailTransporter) {
-                    const emailSent = await sendWelcomeEmail(email, password, backerName);
-                    if (emailSent) {
-                        emailsSent++;
-                    }
-                }
 
                 // Progress indicator
                 if (importedCount % 10 === 0) {

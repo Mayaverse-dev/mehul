@@ -489,10 +489,99 @@ async function sendAdminBulkChargeSummary(results) {
     }
 }
 
+/**
+ * Send magic link email
+ */
+async function sendMagicLink(email, link) {
+    if (!resend) {
+        console.warn('⚠️  Resend API key not configured - skipping email');
+        return { success: false, error: 'Resend not configured' };
+    }
+
+    try {
+        const content = `
+            <p>Hello,</p>
+            
+            <p>Click the button below to log in to your account and set up your PIN.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${link}" style="background-color: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">Login to MAYA</a>
+            </div>
+            
+            <p style="color: #999; font-size: 14px;">Or copy and paste this link into your browser:</p>
+            <p style="color: #999; font-size: 14px; word-break: break-all;">${link}</p>
+            
+            <p style="margin-top: 30px;">This link will expire in 48 hours. If you did not request this email, please ignore it.</p>
+            
+            <p>The MAYA Team</p>
+        `;
+
+        const html = getEmailTemplate('Login Link', content);
+
+        const result = await resend.emails.send({
+            from: `${FROM_NAME} <${FROM_EMAIL}>`,
+            to: email,
+            subject: 'Login to MAYA',
+            html: html
+        });
+
+        console.log('✓ Magic link email sent to:', email);
+        return { success: true, messageId: result.data?.id };
+    } catch (error) {
+        console.error('✗ Error sending magic link email:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Send OTP email
+ */
+async function sendOTP(email, code) {
+    if (!resend) {
+        console.warn('⚠️  Resend API key not configured - skipping email');
+        return { success: false, error: 'Resend not configured' };
+    }
+
+    try {
+        const content = `
+            <p>Hello,</p>
+            
+            <p>Your verification code is:</p>
+            
+            <div style="background-color: #2c2c2c; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #ffffff;">${code}</span>
+            </div>
+            
+            <p>This code will expire in 15 minutes.</p>
+            
+            <p>If you did not request this code, please ignore this email.</p>
+            
+            <p>The MAYA Team</p>
+        `;
+
+        const html = getEmailTemplate('Verification Code', content);
+
+        const result = await resend.emails.send({
+            from: `${FROM_NAME} <${FROM_EMAIL}>`,
+            to: email,
+            subject: `Your Verification Code: ${code}`,
+            html: html
+        });
+
+        console.log('✓ OTP email sent to:', email);
+        return { success: true, messageId: result.data?.id };
+    } catch (error) {
+        console.error('✗ Error sending OTP email:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
 module.exports = {
     sendCardSavedConfirmation,
     sendPaymentSuccessful,
     sendPaymentFailed,
-    sendAdminBulkChargeSummary
+    sendAdminBulkChargeSummary,
+    sendMagicLink,
+    sendOTP
 };
 
