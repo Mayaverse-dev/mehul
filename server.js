@@ -788,10 +788,17 @@ app.get('/shipping', (req, res) => {
 // Calculate shipping (accessible to both backers and guests)
 app.post('/api/calculate-shipping', (req, res) => {
     const { country, cart } = req.body;
-    
-    // Load shipping calculation logic
-    const shippingCost = calculateShipping(country, cart || []);
-    
+
+    // If cart is empty but user is a backer, include their pledge so shipping is not zero
+    let cartItems = Array.isArray(cart) ? [...cart] : [];
+    if (cartItems.length === 0 && req.session?.rewardTitle) {
+        cartItems.push({
+            name: req.session.rewardTitle,
+            quantity: 1
+        });
+    }
+
+    const shippingCost = calculateShipping(country, cartItems);
     res.json({ shippingCost });
 });
 
