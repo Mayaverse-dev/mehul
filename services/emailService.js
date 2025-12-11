@@ -325,7 +325,7 @@ async function sendPaymentFailed(order, errorMessage, errorCode) {
         }
 
         const orderTotal = parseFloat(order.total || 0);
-        const appUrl = process.env.APP_URL || 'https://maya-store-production.up.railway.app';
+        const appUrl = process.env.APP_URL || 'https://store.entermaya.com';
 
         const content = `
             <p>Hello ${shippingAddress?.fullName || shippingAddress?.name || 'Valued Customer'},</p>
