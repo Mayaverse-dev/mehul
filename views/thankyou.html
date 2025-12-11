@@ -476,8 +476,8 @@
             pinBtn.addEventListener('click', async () => {
                 clearError();
                 const pin = (pinInput.value || '').trim();
-                if (!/^[0-9]{6}$/.test(pin)) {
-                    showError('PIN must be 6 digits');
+                    if (!/^[0-9]{4}$/.test(pin)) {
+                    showError('PIN must be 4 digits');
                     return;
                 }
                 try {

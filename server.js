@@ -639,8 +639,8 @@ app.post('/api/auth/login-pin', async (req, res) => {
 app.post('/api/auth/set-pin', requireAuth, async (req, res) => {
     try {
         const { pin } = req.body;
-        if (!pin || !/^[0-9]{6}$/.test(pin)) {
-            return res.status(400).json({ error: 'PIN must be 6 digits' });
+        if (!pin || !/^[0-9]{4}$/.test(pin)) {
+            return res.status(400).json({ error: 'PIN must be 4 digits' });
         }
 
         const hash = await bcrypt.hash(pin, 10);
