@@ -540,8 +540,8 @@ app.post('/api/auth/initiate', async (req, res) => {
         const user = await ensureUserByEmail(normalizedEmail);
         if (!user) return res.status(500).json({ error: 'Could not create user' });
 
-        const stale = isLoginStale(user);
-        const needsOtp = forceOtp || !user.pin_hash || stale;
+        // Default: ask for PIN if it exists; only send OTP when forced or no PIN set
+        const needsOtp = forceOtp || !user.pin_hash;
 
         if (needsOtp) {
             const code = generateOtpCode();
@@ -608,18 +608,6 @@ app.post('/api/auth/login-pin', async (req, res) => {
         const normalizedEmail = email.trim().toLowerCase();
         const user = await queryOne('SELECT * FROM users WHERE email = $1', [normalizedEmail]);
         if (!user || !user.pin_hash) return res.status(400).json({ error: 'PIN not set. Please verify with code.' });
-
-        // If stale, force OTP and send it
-        if (isLoginStale(user)) {
-            const code = generateOtpCode();
-            const expiresAt = new Date(Date.now() + OTP_TTL_MS);
-            await execute(
-                `UPDATE users SET otp_code = $1, otp_expires_at = $2 WHERE id = $3`,
-                [code, expiresAt.toISOString(), user.id]
-            );
-            await emailService.sendOTP(normalizedEmail, code);
-            return res.json({ needOtp: true, status: 'otp_sent' });
-        }
 
         const match = await bcrypt.compare(pin, user.pin_hash);
         if (!match) return res.status(401).json({ error: 'Invalid PIN' });
@@ -844,9 +832,9 @@ app.post('/api/auth/initiate', async (req, res) => {
         const user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
         if (!user) return res.status(404).json({ error: 'User not found' });
 
-        const requireOtp = needsOtp(user);
+        const requireOtp = !user.pin_hash || forceOtp;
 
-        if (requireOtp || !user.pin_hash) {
+        if (requireOtp) {
             const otp = generateOtp();
             const expires = new Date(Date.now() + OTP_TTL_MS).toISOString();
             await execute('UPDATE users SET otp_code = $1, otp_expires_at = $2 WHERE id = $3', [otp, expires, user.id]);
