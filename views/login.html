@@ -233,21 +233,16 @@
         /* PIN split input */
         .pin-container {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             align-items: center;
             justify-content: center;
         }
         .pin-input {
-            width: 80px;
+            width: 56px;
             text-align: center;
-            letter-spacing: 0.3em;
-            font-size: 22px;
-            padding: 10px;
-        }
-        .pin-dash {
+            letter-spacing: 0.1em;
             font-size: 20px;
-            color: #444;
-            font-weight: 300;
+            padding: 10px 8px;
         }
 
         @media (max-width: 640px) {
@@ -319,9 +314,10 @@
                 <div class="form-group">
                     <label class="form-label" style="text-align:center; margin-bottom:12px;">Secure PIN</label>
                     <div class="pin-container" id="login-pin-container">
-                        <input type="password" class="form-input pin-input" maxlength="2" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
-                        <span class="pin-dash">&mdash;</span>
-                        <input type="password" class="form-input pin-input" maxlength="2" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+                        <input type="password" class="form-input pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+                        <input type="password" class="form-input pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+                        <input type="password" class="form-input pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+                        <input type="password" class="form-input pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
                     </div>
                 </div>
                 <button type="submit" class="btn-login" id="pin-submit-btn">
@@ -354,14 +350,15 @@
 
             <!-- Step: Set PIN -->
             <form id="setpin-form" style="display:none;">
-                <p class="form-hint" id="setpin-email-hint" style="margin-bottom:8px;">Create a 4-digit PIN for easy login next time.</p>
-                <p class="form-hint" id="setpin-email-label" style="margin-top:-4px; color:#c8c8c8; display:none;"></p>
+                <p class="form-hint" id="setpin-email-hint" style="margin-bottom:10px;">Create a 4-digit PIN for easy login next time.</p>
+                <p class="form-hint" id="setpin-email-label" style="margin-top:-2px; color:#e5e7eb; display:none; font-weight:600; font-size:14px;"></p>
                 <div class="form-group">
                     <label class="form-label" style="text-align:center; margin-bottom:12px;">New Secure PIN</label>
                     <div class="pin-container" id="set-pin-container">
-                        <input type="password" class="form-input pin-input" maxlength="2" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password">
-                        <span class="pin-dash">&mdash;</span>
-                        <input type="password" class="form-input pin-input" maxlength="2" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password">
+                        <input type="password" class="form-input pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password">
+                        <input type="password" class="form-input pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password">
+                        <input type="password" class="form-input pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password">
+                        <input type="password" class="form-input pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password">
                     </div>
                 </div>
                 <button type="submit" class="btn-login" id="setpin-submit-btn">
@@ -575,8 +572,14 @@
                 if (data?.isLoggedIn && data.user?.email) {
                     setPinEmailLabel.style.display = 'block';
                     setPinEmailLabel.textContent = `Email: ${data.user.email}`;
+                } else {
+                    setPinEmailLabel.style.display = 'block';
+                    setPinEmailLabel.textContent = 'Email linked to your magic link';
                 }
-            } catch (_) {}
+            } catch (_) {
+                setPinEmailLabel.style.display = 'block';
+                setPinEmailLabel.textContent = 'Email linked to your magic link';
+            }
         }
 
         // On load, if setPin param present, go to set PIN step
