@@ -2130,32 +2130,52 @@ app.get('/admin/logout', (req, res) => {
 // HELPER FUNCTIONS
 // ============================================
 
-function calculateShipping(country, cartItems) {
-    // Load shipping rates from config
-    const shippingConfig = require('./config/shipping-rates');
-    
-    // Determine zone
-    let zone = 'zone4'; // Default: rest of world
-    for (const [zoneName, countries] of Object.entries(shippingConfig.shippingZones)) {
-        if (countries.includes(country)) {
-            zone = zoneName;
-            break;
+function calculateShipping(country, cartItems = []) {
+    const { shippingRates, resolveZone } = require('./config/shipping-rates');
+
+    const normalize = (str = '') => str.trim().toLowerCase();
+    const zone = resolveZone(country || '');
+    const rates = shippingRates[zone] || shippingRates['REST OF WORLD'];
+
+    let total = 0;
+
+    // Identify pledge tier in cart (by name match)
+    const pledgeEntry = cartItems.find(item => {
+        const n = normalize(item.name || '');
+        return [
+            'humble vaanar',
+            'industrious manushya',
+            'resplendent garuda',
+            'benevolent divya',
+            'founders of neh'
+        ].some(key => n.includes(key));
+    });
+
+    if (pledgeEntry) {
+        const pledgeName = [
+            'humble vaanar',
+            'industrious manushya',
+            'resplendent garuda',
+            'benevolent divya',
+            'founders of neh'
+        ].find(key => normalize(pledgeEntry.name || '').includes(key));
+        if (pledgeName && rates.pledges?.[pledgeName]) {
+            total += rates.pledges[pledgeName];
         }
     }
-    
-    // Calculate total weight
-    let totalWeight = 0;
+
+    // Add-on shipping (Built Environments / Lorebook)
     cartItems.forEach(item => {
-        totalWeight += (item.weight || 0) * item.quantity;
+        const n = normalize(item.name || '');
+        const qty = item.quantity || 1;
+        if (n.includes('built environments')) {
+            total += (rates.addons?.['Built Environments'] || 0) * qty;
+        } else if (n.includes('lorebook')) {
+            total += (rates.addons?.['Lorebook'] || 0) * qty;
+        }
     });
-    
-    // Get rates for zone
-    const rates = shippingConfig.shippingRates[zone];
-    
-    // Calculate shipping cost
-    const shippingCost = rates.base + (cartItems.length * rates.perItem);
-    
-    return shippingCost;
+
+    return total;
 }
 
 // ============================================

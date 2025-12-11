@@ -1,52 +1,133 @@
-// Shipping zones and rates configuration
-// Adjust these based on your actual shipping costs
+// Shipping matrix derived from provided CSVs:
+// - "Shipping per country (in $) - Sheet1.csv"
+// - "EU zone countries - Sheet1.csv"
+//
+// Zones are keyed by exact country rows in the shipping CSV. EU zones are
+// expanded using the second CSV. Country matching is done by display name.
 
-const shippingZones = {
-    domestic: ['US'],
-    zone1: ['CA', 'MX'],
-    zone2: ['GB', 'UK', 'DE', 'FR', 'IT', 'ES', 'NL', 'BE', 'SE', 'NO', 'DK', 'FI', 'AT', 'CH', 'IE', 'PT', 'GR', 'PL'], // Europe
-    zone3: ['AU', 'NZ', 'JP', 'KR', 'SG', 'HK', 'TW'], // Asia-Pacific
-    zone4: [] // Rest of world (default)
+// Pledge keys
+const PLEDGES = [
+    'humble vaanar',
+    'industrious manushya',
+    'resplendent garuda',
+    'benevolent divya',
+    'founders of neh'
+];
+
+// Add-on keys we price separately
+const ADDONS = {
+    'built environments': 'Built Environments',
+    'lorebook': 'Lorebook'
 };
 
+// Base table (values in USD) as per shipping CSV
 const shippingRates = {
-    domestic: {
-        base: 5,      // Base shipping cost in USD
-        perItem: 2,   // Additional cost per item
-        perGram: 0    // Additional cost per gram (if needed)
+    'USA': {
+        pledges: { 'humble vaanar': 12, 'industrious manushya': 13, 'resplendent garuda': 40, 'benevolent divya': 47, 'founders of neh': 80 },
+        addons: { 'Built Environments': 5, 'Lorebook': 5 }
     },
-    zone1: {
-        base: 15,
-        perItem: 5,
-        perGram: 0
+    'CANADA': {
+        pledges: { 'humble vaanar': 18, 'industrious manushya': 23, 'resplendent garuda': 72, 'benevolent divya': 92, 'founders of neh': 120 },
+        addons: { 'Built Environments': 10, 'Lorebook': 10 }
     },
-    zone2: {
-        base: 20,
-        perItem: 7,
-        perGram: 0
+    'MEXICO': {
+        pledges: { 'humble vaanar': 18, 'industrious manushya': 23, 'resplendent garuda': 72, 'benevolent divya': 92, 'founders of neh': 120 },
+        addons: { 'Built Environments': 10, 'Lorebook': 10 }
     },
-    zone3: {
-        base: 25,
-        perItem: 10,
-        perGram: 0
+    'UK': {
+        pledges: { 'humble vaanar': 11, 'industrious manushya': 13, 'resplendent garuda': 40, 'benevolent divya': 51, 'founders of neh': 80 },
+        addons: { 'Built Environments': 7, 'Lorebook': 7 }
     },
-    zone4: {
-        base: 30,
-        perItem: 12,
-        perGram: 0
+    'EU-1': {
+        pledges: { 'humble vaanar': 13, 'industrious manushya': 13, 'resplendent garuda': 42, 'benevolent divya': 47, 'founders of neh': 80 },
+        addons: { 'Built Environments': 8, 'Lorebook': 8 }
+    },
+    'EU-2': {
+        pledges: { 'humble vaanar': 15, 'industrious manushya': 15, 'resplendent garuda': 48, 'benevolent divya': 57, 'founders of neh': 100 },
+        addons: { 'Built Environments': 10, 'Lorebook': 10 }
+    },
+    'EU-3': {
+        pledges: { 'humble vaanar': 16, 'industrious manushya': 19, 'resplendent garuda': 58, 'benevolent divya': 71, 'founders of neh': 100 },
+        addons: { 'Built Environments': 10, 'Lorebook': 10 }
+    },
+    'AUSTRALIA': {
+        pledges: { 'humble vaanar': 13, 'industrious manushya': 16, 'resplendent garuda': 52, 'benevolent divya': 56, 'founders of neh': 90 },
+        addons: { 'Built Environments': 8, 'Lorebook': 7 }
+    },
+    'NEW ZEALAND': {
+        pledges: { 'humble vaanar': 18, 'industrious manushya': 23, 'resplendent garuda': 72, 'benevolent divya': 92, 'founders of neh': 120 },
+        addons: { 'Built Environments': 10, 'Lorebook': 10 }
+    },
+    'CHINA / HONG KONG': {
+        pledges: { 'humble vaanar': 8, 'industrious manushya': 10, 'resplendent garuda': 25, 'benevolent divya': 30, 'founders of neh': 60 },
+        addons: { 'Built Environments': 5, 'Lorebook': 5 }
+    },
+    'INDIA': {
+        pledges: { 'humble vaanar': 5, 'industrious manushya': 5, 'resplendent garuda': 25, 'benevolent divya': 30, 'founders of neh': 50 },
+        addons: { 'Built Environments': 4, 'Lorebook': 4 }
+    },
+    'REST OF WORLD': {
+        pledges: { 'humble vaanar': 20, 'industrious manushya': 25, 'resplendent garuda': 80, 'benevolent divya': 99, 'founders of neh': 120 },
+        addons: { 'Built Environments': 12, 'Lorebook': 12 }
     }
 };
 
-module.exports = {
-    shippingZones,
-    shippingRates
+// EU zone expansion (from EU zone countries - Sheet1.csv)
+const euZoneMap = {
+    'EU-1': [
+        'Austria','Belgium','Czech Republic','Denmark','France','Germany','Hungary','Ireland','Luxembourg','Netherlands','Poland','Portugal','Slovakia','Spain'
+    ],
+    'EU-2': [
+        'Bulgaria','Croatia','Estonia','Finland','Greece','Italy','Latvia','Lithuania','Romania','Slovenia','Sweden'
+    ],
+    'EU-3': [
+        'Malta','Monaco','Norway','San Marino','Switzerland','Andorra','Cyprus','Serbia','Turkey','Gibraltar'
+    ]
 };
 
+// Country-to-zone mapping
+const countryZone = (() => {
+    const map = new Map();
 
+    // Direct rows
+    map.set('united states', 'USA');
+    map.set('us', 'USA');
+    map.set('usa', 'USA');
 
+    map.set('canada', 'CANADA');
+    map.set('mexico', 'MEXICO');
+    map.set('united kingdom', 'UK');
+    map.set('uk', 'UK');
+    map.set('great britain', 'UK');
+    map.set('england', 'UK');
 
+    map.set('australia', 'AUSTRALIA');
+    map.set('austraila', 'AUSTRALIA'); // handle typo from CSV
+    map.set('new zealand', 'NEW ZEALAND');
 
+    map.set('china', 'CHINA / HONG KONG');
+    map.set('hong kong', 'CHINA / HONG KONG');
+    map.set('china/ hong kong', 'CHINA / HONG KONG');
 
+    map.set('india', 'INDIA');
 
+    // EU zones
+    Object.entries(euZoneMap).forEach(([zone, countries]) => {
+        countries.forEach(c => map.set(c.toLowerCase(), zone));
+    });
 
+    return map;
+})();
+
+function resolveZone(countryName = '') {
+    const key = countryName.trim().toLowerCase();
+    return countryZone.get(key) || 'REST OF WORLD';
+}
+
+module.exports = {
+    shippingRates,
+    resolveZone,
+    PLEDGES,
+    ADDONS
+};
 
