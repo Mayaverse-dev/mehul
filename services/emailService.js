@@ -137,7 +137,6 @@ async function sendCardSavedConfirmation(order) {
             return { success: false, error: 'No recipient email' };
         }
 
-        const autodebitDate = 'January 24, 2025';
         const orderTotal = parseFloat(order.total || 0);
         const shippingCost = parseFloat(order.shipping_cost || 0);
         const addonsSubtotal = parseFloat(order.addons_subtotal || 0);
@@ -145,12 +144,12 @@ async function sendCardSavedConfirmation(order) {
         const content = `
             <p>Hello ${shippingAddress?.fullName || shippingAddress?.name || 'Valued Customer'},</p>
             
-            <p>Thank you for your order! Your payment method has been successfully saved and will be automatically charged on <strong>${autodebitDate}</strong>.</p>
+            <p>Thank you for your order! Your payment method has been successfully saved and will be charged when we ship your items.</p>
             
             <div style="background-color: #2c2c2c; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
                 <h2 style="margin-top: 0; color: #dc2626;">Order Summary</h2>
                 <p style="margin: 5px 0;"><strong>Order ID:</strong> #${order.id}</p>
-                <p style="margin: 5px 0;"><strong>Autodebit Date:</strong> ${autodebitDate}</p>
+                <p style="margin: 5px 0;"><strong>Charge Timing:</strong> We will charge your card when we ship your items.</p>
             </div>
 
             <h3 style="color: #c8b696; margin-top: 30px;">Order Items</h3>
@@ -178,7 +177,7 @@ async function sendCardSavedConfirmation(order) {
 
             <div style="background-color: #2c2c2c; padding: 20px; border-radius: 8px; margin: 30px 0; border-left: 4px solid #059669;">
                 <p style="margin: 0;"><strong>What happens next?</strong></p>
-                <p style="margin: 10px 0 0 0;">Your card will be automatically charged on ${autodebitDate}. You will receive a payment confirmation email once the charge is processed.</p>
+                <p style="margin: 10px 0 0 0;">We will charge your card when we ship your items. You will receive a payment confirmation email once the charge is processed.</p>
             </div>
 
             <p style="margin-top: 30px;">If you have any questions or need to update your payment method, please contact us.</p>

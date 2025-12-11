@@ -1,4 +1,7 @@
 require('dotenv').config();
+
+// Diagnostics: verify critical env is present (non-secret value logging)
+console.log(`Env check -> RESEND_API_KEY present: ${!!process.env.RESEND_API_KEY}`);
 const express = require('express');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
@@ -17,7 +20,8 @@ app.use(compression());
 
 // Auth constants
 const OTP_TTL_MS = 15 * 60 * 1000; // 15 minutes
-const MAGIC_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
+// Magic links valid for 30 days
+const MAGIC_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const LOGIN_STALE_DAYS = 7; // Require OTP if last login older than this
 
 // Database setup - PostgreSQL (production) or SQLite (development fallback)
@@ -188,7 +192,7 @@ async function initializeDatabase() {
             name TEXT,
             created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
         )`);
-        console.log('✓ Admins table ready');
+                console.log('✓ Admins table ready');
 
         // Email logs table
         await execute(`CREATE TABLE IF NOT EXISTS email_logs (
@@ -369,7 +373,7 @@ function requireAdmin(req, res, next) {
 // ============================================
 const PIN_LOGIN_GRACE_DAYS = 7;
 const OTP_TTL_MINUTES = 15;
-const MAGIC_TTL_HOURS = 48;
+const MAGIC_TTL_HOURS = 24 * 30; // 30 days
 
 function generateOtpCode() {
     return crypto.randomInt(1000, 10000).toString().padStart(4, '0');
@@ -668,10 +672,10 @@ app.get('/auth/magic', async (req, res) => {
         const expires = new Date(user.magic_link_expires_at).getTime();
         if (Date.now() > expires) return res.status(400).send('Link expired');
 
-        // Clear token and log the user in
+        // Keep token (non-single-use), update last login and log the user in
         await execute(
             `UPDATE users 
-             SET magic_link_token = NULL, magic_link_expires_at = NULL, last_login_at = CURRENT_TIMESTAMP 
+             SET last_login_at = CURRENT_TIMESTAMP 
              WHERE id = $1`,
             [user.id]
         );
@@ -910,7 +914,7 @@ app.post('/api/auth/login-pin', async (req, res) => {
     try {
         const { email, pin } = req.body;
         if (!email || !pin) return res.status(400).json({ error: 'Email and PIN are required' });
-        if (!/^[0-9]{6}$/.test(pin)) return res.status(400).json({ error: 'PIN must be 6 digits' });
+        if (!/^[0-9]{4}$/.test(pin)) return res.status(400).json({ error: 'PIN must be 4 digits' });
 
         const user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
         if (!user) return res.status(404).json({ error: 'User not found' });
@@ -952,8 +956,8 @@ app.post('/api/auth/set-pin', async (req, res) => {
         if (!req.session || !req.session.userId) {
             return res.status(401).json({ error: 'Not authenticated' });
         }
-        if (!pin || !/^[0-9]{6}$/.test(pin)) {
-            return res.status(400).json({ error: 'PIN must be 6 digits' });
+        if (!pin || !/^[0-9]{4}$/.test(pin)) {
+            return res.status(400).json({ error: 'PIN must be 4 digits' });
         }
 
         const hash = await bcrypt.hash(pin, 10);
@@ -988,16 +992,14 @@ app.get('/auth/magic', async (req, res) => {
             return res.status(400).send('Link expired');
         }
 
-        // Clear magic link
-        await execute('UPDATE users SET magic_link_token = NULL, magic_link_expires_at = NULL WHERE id = $1', [user.id]);
-
+        // Keep magic link (not single-use), update last login and log in
+        await updateLastLogin(user.id);
         setSessionFromUser(req, user);
 
         if (!user.pin_hash) {
             req.session.requirePinSetup = true;
             return res.redirect('/login?setPin=1');
         } else {
-            await updateLastLogin(user.id);
             return res.redirect('/dashboard');
         }
     } catch (err) {

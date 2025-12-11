@@ -33,28 +33,15 @@ async function updateTestBacker() {
              WHERE email = $6
              RETURNING email, backer_number, reward_title, pledge_amount`,
             [
-                'The Benevolent Divya',
-                190.00,
-                190.00,
+                'The Humble Vaanar',
+                25.00,
+                25.00,
                 JSON.stringify({
                     ebook: 1,
-                    hardcover: 1,
-                    audiobook: 1,
-                    book2_hardcover: 1,
-                    book3_hardcover: 1,
-                    book2_live: 1,
-                    book3_live: 1,
-                    lorebook: 1,
-                    built_env: 1,
-                    pendant: 1
+                    paperback: 1
                 }),
-                JSON.stringify({
-                    'Flitt Locust Pendant': 1,
-                    'audiobook_addon': 0,
-                    'built_env_addon': 0,
-                    'lorebook_addon': 0
-                }),
-                'testbacker@maya.com'
+                JSON.stringify({}),
+                'mehul.entermaya@gmail.com'
             ]
         );
 
