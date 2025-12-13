@@ -1229,6 +1229,20 @@ app.post('/api/create-payment-intent', async (req, res) => {
             userId = shadowUser ? shadowUser.id : null;
         }
         
+        // Check if user is a dropped backer (payment failed on Kickstarter)
+        let isDroppedBacker = false;
+        if (userId) {
+            try {
+                const user = await queryOne('SELECT pledged_status FROM users WHERE id = $1', [userId]);
+                if (user && user.pledged_status === 'dropped') {
+                    isDroppedBacker = true;
+                    console.log('✓ User identified as dropped backer - will charge immediately');
+                }
+            } catch (err) {
+                console.warn('Could not check dropped backer status:', err.message);
+            }
+        }
+        
         // SERVER-SIDE PRICE VALIDATION (Security Critical!)
         console.log('Validating cart prices server-side...');
         const { serverTotal, validatedItems } = await validateCartPrices(cartItems, isAuthenticated);
@@ -1255,6 +1269,9 @@ app.post('/api/create-payment-intent', async (req, res) => {
         console.log(`  Total: $${expectedTotal.toFixed(2)}`);
         console.log(`  Pricing: ${isAuthenticated ? 'Backer prices' : 'Retail prices'}`);
         
+        // Determine order type for customer metadata
+        const customerOrderType = isDroppedBacker ? 'immediate-charge' : 'pre-order-autodebit';
+        
         console.log('Creating Stripe customer...');
         // Create Stripe customer
         let customer;
@@ -1264,13 +1281,15 @@ app.post('/api/create-payment-intent', async (req, res) => {
                 name: shippingAddress.fullName,
                 metadata: {
                     userId: userId ? userId.toString() : 'guest',
-                    orderType: 'pre-order-autodebit'
+                    orderType: customerOrderType,
+                    userType: isDroppedBacker ? 'dropped-backer' : (isAuthenticated ? 'backer' : 'guest')
                 }
             });
             console.log('✓ Customer created:', customer.id);
             console.log('  - Email:', userEmail || 'N/A');
             console.log('  - Name:', shippingAddress.fullName);
             console.log('  - User ID:', userId || 'guest');
+            console.log('  - Order Type:', customerOrderType);
         } catch (stripeError) {
             console.error('✗ Stripe customer creation failed');
             console.error('  - Error:', stripeError.message);
@@ -1279,9 +1298,17 @@ app.post('/api/create-payment-intent', async (req, res) => {
             return res.status(500).json({ error: 'Failed to create customer', details: stripeError.message });
         }
         
-        console.log('Creating Payment Intent with setup_future_usage...');
-        // Create Payment Intent with manual confirmation to save card for later charging
-        // Amount in cents, manual confirmation means no charge now
+        // Determine payment method based on user type
+        // Dropped backers: charge immediately (like new customers)
+        // Regular backers: save card, charge later
+        const chargeImmediately = isDroppedBacker;
+        const captureMethod = chargeImmediately ? 'automatic' : 'manual';
+        const orderType = chargeImmediately ? 'immediate-charge' : 'pre-order-autodebit';
+        
+        console.log(`Creating Payment Intent (${chargeImmediately ? 'immediate charge' : 'save card for later'})...`);
+        // Create Payment Intent
+        // Dropped backers: automatic capture (charge immediately)
+        // Regular backers: manual capture (save card, charge later)
         const amountInCents = Math.round(amount * 100);
         let paymentIntent;
         try {
@@ -1289,21 +1316,24 @@ app.post('/api/create-payment-intent', async (req, res) => {
                 amount: amountInCents,
                 currency: 'usd',
                 customer: customer.id,
-                setup_future_usage: 'off_session', // Save card for future off-session charges
+                setup_future_usage: 'off_session', // Save card for future use (both cases)
                 confirmation_method: 'automatic', // Allow frontend to confirm
-                capture_method: 'manual', // Authorize but don't capture (charge) immediately
+                capture_method: captureMethod, // Automatic for dropped backers, manual for regular backers
                 payment_method_types: ['card'],
                 metadata: {
                     userId: userId ? userId.toString() : 'guest',
                     userEmail: userEmail || 'unknown',
                     orderAmount: amount.toString(),
-                    orderType: 'pre-order-autodebit'
+                    orderType: orderType,
+                    userType: isDroppedBacker ? 'dropped-backer' : (isAuthenticated ? 'backer' : 'guest')
                 }
             });
             console.log('✓ Payment Intent created:', paymentIntent.id);
             console.log('  - Amount:', amountInCents, 'cents ($' + amount + ')');
             console.log('  - Customer:', customer.id);
             console.log('  - Status:', paymentIntent.status);
+            console.log('  - Capture Method:', captureMethod);
+            console.log('  - Order Type:', orderType);
         } catch (stripeError) {
             console.error('✗ Payment Intent creation failed:', stripeError.message);
             console.error('  - Error type:', stripeError.type);
@@ -1313,7 +1343,12 @@ app.post('/api/create-payment-intent', async (req, res) => {
         
         console.log('Saving order to database...');
         // Create order in database
+        // Dropped backers: mark as succeeded and paid immediately
+        // Regular backers: mark as pending (will be charged later)
         const addonsSubtotal = amount - shippingCost;
+        const paymentStatus = chargeImmediately ? 'succeeded' : 'pending';
+        const paidStatus = chargeImmediately ? 1 : 0;
+        
         try {
             await execute(`INSERT INTO orders (
                 user_id, new_addons, shipping_address, 
@@ -1330,12 +1365,14 @@ app.post('/api/create-payment-intent', async (req, res) => {
                 amount,
                 customer.id,
                 paymentIntent.id,
-                'pending',
-                0
+                paymentStatus,
+                paidStatus
             ]);
             console.log('✓ Order saved to database');
             console.log('  - Order total: $' + amount);
             console.log('  - Payment Intent ID:', paymentIntent.id);
+            console.log('  - Payment Status:', paymentStatus);
+            console.log('  - Paid:', paidStatus === 1 ? 'Yes' : 'No (will charge later)');
 
             // Store order ID in session for summary page
             const savedOrder = await queryOne('SELECT id FROM orders WHERE stripe_payment_intent_id = $1', [paymentIntent.id]);
@@ -1348,7 +1385,11 @@ app.post('/api/create-payment-intent', async (req, res) => {
             return res.status(500).json({ error: 'Failed to save order', details: dbError.message });
         }
         
-        console.log('✓ Payment setup complete - card will be saved for autodebit');
+        if (chargeImmediately) {
+            console.log('✓ Payment setup complete - dropped backer will be charged immediately');
+        } else {
+            console.log('✓ Payment setup complete - card will be saved for autodebit');
+        }
         res.json({ 
             clientSecret: paymentIntent.client_secret,
             customerId: customer.id,
