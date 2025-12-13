@@ -310,7 +310,7 @@
         <div class="pledge-card">
             <!-- Hero Image -->
             <div class="pledge-hero">
-                <img src="https://www.figma.com/api/mcp/asset/985bdfee-d9bd-4b65-8a3a-e4e2ae217dac" alt="Your Pledge" id="pledge-image">
+                <img src="" alt="Your Pledge" id="pledge-image" style="display: none;">
             </div>
 
             <!-- Badge -->
@@ -475,6 +475,9 @@
                     return;
                 }
                 
+                // Show the image element
+                pledgeImage.style.display = 'block';
+                
                 // Detect if mobile screen (phone)
                 const isMobile = window.innerWidth <= 768;
                 
@@ -552,36 +555,58 @@
                         };
                         const mobileImage = mobileImageMap[imageFilename] || imageFilename;
                         pledgeImage.src = `/images/upgrade pledges/${mobileImage}`;
+                        pledgeImage.alt = rewardTitle;
+                        pledgeImage.style.display = 'block';
                         console.log('✓ Mobile pledge image loaded:', mobileImage);
                     } else {
                         pledgeImage.src = `/images/pledges/${imageFilename}`;
+                        pledgeImage.alt = rewardTitle;
+                        pledgeImage.style.display = 'block';
                         console.log('✓ Desktop pledge image loaded:', imageFilename);
                     }
-                    pledgeImage.alt = rewardTitle;
                 } else {
                     // Fallback: try to guess from reward title keywords
+                    let fallbackImageFilename = null;
                     if (rewardTitleLower.includes('vaanar')) {
-                        imageFilename = isMobile ? 'vaanar.png' : 'humble-vaanar.png';
+                        fallbackImageFilename = isMobile ? 'vaanar.png' : 'humble-vaanar.png';
                     } else if (rewardTitleLower.includes('manushya')) {
-                        imageFilename = isMobile ? 'manushya.png' : 'industrious-manushya.png';
+                        fallbackImageFilename = isMobile ? 'manushya.png' : 'industrious-manushya.png';
                     } else if (rewardTitleLower.includes('garuda')) {
-                        imageFilename = isMobile ? 'garuda.png' : 'resplendant-garuda.png';
+                        fallbackImageFilename = isMobile ? 'garuda.png' : 'resplendant-garuda.png';
                     } else if (rewardTitleLower.includes('divya') || rewardTitleLower.includes('benevolent')) {
-                        imageFilename = isMobile ? 'divya.png' : 'benevolent-divya.png';
+                        fallbackImageFilename = isMobile ? 'divya.png' : 'benevolent-divya.png';
                     } else if (rewardTitleLower.includes('founder') || rewardTitleLower.includes('neh')) {
-                        imageFilename = isMobile ? 'founders.png' : 'founders-of-neh.png';
+                        fallbackImageFilename = isMobile ? 'founders.png' : 'founders-of-neh.png';
                     }
                     
-                    if (imageFilename) {
+                    if (fallbackImageFilename) {
                         const imageFolder = isMobile ? '/images/upgrade pledges/' : '/images/pledges/';
-                        pledgeImage.src = `${imageFolder}${imageFilename}`;
+                        pledgeImage.src = `${imageFolder}${fallbackImageFilename}`;
                         pledgeImage.alt = rewardTitle;
-                        console.log(`✓ Pledge image loaded via fallback (${isMobile ? 'mobile' : 'desktop'}):`, imageFilename);
+                        pledgeImage.style.display = 'block';
+                        console.log(`✓ Pledge image loaded via fallback (${isMobile ? 'mobile' : 'desktop'}):`, fallbackImageFilename);
                     } else {
                         console.warn('⚠ No matching pledge image found for:', rewardTitle);
-                        // Keep default image or show placeholder
+                        // Use upgrade message as final fallback
+                        const upgradeImage = isMobile 
+                            ? '/images/pledges/upgrade-pledge-mobile.webp' 
+                            : '/images/pledges/upgrade-pledge-desktop.webp';
+                        pledgeImage.src = upgradeImage;
+                        pledgeImage.alt = 'Your Pledge';
+                        pledgeImage.style.display = 'block';
                     }
                 }
+                
+                // Add error handler in case image fails to load
+                pledgeImage.onerror = function() {
+                    console.error('Failed to load pledge image:', this.src);
+                    // Try fallback upgrade image
+                    const upgradeImage = isMobile 
+                        ? '/images/pledges/upgrade-pledge-mobile.webp' 
+                        : '/images/pledges/upgrade-pledge-desktop.webp';
+                    this.src = upgradeImage;
+                    this.alt = 'Your Pledge';
+                };
             } catch (error) {
                 console.error('Error loading pledge image:', error);
             }
@@ -1000,6 +1025,9 @@
         async function loadUserData() {
             try {
                 const response = await fetch('/api/user/data');
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status} ${response.statusText}`);
+                }
                 const userData = await response.json();
 
                 // Display user info
@@ -1027,7 +1055,7 @@
                 hasValidPledge = rewardTitle.trim().length > 0 && pledgeAmount >= 18;
 
                 // For dropped backers, add their pledge to cart automatically
-                if (isDropped && pledgeAmount > 0 && rewardTitle) {
+                if (isDroppedBacker && pledgeAmount > 0 && rewardTitle) {
                     // Store original pledge info globally and in localStorage for restoration
                     originalPledgeInfo = {
                         id: 'original-pledge-' + userData.backerNumber,
@@ -1051,10 +1079,10 @@
                 }
 
                 // Store reward title for responsive image switching
-                currentRewardTitle = userData.rewardTitle;
+                currentRewardTitle = userData.rewardTitle || '';
                 
-                // Load pledge image based on reward title
-                loadPledgeImage(userData.rewardTitle);
+                // Load pledge image based on reward title (handle undefined/null)
+                loadPledgeImage(userData.rewardTitle || '');
 
                 // Build items list
                 const items = userData.kickstarterItems || {};
@@ -1102,10 +1130,14 @@
 
                 // Display items as comma-separated text
                 const itemsListEl = document.getElementById('items-list');
-                if (itemsArray.length > 0) {
-                    itemsListEl.textContent = itemsArray.join(', ');
-                } else {
-                    itemsListEl.textContent = 'No items included in this pledge tier.';
+                if (itemsListEl) {
+                    if (itemsArray.length > 0) {
+                        itemsListEl.textContent = itemsArray.join(', ');
+                    } else if (rewardTitle && rewardTitle.trim().length > 0) {
+                        itemsListEl.textContent = 'No items listed for this pledge tier.';
+                    } else {
+                        itemsListEl.textContent = 'Upgrade to a pledge tier to see included items.';
+                    }
                 }
                 
                 // Show/hide warning message for backers without pledge
@@ -1120,7 +1152,21 @@
 
             } catch (error) {
                 console.error('Error loading user data:', error);
-                document.getElementById('items-list').textContent = 'Error loading pledge information. Please refresh the page.';
+                const itemsListEl = document.getElementById('items-list');
+                if (itemsListEl) {
+                    itemsListEl.textContent = 'Unable to load pledge information. Please refresh the page.';
+                }
+                // Try to load a default image even on error
+                const pledgeImage = document.getElementById('pledge-image');
+                if (pledgeImage) {
+                    const isMobile = window.innerWidth <= 768;
+                    const defaultImage = isMobile 
+                        ? '/images/pledges/upgrade-pledge-mobile.webp' 
+                        : '/images/pledges/upgrade-pledge-desktop.webp';
+                    pledgeImage.src = defaultImage;
+                    pledgeImage.alt = 'Your Pledge';
+                    pledgeImage.style.display = 'block';
+                }
             }
         }
 
