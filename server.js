@@ -1389,20 +1389,43 @@ app.post('/api/save-payment-method', async (req, res) => {
             return res.status(400).json({ error: 'Payment method ID is required' });
         }
         
-        // Update order with payment method ID
+        // Retrieve the Payment Intent to check its status
+        console.log('Retrieving Payment Intent status...');
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        console.log('✓ Payment Intent status:', paymentIntent.status);
+        
+        // Determine if this was an immediate charge (guest) or card save (backer)
+        let paymentStatus = 'card_saved';
+        let paidStatus = 0;
+        
+        if (paymentIntent.status === 'succeeded') {
+            // Payment was captured immediately (guest/non-backer)
+            paymentStatus = 'succeeded';
+            paidStatus = 1;
+            console.log('✓ Payment succeeded - customer charged immediately');
+        } else if (paymentIntent.status === 'requires_capture') {
+            // Payment authorized but not captured (backer)
+            paymentStatus = 'card_saved';
+            paidStatus = 0;
+            console.log('✓ Card authorized - will be charged when items ship');
+        }
+        
+        // Update order with payment method ID and status
         console.log('Updating order in database...');
         await execute(`UPDATE orders 
-            SET stripe_payment_method_id = $1, payment_status = $2 
-            WHERE stripe_payment_intent_id = $3`, 
+            SET stripe_payment_method_id = $1, payment_status = $2, paid = $3 
+            WHERE stripe_payment_intent_id = $4`, 
         [
             finalPaymentMethodId,
-            'card_saved',
+            paymentStatus,
+            paidStatus,
             paymentIntentId
         ]);
         
         console.log('✓ Payment method saved successfully');
         console.log('  - Payment Method ID:', finalPaymentMethodId);
-        console.log('  - Order status: card_saved');
+        console.log('  - Order status:', paymentStatus);
+        console.log('  - Paid:', paidStatus === 1 ? 'Yes' : 'No (charge on shipment)');
         
         // Send card saved confirmation email
         try {
@@ -1539,31 +1562,31 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
             email: emailForOrder,
             name: shippingAddress.name || shippingAddress.fullName,
             metadata: {
-                orderType: 'pre-order-autodebit',
-                userType: 'guest-shadow',
+                orderType: 'immediate-charge',
+                userType: 'guest',
                 userId: shadowUserId ? shadowUserId.toString() : 'guest'
             }
         });
-        console.log('✓ Guest customer created:', customer.id);
+        console.log('✓ Guest customer created (for immediate charge):', customer.id);
         
-        // Create Payment Intent with automatic confirmation to save card for later charging
+        // Create Payment Intent with immediate charge for non-backers
         const amountInCents = Math.round(amount * 100);
         const paymentIntent = await stripe.paymentIntents.create({
             amount: amountInCents,
             currency: 'usd',
             customer: customer.id,
-            setup_future_usage: 'off_session', // Save card for future off-session charges
+            setup_future_usage: 'off_session', // Save card for potential future use
             confirmation_method: 'automatic', // Allow frontend to confirm
-            capture_method: 'manual', // Authorize but don't capture (charge) immediately
+            capture_method: 'automatic', // Charge immediately (like normal ecommerce)
             payment_method_types: ['card'],
             metadata: {
                 customerEmail: customerEmail || 'guest',
-                orderType: 'pre-order-autodebit',
+                orderType: 'immediate-charge',
                 userType: 'guest',
                 totalAmount: amountInCents.toString()
             }
         });
-        console.log('✓ Guest Payment Intent created:', paymentIntent.id);
+        console.log('✓ Guest Payment Intent created (immediate charge):', paymentIntent.id);
         
         // Create guest order in database
         const addonsSubtotal = amount - shippingCost;
@@ -1582,10 +1605,10 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
             amount,
             customer.id,
             paymentIntent.id,
-            'pending', // Will be updated to 'card_saved' after confirmation
-            0 // Not paid yet
+            'pending', // Will be updated to 'succeeded' after successful payment
+            0 // Will be updated to 1 after successful payment
         ]);
-        console.log('✓ Guest order saved to database');
+        console.log('✓ Guest order saved to database (awaiting payment confirmation)');
         
         // Store order ID in session for summary page
         const savedOrder = await queryOne('SELECT id FROM orders WHERE stripe_payment_intent_id = $1', [paymentIntent.id]);
