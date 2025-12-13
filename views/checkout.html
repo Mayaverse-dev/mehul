@@ -577,14 +577,87 @@
                 return;
             }
 
+            // Check if user is logged in and has Kickstarter items
+            let kickstarterItemsHTML = '';
+            try {
+                const userResponse = await fetch('/api/user/data');
+                if (userResponse.ok) {
+                    const userData = await userResponse.json();
+                    const items = userData.kickstarterItems || {};
+                    const addons = userData.kickstarterAddons || {};
+                    
+                    const itemNames = {
+                        ebook: 'MAYA: Seed Takes Root e-book',
+                        paperback: 'MAYA: Seed Takes Root Paperback',
+                        audiobook: 'MAYA: Seed Takes Root Audiobook',
+                        hardcover: 'MAYA: Seed Takes Root Hardcover',
+                        book2_hardcover: 'MAYA: Whispers In The Soil | Book 2 Hardcover',
+                        book3_hardcover: 'MAYA: It Becomes The Forest | Book 3 Hardcover',
+                        book2_live: 'MAYA: Whispers In The Soil | Book 2 Live Access',
+                        book3_live: 'MAYA: It Becomes The Forest | Book 3 Live Access',
+                        lorebook: 'MAYA Lore',
+                        built_env: 'Built Environments of MAYA',
+                        pendant: 'Flitt Locust Pendant'
+                    };
+                    
+                    const addonNames = {
+                        pendant: 'Flitt Locust Pendant',
+                        built_env_addon: 'Built Environments of MAYA',
+                        lorebook_addon: 'MAYA Lorebook'
+                    };
+
+                    let kickstarterItems = [];
+
+                    // Add main items
+                    for (const [key, name] of Object.entries(itemNames)) {
+                        const quantity = items[key] || 0;
+                        if (quantity > 0) {
+                            kickstarterItems.push({ name, quantity });
+                        }
+                    }
+
+                    // Add Kickstarter add-ons
+                    for (const [key, name] of Object.entries(addonNames)) {
+                        const quantity = addons[key] || 0;
+                        if (quantity > 0) {
+                            kickstarterItems.push({ name, quantity });
+                        }
+                    }
+
+                    if (kickstarterItems.length > 0) {
+                        kickstarterItemsHTML = `
+                            <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #444;">
+                                <div style="color: #059669; font-weight: 600; font-size: 12px; text-transform: uppercase; margin-bottom: 10px;">
+                                    Kickstarter Items (Paid)
+                                </div>
+                                ${kickstarterItems.map(item => `
+                                    <div class="summary-item">
+                                        <div>
+                                            <strong>${item.name}</strong><br>
+                                            <small style="color: #717171;">Qty: ${item.quantity}</small>
+                                        </div>
+                                        <div style="color: #059669;">✓</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    }
+                }
+            } catch (err) {
+                console.log('User not logged in or no Kickstarter items');
+            }
+
             // Display items
             const itemsDiv = document.getElementById('order-items');
             let subtotal = 0;
+            let cartItemsHTML = '';
 
             if (cart.length === 0) {
-                itemsDiv.innerHTML = '<div style="color: #717171; font-style: italic;">No items</div>';
+                if (!kickstarterItemsHTML) {
+                    cartItemsHTML = '<div style="color: #717171; font-style: italic;">No items</div>';
+                }
             } else {
-                itemsDiv.innerHTML = cart.map(item => {
+                cartItemsHTML = cart.map(item => {
                     const itemTotal = item.price * item.quantity;
                     subtotal += itemTotal;
                     
@@ -605,6 +678,9 @@
                     `;
                 }).join('');
             }
+
+            // Combine Kickstarter items and cart items
+            itemsDiv.innerHTML = kickstarterItemsHTML + cartItemsHTML;
 
             // Display shipping address
             document.getElementById('shipping-address').innerHTML = `
