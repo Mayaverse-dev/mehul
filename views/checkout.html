@@ -625,10 +625,16 @@
                     }
 
                     if (kickstarterItems.length > 0) {
+                        // Check if dropped backer (payment failed)
+                        const isDropped = userData.pledgedStatus === 'dropped';
+                        const headerColor = isDropped ? '#dc2626' : '#059669';
+                        const headerText = isDropped ? 'Kickstarter Items (Included)' : 'Kickstarter Items (Paid)';
+                        const checkmark = isDropped ? '' : '<div style="color: #059669;">✓</div>';
+                        
                         kickstarterItemsHTML = `
                             <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #444;">
-                                <div style="color: #059669; font-weight: 600; font-size: 12px; text-transform: uppercase; margin-bottom: 10px;">
-                                    Kickstarter Items (Paid)
+                                <div style="color: ${headerColor}; font-weight: 600; font-size: 12px; text-transform: uppercase; margin-bottom: 10px;">
+                                    ${headerText}
                                 </div>
                                 ${kickstarterItems.map(item => `
                                     <div class="summary-item">
@@ -636,7 +642,7 @@
                                             <strong>${item.name}</strong><br>
                                             <small style="color: #717171;">Qty: ${item.quantity}</small>
                                         </div>
-                                        <div style="color: #059669;">✓</div>
+                                        ${checkmark}
                                     </div>
                                 `).join('')}
                             </div>

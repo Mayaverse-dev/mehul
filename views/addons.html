@@ -532,14 +532,23 @@
                     const upgradeIndex = cart.indexOf(upgrade);
                     const upgradeAmount = upgrade.price * upgrade.quantity;
                     const originalPrice = upgrade.originalPrice || upgrade.price;
-                    const currentPledge = upgrade.currentPledgeAmount || userData.pledgeAmount || 0;
+                    const currentPledge = upgrade.currentPledgeAmount || userData?.pledgeAmount || 0;
+                    const isDroppedUpgrade = upgrade.isDroppedBackerUpgrade || false;
+                    
+                    // Different text for dropped backers vs paid backers
+                    let upgradeDescription;
+                    if (isDroppedUpgrade) {
+                        upgradeDescription = `Full pledge amount: $${upgradeAmount.toFixed(2)}`;
+                    } else {
+                        upgradeDescription = `Upgrade: $${currentPledge.toFixed(2)} → $${originalPrice.toFixed(2)} (Pay difference: $${upgradeAmount.toFixed(2)})`;
+                    }
                     
                     upgradeHTML += `
                         <div class="cart-item">
                             <div class="item-info">
                                 <div class="item-name">${upgrade.name.replace(' (Upgrade)', '')}</div>
-                                <div class="item-qty-label" style="color: #059669;">
-                                    Upgrade: $${currentPledge.toFixed(2)} → $${originalPrice.toFixed(2)} (Pay difference: $${upgradeAmount.toFixed(2)})
+                                <div class="item-qty-label" style="color: ${isDroppedUpgrade ? '#dc2626' : '#059669'};">
+                                    ${upgradeDescription}
                                 </div>
                             </div>
                             <div class="item-controls">

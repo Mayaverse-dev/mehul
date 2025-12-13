@@ -635,6 +635,7 @@
         // Store current pledge amount globally
         let currentPledgeAmount = 0;
         let hasValidPledge = false; // Track if user has a pledge tier
+        let isDroppedBacker = false; // Track if payment failed on Kickstarter
 
         // Load upgrade pledge options
         async function loadUpgradePledges(pledgeTiers) {
@@ -800,32 +801,50 @@
             const newPledgePrice = parseFloat(pledgePrice) || 0;
             const currentPledge = currentPledgeAmount || 0;
             
-            // Calculate the difference (only charge the difference)
-            const difference = newPledgePrice - currentPledge;
+            // For dropped backers, charge full amount. For paid backers, charge difference.
+            let amountToCharge;
+            let upgradeDescription;
             
-            if (difference <= 0) {
-                alert('This pledge tier is not higher than your current pledge. Please select a higher tier.');
-                return;
+            if (isDroppedBacker) {
+                // Dropped backer: charge full amount (they haven't paid yet)
+                amountToCharge = newPledgePrice;
+                upgradeDescription = `Full pledge amount: $${newPledgePrice.toFixed(2)}`;
+                console.log('Dropped backer upgrade: charging full amount');
+            } else {
+                // Paid backer: charge only the difference
+                const difference = newPledgePrice - currentPledge;
+                
+                if (difference <= 0) {
+                    alert('This pledge tier is not higher than your current pledge. Please select a higher tier.');
+                    return;
+                }
+                
+                amountToCharge = difference;
+                upgradeDescription = `Upgrade: $${currentPledge.toFixed(2)} → $${newPledgePrice.toFixed(2)} (Pay difference)`;
+                console.log('Paid backer upgrade: charging difference');
             }
             
             // Add to cart (will replace current pledge) - no confirmation needed for backers
                 const tempCart = JSON.parse(sessionStorage.getItem('cart') || '[]');
                 
-                // Remove any existing pledges from cart
+                // Remove any existing pledges from cart (including original pledge for dropped backers)
                 const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
                 const cartWithoutPledges = tempCart.filter(item => {
                     const name = item.name.toLowerCase();
-                return !pledgeNames.some(pledge => name.includes(pledge)) && !item.isPledgeUpgrade;
+                    return !pledgeNames.some(pledge => name.includes(pledge)) 
+                        && !item.isPledgeUpgrade 
+                        && !item.isOriginalPledge; // Also remove original pledge for dropped backers
                 });
                 
-            // Add new pledge upgrade with only the difference as price
+            // Add new pledge upgrade
                 cartWithoutPledges.push({
                     id: pledgeId,
                 name: `${pledgeName} (Upgrade)`,
-                price: difference, // Only charge the difference
+                price: amountToCharge,
                 originalPrice: newPledgePrice, // Store original price for display
                 currentPledgeAmount: currentPledge, // Store current pledge for reference
                 isPledgeUpgrade: true, // Flag to identify pledge upgrades
+                isDroppedBackerUpgrade: isDroppedBacker, // Flag for dropped backer upgrades
                     quantity: 1
                 });
                 
@@ -933,11 +952,11 @@
                 document.getElementById('pledge-amount-badge').textContent = pledgeAmount.toFixed(0);
                 
                 // Check if payment failed (dropped backer)
-                const isDropped = userData.pledgedStatus === 'dropped';
+                isDroppedBacker = userData.pledgedStatus === 'dropped';
                 const badgeElement = document.getElementById('pledge-status-badge');
                 const statusText = document.getElementById('pledge-status-text');
                 
-                if (isDropped) {
+                if (isDroppedBacker) {
                     badgeElement.style.background = '#dc2626'; // Red
                     statusText.textContent = 'PAYMENT FAILED';
                 } else {
