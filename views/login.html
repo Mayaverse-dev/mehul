@@ -233,16 +233,18 @@
         /* PIN split input */
         .pin-container {
             display: flex;
-            gap: 8px;
+            gap: 12px;
             align-items: center;
             justify-content: center;
+            margin-top: 8px;
+            margin-bottom: 8px;
         }
         .pin-input {
-            width: 56px;
+            width: 60px;
             text-align: center;
             letter-spacing: 0.1em;
             font-size: 20px;
-            padding: 10px 8px;
+            padding: 14px 10px;
         }
 
         @media (max-width: 640px) {
@@ -310,9 +312,9 @@
 
             <!-- Step: PIN -->
             <form id="pin-form" style="display:none;">
-                <p class="form-hint">Enter your 4-digit PIN for quick login.</p>
-                <div class="form-group">
-                    <label class="form-label" style="text-align:center; margin-bottom:12px;">Secure PIN</label>
+                <p class="form-hint" style="margin-bottom: 20px;">Enter your 4-digit PIN for quick login.</p>
+                <div class="form-group" style="margin-bottom: 28px;">
+                    <label class="form-label" style="text-align:center; margin-bottom: 16px;">Secure PIN</label>
                     <div class="pin-container" id="login-pin-container">
                         <input type="password" class="form-input pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
                         <input type="password" class="form-input pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
@@ -323,7 +325,7 @@
                 <button type="submit" class="btn-login" id="pin-submit-btn">
                     Login with PIN
                 </button>
-                <p class="form-hint">Forgot PIN? <button type="button" class="link-button" id="force-otp-btn">Send a code instead</button></p>
+                <p class="form-hint" style="margin-top: 16px;">Forgot PIN? <button type="button" class="link-button" id="force-otp-btn">Send a code instead</button></p>
             </form>
 
             <!-- Step: OTP -->
@@ -350,10 +352,10 @@
 
             <!-- Step: Set PIN -->
             <form id="setpin-form" style="display:none;">
-                <p class="form-hint" id="setpin-email-hint" style="margin-bottom:10px;">Create a 4-digit PIN for easy login next time.</p>
-                <p class="form-hint" id="setpin-email-label" style="margin-top:-2px; color:#e5e7eb; display:none; font-weight:600; font-size:14px;"></p>
-                <div class="form-group">
-                    <label class="form-label" style="text-align:center; margin-bottom:12px;">New Secure PIN</label>
+                <p class="form-hint" id="setpin-email-hint" style="margin-bottom: 20px;">Create a 4-digit PIN for easy login next time.</p>
+                <p class="form-hint" id="setpin-email-label" style="margin-bottom: 20px; color:#e5e7eb; display:none; font-weight:600; font-size:14px;"></p>
+                <div class="form-group" style="margin-bottom: 28px;">
+                    <label class="form-label" style="text-align:center; margin-bottom: 16px;">New Secure PIN</label>
                     <div class="pin-container" id="set-pin-container">
                         <input type="password" class="form-input pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password">
                         <input type="password" class="form-input pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password">
