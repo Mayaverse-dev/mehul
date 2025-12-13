@@ -578,16 +578,22 @@
                     const itemTotal = item.price * item.quantity;
                     cartTotal += itemTotal;
                     
+                    // Check if this is an original pledge for dropped backer (cannot be removed)
+                    const isOriginalPledge = item.isOriginalPledge || false;
+                    const deleteButton = isOriginalPledge 
+                        ? `<div style="width: 40px; text-align: center; color: #dc2626; font-weight: bold; font-size: 12px;">REQUIRED</div>`
+                        : `<button class="delete-btn" onclick="removeItem(${itemIndex})">🗑️</button>`;
+                    
                     cartItemsHTML += `
-                        <div class="cart-item">
+                        <div class="cart-item" style="${isOriginalPledge ? 'border-left: 3px solid #dc2626;' : ''}">
                             <div class="item-info">
-                                <div class="item-name">${item.name}</div>
+                                <div class="item-name">${item.name}${isOriginalPledge ? ' <span style="color: #dc2626; font-size: 12px;">(PAYMENT REQUIRED)</span>' : ''}</div>
                                 <div class="item-qty-label">Qty: ${item.quantity}</div>
                             </div>
                             <div class="item-controls">
-                                <button class="delete-btn" onclick="removeItem(${itemIndex})">🗑️</button>
+                                ${deleteButton}
                                 <div class="qty-display">${item.quantity}</div>
-                                <button class="qty-btn" onclick="updateQuantity(${itemIndex}, 1)">+</button>
+                                <button class="qty-btn" onclick="updateQuantity(${itemIndex}, 1)" ${isOriginalPledge ? 'disabled style="opacity: 0.3; cursor: not-allowed;"' : ''}>+</button>
                             </div>
                             <div class="item-price">$${itemTotal.toFixed(1)}</div>
                         </div>
@@ -617,6 +623,11 @@
 
         // Update quantity
         function updateQuantity(index, change) {
+            // Prevent quantity changes for original pledge
+            if (cart[index]?.isOriginalPledge) {
+                return;
+            }
+            
             if (cart[index].quantity + change > 0) {
                 cart[index].quantity += change;
                 sessionStorage.setItem('cart', JSON.stringify(cart));
@@ -626,6 +637,12 @@
 
         // Remove item
         function removeItem(index) {
+            // Prevent deletion of original pledge for dropped backers
+            if (cart[index]?.isOriginalPledge) {
+                alert('This pledge cannot be removed. Your Kickstarter payment failed, and you need to complete this payment.');
+                return;
+            }
+            
             cart.splice(index, 1);
             sessionStorage.setItem('cart', JSON.stringify(cart));
             loadCartItems();
