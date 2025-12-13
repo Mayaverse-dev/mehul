@@ -284,7 +284,7 @@
     <!-- Navbar -->
     <div id="navbar">
         <div class="logo-container">
-            <a href="/">
+            <a href="/dashboard">
                 <img src="/images/maya-logo.png" alt="MAYA">
             </a>
             </div>
@@ -563,10 +563,6 @@
                     if (type === 'pledge' || pledgeNames.some(pledge => name.includes(pledge))) {
                         return false;
                     }
-                    // Exclude main book
-                    if (name.includes('hardcover') && name.includes('seed takes root')) {
-                        return false;
-                    }
                     return true;
                 });
                 
@@ -782,8 +778,18 @@
                 
                 sessionStorage.setItem('cart', JSON.stringify(cartWithoutPledges));
                 
-                // Redirect to cart
-                window.location.href = '/addons';
+                // Update button to show "Upgraded" state
+                const upgradeButton = document.querySelector(`button[onclick*="upgradeToPledge(${pledgeId}"]`);
+                if (upgradeButton) {
+                    upgradeButton.style.background = '#059669';
+                    upgradeButton.style.borderColor = '#059669';
+                    upgradeButton.innerHTML = '✓ Pledge Upgraded';
+                    upgradeButton.disabled = true;
+                    upgradeButton.style.cursor = 'default';
+                }
+                
+                // Update cart badge
+                updateCart();
         }
 
         // Display products
@@ -833,6 +839,9 @@
         // Load user data
         async function loadUserData() {
             try {
+                // Clear any guest cart when backer logs in
+                sessionStorage.removeItem('cart');
+                
                 const response = await fetch('/api/user/data');
                 const userData = await response.json();
 

@@ -496,6 +496,8 @@
                     }
                     throw new Error(data.error || 'PIN login failed');
                 }
+                // Clear guest cart on login
+                sessionStorage.removeItem('cart');
                 window.location.href = data.redirect || '/dashboard';
             } catch (err) {
                 showError(err.message);
@@ -521,6 +523,8 @@
                 if (data.requiresPin) {
                     showStage('setpin');
                 } else {
+                    // Clear guest cart on login
+                    sessionStorage.removeItem('cart');
                     window.location.href = data.redirect || '/dashboard';
                 }
             } catch (err) {
@@ -543,6 +547,8 @@
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Failed to save PIN');
+                // Clear guest cart on login
+                sessionStorage.removeItem('cart');
                 window.location.href = data.redirect || '/dashboard';
             } catch (err) {
                 showError(err.message);

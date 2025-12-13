@@ -151,6 +151,7 @@ async function initializeDatabase() {
             name TEXT NOT NULL,
             kickstarter_addon_id TEXT,
             price REAL NOT NULL,
+            backer_price REAL,
             weight REAL DEFAULT 0,
             image TEXT,
             active INTEGER DEFAULT 1,
@@ -158,6 +159,31 @@ async function initializeDatabase() {
             created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
         )`);
         console.log('✓ Add-ons table ready');
+        
+        // Add backer_price column to addons if missing
+        await addColumnIfMissing('addons', 'backer_price REAL');
+        
+        // Products table (for pledges on Railway/PostgreSQL)
+        try {
+            await execute(`CREATE TABLE IF NOT EXISTS products (
+                id ${idType} PRIMARY KEY ${autoIncrement},
+                name TEXT NOT NULL,
+                type TEXT NOT NULL,
+                price REAL NOT NULL,
+                backer_price REAL,
+                weight REAL DEFAULT 0,
+                image TEXT,
+                active INTEGER DEFAULT 1,
+                description TEXT,
+                created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
+            )`);
+            console.log('✓ Products table ready');
+            
+            // Add backer_price column to products if missing
+            await addColumnIfMissing('products', 'backer_price REAL');
+        } catch (err) {
+            console.log('⚠️ Products table setup skipped:', err.message);
+        }
 
         // Orders table
         await execute(`CREATE TABLE IF NOT EXISTS orders (
@@ -726,7 +752,25 @@ app.get('/addons', (req, res) => {
 app.get('/api/addons', async (req, res) => {
     try {
         const addons = await query('SELECT * FROM addons WHERE active = 1');
-        res.json(addons);
+        const isLoggedIn = !!(req.session && req.session.userId);
+        
+        // Apply backer pricing if user is logged in
+        const processedAddons = addons.map(addon => {
+            if (isLoggedIn && addon.backer_price !== null && addon.backer_price !== undefined) {
+                return {
+                    ...addon,
+                    original_price: addon.price,
+                    price: addon.backer_price,
+                    is_backer_price: true
+                };
+            }
+            return {
+                ...addon,
+                is_backer_price: false
+            };
+        });
+        
+        res.json(processedAddons);
     } catch (err) {
         console.error('Error fetching addons:', err);
         res.status(500).json({ error: 'Database error' });
@@ -736,6 +780,9 @@ app.get('/api/addons', async (req, res) => {
 // Get all products (pledges + add-ons)
 app.get('/api/products', async (req, res) => {
     console.log('\n=== API: Get Products ===');
+    const isLoggedIn = !!(req.session && req.session.userId);
+    console.log(`User login status: ${isLoggedIn ? 'Logged in (backer prices)' : 'Guest (retail prices)'}`);
+    
     try {
         let pledges = [];
         let addons = [];
@@ -762,8 +809,27 @@ app.get('/api/products', async (req, res) => {
             addons = [];
         }
         
+        // Apply backer pricing if user is logged in
+        const processPricing = (item) => {
+            if (isLoggedIn && item.backer_price !== null && item.backer_price !== undefined) {
+                return {
+                    ...item,
+                    original_price: item.price,
+                    price: item.backer_price,
+                    is_backer_price: true
+                };
+            }
+            return {
+                ...item,
+                is_backer_price: false
+            };
+        };
+        
+        const processedPledges = pledges.map(processPricing);
+        const processedAddons = addons.map(processPricing);
+        
         // Combine both
-        const allProducts = [...pledges, ...addons];
+        const allProducts = [...processedPledges, ...processedAddons];
         console.log(`✓ Returning ${allProducts.length} total products (${pledges.length} pledges, ${addons.length} add-ons)`);
         res.json(allProducts);
     } catch (err) {
@@ -1031,6 +1097,58 @@ app.post('/api/shipping/save', (req, res) => {
     });
 });
 
+// Helper function to validate cart prices server-side (security critical!)
+async function validateCartPrices(cartItems, isLoggedIn) {
+    let serverTotal = 0;
+    const validatedItems = [];
+    
+    for (const item of cartItems) {
+        // Fetch actual price from database
+        let dbItem = null;
+        
+        // Try products table first (pledges)
+        try {
+            dbItem = await queryOne('SELECT * FROM products WHERE id = $1 AND active = 1', [item.id]);
+        } catch (err) {
+            // Products table might not exist
+        }
+        
+        // If not found, try addons table
+        if (!dbItem) {
+            try {
+                dbItem = await queryOne('SELECT * FROM addons WHERE id = $1 AND active = 1', [item.id]);
+            } catch (err) {
+                console.error('Error fetching item from database:', err);
+            }
+        }
+        
+        if (!dbItem) {
+            throw new Error(`Item ${item.name} not found in database`);
+        }
+        
+        // Determine correct price based on login status
+        let correctPrice = dbItem.price;
+        if (isLoggedIn && dbItem.backer_price !== null && dbItem.backer_price !== undefined) {
+            correctPrice = dbItem.backer_price;
+        }
+        
+        // Calculate item total
+        const quantity = parseInt(item.quantity) || 1;
+        const itemTotal = correctPrice * quantity;
+        serverTotal += itemTotal;
+        
+        validatedItems.push({
+            id: dbItem.id,
+            name: dbItem.name,
+            price: correctPrice,
+            quantity: quantity,
+            subtotal: itemTotal
+        });
+    }
+    
+    return { serverTotal, validatedItems };
+}
+
 // Checkout page (accessible to both backers and guests)
 app.get('/checkout', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'checkout.html'));
@@ -1070,6 +1188,32 @@ app.post('/api/create-payment-intent', async (req, res) => {
             const shadowUser = await ensureUserByEmail(userEmail, shippingAddress.fullName || shippingAddress.name);
             userId = shadowUser ? shadowUser.id : null;
         }
+        
+        // SERVER-SIDE PRICE VALIDATION (Security Critical!)
+        console.log('Validating cart prices server-side...');
+        const { serverTotal, validatedItems } = await validateCartPrices(cartItems, isAuthenticated);
+        const expectedTotal = serverTotal + parseFloat(shippingCost || 0);
+        const submittedTotal = parseFloat(amount);
+        
+        // Allow small rounding differences (within 1 cent)
+        if (Math.abs(expectedTotal - submittedTotal) > 0.01) {
+            console.error('❌ Price mismatch detected!');
+            console.error(`  Expected: $${expectedTotal.toFixed(2)}`);
+            console.error(`  Submitted: $${submittedTotal.toFixed(2)}`);
+            console.error(`  Difference: $${Math.abs(expectedTotal - submittedTotal).toFixed(2)}`);
+            return res.status(400).json({ 
+                error: 'Price validation failed',
+                details: 'Cart total does not match server calculation. Please refresh and try again.',
+                expectedTotal: expectedTotal.toFixed(2),
+                submittedTotal: submittedTotal.toFixed(2)
+            });
+        }
+        
+        console.log('✓ Price validation passed');
+        console.log(`  Cart subtotal: $${serverTotal.toFixed(2)}`);
+        console.log(`  Shipping: $${parseFloat(shippingCost || 0).toFixed(2)}`);
+        console.log(`  Total: $${expectedTotal.toFixed(2)}`);
+        console.log(`  Pricing: ${isAuthenticated ? 'Backer prices' : 'Retail prices'}`);
         
         console.log('Creating Stripe customer...');
         // Create Stripe customer
@@ -1346,6 +1490,31 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
 
         // Ensure shipping address carries the email
         const shippingWithEmail = { ...(shippingAddress || {}), email: emailForOrder };
+        
+        // SERVER-SIDE PRICE VALIDATION (Security Critical!)
+        // Guests always get retail prices (isLoggedIn = false)
+        console.log('Validating guest cart prices server-side...');
+        const { serverTotal, validatedItems } = await validateCartPrices(cartItems, false);
+        const expectedTotal = serverTotal + parseFloat(shippingCost || 0);
+        const submittedTotal = parseFloat(amount);
+        
+        // Allow small rounding differences (within 1 cent)
+        if (Math.abs(expectedTotal - submittedTotal) > 0.01) {
+            console.error('❌ Price mismatch detected!');
+            console.error(`  Expected: $${expectedTotal.toFixed(2)}`);
+            console.error(`  Submitted: $${submittedTotal.toFixed(2)}`);
+            return res.status(400).json({ 
+                error: 'Price validation failed',
+                details: 'Cart total does not match server calculation. Please refresh and try again.',
+                expectedTotal: expectedTotal.toFixed(2),
+                submittedTotal: submittedTotal.toFixed(2)
+            });
+        }
+        
+        console.log('✓ Guest price validation passed (retail prices)');
+        console.log(`  Cart subtotal: $${serverTotal.toFixed(2)}`);
+        console.log(`  Shipping: $${parseFloat(shippingCost || 0).toFixed(2)}`);
+        console.log(`  Total: $${expectedTotal.toFixed(2)}`);
 
         // Create or retrieve Stripe customer
         const customer = await stripe.customers.create({
@@ -2171,7 +2340,7 @@ function calculateShipping(country, cartItems = []) {
         }
     }
 
-    // Add-on shipping (Built Environments / Lorebook)
+    // Add-on shipping (Built Environments / Lorebook / Paperback / Hardcover)
     cartItems.forEach(item => {
         const n = normalize(item.name || '');
         const qty = item.quantity || 1;
@@ -2179,6 +2348,10 @@ function calculateShipping(country, cartItems = []) {
             total += (rates.addons?.['Built Environments'] || 0) * qty;
         } else if (n.includes('lorebook')) {
             total += (rates.addons?.['Lorebook'] || 0) * qty;
+        } else if (n.includes('paperback')) {
+            total += (rates.addons?.['Paperback'] || 0) * qty;
+        } else if (n.includes('hardcover')) {
+            total += (rates.addons?.['Hardcover'] || 0) * qty;
         }
     });
 

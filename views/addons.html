@@ -515,9 +515,10 @@
                 }
             }
 
-            // Load available products for images
+            // Load available products for images and check backer pricing
             const productsResponse = await fetch('/api/addons');
             const products = await productsResponse.json();
+            const hasBackerPricing = products.some(p => p.is_backer_price);
 
             // Separate pledge upgrades from regular add-ons
             const pledgeUpgrades = cart.filter(item => item.isPledgeUpgrade);
@@ -612,7 +613,8 @@
             }
 
             // Update total
-            document.getElementById('cart-total').textContent = '$' + total.toFixed(1);
+            const totalElement = document.getElementById('cart-total');
+            totalElement.textContent = '$' + total.toFixed(1);
         }
 
         // Update quantity

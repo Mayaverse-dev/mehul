@@ -259,9 +259,9 @@
 <body style="background: #0a0a0a !important; color: #ffffff !important;">
     <!-- Header with Logo -->
     <div id="navbar" style="background: #1a1a1a; padding: 10px 60px; display: flex; align-items: center; justify-content: space-between; position: fixed; top: 0; left: 0; right: 0; z-index: 1000; transition: transform 0.3s ease;">
-        <div style="height: 30px; width: auto;">
-            <img src="/images/maya-logo.png" alt="MAYA" style="height: 100%; width: auto; object-fit: contain;">
-        </div>
+        <a href="/" style="height: 30px; width: auto; display: block;">
+            <img src="/images/maya-logo.png" alt="MAYA" style="height: 100%; width: auto; object-fit: contain; cursor: pointer;">
+        </a>
         <div class="nav-right" style="display: flex; align-items: center; gap: 20px;">
             <a href="/login" style="background: none; border: none; cursor: pointer; position: relative; padding: 5px; text-decoration: none; color: inherit; display: flex; align-items: center;" title="Login">
                 <img src="/images/icons/Profile.svg" alt="Profile" style="height: 24px; width: 24px;">
@@ -295,9 +295,13 @@
 
                 <!-- Price and Button (Mobile: order 1, Desktop: order 2) -->
                 <div class="hero-price-button" style="display: flex; align-items: center; gap: 20px; order: 1; margin-bottom: 24px;">
-                    <!-- Price -->
-                    <div style="font-family: 'Inter', sans-serif; font-weight: 700; color: #ffffff; font-size: 36px; line-height: 1;">
-                        $<span id="hero-book-price">190</span>
+                    <!-- Price with backer badge -->
+                    <div id="hero-price-container" style="display: flex; flex-direction: column; gap: 4px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-family: 'Inter', sans-serif; font-weight: 700; color: #ffffff; font-size: 36px; line-height: 1;">$<span id="hero-book-price">190</span></span>
+                            <span id="hero-backer-badge" style="display: none; background: #059669; color: white; padding: 4px 8px; border-radius: 4px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 11px; text-transform: uppercase;">BACKER</span>
+                        </div>
+                        <span id="hero-original-price" style="display: none; font-family: 'Inter', sans-serif; font-weight: 500; font-size: 18px; color: #999; text-decoration: line-through;"></span>
                     </div>
 
                     <!-- Add to Cart Button -->
@@ -676,6 +680,24 @@
                     const priceEl = document.getElementById('hero-book-price');
                     if (priceEl) {
                         priceEl.textContent = Math.round(heroBook.price);
+                        
+                        // Show backer badge and original price if applicable
+                        if (heroBook.is_backer_price && heroBook.original_price) {
+                            const badge = document.getElementById('hero-backer-badge');
+                            const originalPrice = document.getElementById('hero-original-price');
+                            const priceContainer = priceEl.parentElement;
+                            
+                            if (badge) {
+                                badge.style.display = 'inline-block';
+                            }
+                            if (originalPrice) {
+                                originalPrice.textContent = `$${Math.round(heroBook.original_price)}`;
+                                originalPrice.style.display = 'block';
+                            }
+                            if (priceContainer) {
+                                priceContainer.style.color = '#059669'; // Green for backer price
+                            }
+                        }
                     }
                 } else {
                     console.warn('⚠ Hero book "Benevolent Divya" not found in products');
@@ -789,11 +811,26 @@
                 const accordion = document.createElement('div');
                 accordion.style.cssText = 'background: #1e1e1e; border-radius: 16px; overflow: hidden;';
                 
+                // Price display with backer badge for pledges
+                const isBackerPrice = pledge.is_backer_price && pledge.original_price;
+                let pledgePriceHTML = '';
+                if (isBackerPrice) {
+                    pledgePriceHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <span style="font-family: 'Inter', sans-serif; font-size: 22px; font-weight: 700; color: #059669; margin: 0;">$${pledge.price.toFixed(2)}</span>
+                            <span style="background: #059669; color: white; padding: 3px 6px; border-radius: 4px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 10px; text-transform: uppercase;">BACKER</span>
+                            <span style="font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 500; color: #999; text-decoration: line-through; margin-left: 4px;">$${pledge.original_price.toFixed(2)}</span>
+                        </div>
+                    `;
+                } else {
+                    pledgePriceHTML = `<div style="font-family: 'Inter', sans-serif; font-size: 22px; font-weight: 700; color: #dc2626; margin: 0;">$${pledge.price.toFixed(2)}</div>`;
+                }
+                
                 accordion.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; cursor: pointer; border-bottom: 1px solid #2c2c2c;" onclick="togglePledge(${index})">
                         <div style="flex: 1;">
                             <h3 style="font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 700; color: #ffffff; margin: 0 0 4px 0;">${pledge.name}</h3>
-                            <div style="font-family: 'Inter', sans-serif; font-size: 22px; font-weight: 700; color: #dc2626; margin: 0;">$${pledge.price.toFixed(2)}</div>
+                            ${pledgePriceHTML}
                         </div>
                         <button style="background: none; border: none; cursor: pointer; padding: 0; font-size: 20px; color: #ffffff; transform-origin: center; transition: transform 0.3s;" id="pledge-arrow-${index}">
                             ▼
@@ -972,8 +1009,25 @@
                 
                 // Check if product is free
                 const isFree = product.price === 0;
+                const isBackerPrice = product.is_backer_price && product.original_price;
                 const priceDisplay = isFree ? 'FREE' : `$${product.price.toFixed(0)}`;
                 const priceColor = isFree ? '#4b944e' : '#ffffff';
+                
+                // Price display with backer badge
+                let priceHTML = '';
+                if (isBackerPrice) {
+                    priceHTML = `
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 32px; line-height: 1; color: #059669; margin: 0;">${priceDisplay}</span>
+                                <span style="background: #059669; color: white; padding: 4px 8px; border-radius: 4px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 11px; text-transform: uppercase;">BACKER</span>
+                            </div>
+                            <span style="font-family: 'Inter', sans-serif; font-weight: 500; font-size: 14px; color: #999; text-decoration: line-through;">$${product.original_price.toFixed(0)}</span>
+                        </div>
+                    `;
+                } else {
+                    priceHTML = `<p style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 32px; line-height: 1; color: ${priceColor}; margin: 0;">${priceDisplay}</p>`;
+                }
                 
                 card.innerHTML = `
                     <!-- Product Image -->
@@ -989,7 +1043,7 @@
                     <!-- Price and Quantity Controls -->
                     <div style="padding: 0 24px; margin-bottom: 16px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                            <p style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 32px; line-height: 1; color: ${priceColor}; margin: 0;">${priceDisplay}</p>
+                            ${priceHTML}
                             <div style="display: flex; gap: 8px; align-items: center;">
                                 <button onclick="decreaseCartQuantity(${product.id})" style="background: #828282; color: white; border: none; border-radius: 6px; padding: 0; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">−</button>
                                 <div style="background: #828282; color: white; border-radius: 6px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 18px; min-width: 50px; height: 36px; display: flex; align-items: center; justify-content: center;" id="qty-${product.id}">${quantity}</div>
