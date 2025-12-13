@@ -102,34 +102,38 @@
 
         /* Cart Sections */
         .cart-section {
-            padding: 25px 0;
+            padding: 30px 0;
             border-bottom: 1px solid #404040;
         }
 
         .cart-section:first-of-type {
             border-top: 3px solid #404040;
+            padding-top: 30px;
         }
 
         .cart-section:last-of-type {
             border-bottom: 3px solid #404040;
             margin-bottom: 20px;
+            padding-bottom: 30px;
         }
 
         .section-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 15px;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
         }
 
         .section-title {
-            font-weight: 500;
-            font-size: 22px;
-            color: #d4d4d4;
+            font-weight: 600;
+            font-size: 20px;
+            color: #f5f5f5;
             display: flex;
             align-items: center;
             gap: 12px;
             flex: 1;
+            letter-spacing: -0.3px;
         }
 
         .paid-badge {
@@ -145,10 +149,11 @@
 
         .section-price {
             font-weight: 600;
-            font-size: 22px;
-            color: #d4d4d4;
+            font-size: 20px;
+            color: #f5f5f5;
             min-width: 100px;
             text-align: right;
+            letter-spacing: -0.3px;
         }
 
         .section-items {
@@ -168,9 +173,10 @@
         .cart-item {
             display: flex;
             align-items: center;
-            gap: 24px;
-            padding: 15px 0;
+            gap: 20px;
+            padding: 18px 0;
             border-bottom: 1px solid #2a2a2a;
+            min-height: 70px;
         }
 
         .cart-item:last-child {
@@ -179,35 +185,41 @@
 
         .item-info {
             flex: 1;
+            min-width: 0;
+            padding-right: 12px;
         }
 
         .item-name {
             font-size: 16px;
-            font-weight: 400;
-            margin-bottom: 4px;
+            font-weight: 500;
+            margin-bottom: 6px;
             color: #ffffff;
+            line-height: 1.4;
+            word-wrap: break-word;
         }
 
         .item-qty-label {
             font-size: 13px;
-            color: #d4d4d4;
+            color: #a0a0a0;
+            font-weight: 400;
         }
 
         .item-controls {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            flex-shrink: 0;
         }
 
         .qty-btn {
-            width: 36px;
-            height: 36px;
-            background: #808080;
-            border: none;
-            border-radius: 6px;
+            width: 38px;
+            height: 38px;
+            background: #2a2a2a;
+            border: 1px solid #404040;
+            border-radius: 8px;
             color: white;
             font-size: 18px;
-            font-weight: 700;
+            font-weight: 600;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -215,31 +227,38 @@
             transition: all 0.2s;
         }
 
-        .qty-btn:hover {
-            background: #6a6a6a;
+        .qty-btn:hover:not(:disabled) {
+            background: #404040;
+            border-color: #505050;
+        }
+
+        .qty-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
         }
 
         .qty-display {
-            width: 50px;
-            height: 36px;
-            background: #808080;
-            border-radius: 6px;
+            width: 52px;
+            height: 38px;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
             color: white;
-            font-size: 18px;
-            font-weight: 700;
+            font-size: 16px;
+            font-weight: 600;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
         .delete-btn {
-            width: 36px;
-            height: 36px;
-            background: #808080;
-            border: none;
-            border-radius: 6px;
+            width: 38px;
+            height: 38px;
+            background: #2a2a2a;
+            border: 1px solid #404040;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 18px;
+            font-size: 16px;
             color: #ffffff;
             display: flex;
             align-items: center;
@@ -248,15 +267,18 @@
         }
 
         .delete-btn:hover {
-            background: #6a6a6a;
+            background: #dc2626;
+            border-color: #dc2626;
         }
 
         .item-price {
             font-size: 18px;
-            font-weight: 500;
+            font-weight: 600;
             color: #ffffff;
             text-align: right;
-            min-width: 80px;
+            min-width: 90px;
+            flex-shrink: 0;
+            padding-left: 12px;
         }
 
         /* Keep these for potential future use but hide for now */
@@ -317,19 +339,57 @@
             }
 
             .cart-container {
-                padding: 24px;
+                padding: 24px 20px;
+            }
+
+            .cart-section {
+                padding: 24px 0;
+            }
+
+            .section-header {
+                margin-bottom: 16px;
+                padding-bottom: 10px;
+            }
+
+            .section-title {
+                font-size: 18px;
+            }
+
+            .section-price {
+                font-size: 18px;
             }
 
             .cart-item {
                 flex-wrap: wrap;
+                gap: 16px;
+                padding: 16px 0;
+                min-height: auto;
+            }
+
+            .item-info {
+                width: 100%;
+                padding-right: 0;
+                margin-bottom: 8px;
             }
 
             .item-name {
-                font-size: 20px;
+                font-size: 15px;
+                margin-bottom: 6px;
+            }
+
+            .item-controls {
+                order: 2;
+                width: auto;
             }
 
             .item-price {
-                font-size: 24px;
+                order: 3;
+                font-size: 18px;
+                min-width: auto;
+                text-align: left;
+                width: 100%;
+                padding-left: 0;
+                margin-top: 4px;
             }
         }
     </style>
@@ -614,19 +674,19 @@
                     // Upgraded pledges CAN be removed (to restore original)
                     // Restored original pledges CANNOT be removed
                     const deleteButton = isRestoredOriginal
-                        ? `<div style="width: 40px; text-align: center; color: #dc2626; font-weight: bold; font-size: 12px;">REQUIRED</div>`
+                        ? `<div style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; color: #dc2626; font-weight: 600; font-size: 11px; text-align: center; letter-spacing: 0.3px;">REQ</div>`
                         : `<button class="delete-btn" onclick="removeItem(${pledgeIndex})">🗑️</button>`;
                     
                     pledgeHTML += `
-                        <div class="cart-item" style="border-left: 3px solid #dc2626;">
+                        <div class="cart-item" style="border-left: 4px solid #dc2626; padding-left: 16px; background: rgba(220, 38, 38, 0.05); border-radius: 0 8px 8px 0;">
                             <div class="item-info">
-                                <div class="item-name">${pledge.name} <span style="color: #dc2626; font-size: 12px;">(PAYMENT REQUIRED)</span></div>
+                                <div class="item-name">${pledge.name} <span style="color: #dc2626; font-size: 13px; font-weight: 600; margin-left: 4px;">(PAYMENT REQUIRED)</span></div>
                                 <div class="item-qty-label">Qty: ${pledge.quantity}</div>
                             </div>
                             <div class="item-controls">
                                 ${deleteButton}
                                 <div class="qty-display">${pledge.quantity}</div>
-                                <button class="qty-btn" onclick="updateQuantity(${pledgeIndex}, 1)" disabled style="opacity: 0.3; cursor: not-allowed;">+</button>
+                                <button class="qty-btn" onclick="updateQuantity(${pledgeIndex}, 1)" disabled>+</button>
                             </div>
                             <div class="item-price">$${pledgeTotal.toFixed(1)}</div>
                         </div>
