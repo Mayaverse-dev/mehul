@@ -381,6 +381,7 @@
         // Handle logout with cart clearing
         function handleLogout() {
             sessionStorage.removeItem('cart');
+            localStorage.removeItem('originalPledgeInfo'); // Clear dropped backer pledge info
             window.location.href = '/logout';
         }
 
@@ -636,6 +637,7 @@
         let currentPledgeAmount = 0;
         let hasValidPledge = false; // Track if user has a pledge tier
         let isDroppedBacker = false; // Track if payment failed on Kickstarter
+        let originalPledgeInfo = null; // Store original pledge info for dropped backers
 
         // Load upgrade pledge options
         async function loadUpgradePledges(pledgeTiers) {
@@ -986,19 +988,23 @@
 
                 // For dropped backers, add their pledge to cart automatically
                 if (isDropped && pledgeAmount > 0 && rewardTitle) {
+                    // Store original pledge info globally and in localStorage for restoration
+                    originalPledgeInfo = {
+                        id: 'original-pledge-' + userData.backerNumber,
+                        name: rewardTitle,
+                        price: pledgeAmount,
+                        isOriginalPledge: true,
+                        quantity: 1
+                    };
+                    localStorage.setItem('originalPledgeInfo', JSON.stringify(originalPledgeInfo));
+                    
                     // Check if pledge is already in cart
                     let cart = JSON.parse(sessionStorage.getItem('cart')) || [];
                     const pledgeInCart = cart.find(item => item.isOriginalPledge);
                     
                     if (!pledgeInCart) {
                         // Add the original pledge to cart (full amount, not difference)
-                        cart.push({
-                            id: 'original-pledge-' + userData.backerNumber,
-                            name: rewardTitle,
-                            price: pledgeAmount,
-                            isOriginalPledge: true, // Flag to identify original pledge for dropped backers
-                            quantity: 1
-                        });
+                        cart.push(originalPledgeInfo);
                         sessionStorage.setItem('cart', JSON.stringify(cart));
                         console.log('✓ Added original pledge to cart for dropped backer:', pledgeAmount);
                     }

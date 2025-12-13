@@ -377,10 +377,17 @@
     <script>
         let cart = JSON.parse(sessionStorage.getItem('cart')) || [];
         let userData = null;
+        let originalPledgeInfo = null; // For dropped backers - restore if they remove upgraded pledge
 
         // Load user data (if logged in)
         async function loadUserData() {
             try {
+                // Load original pledge info for dropped backers (if exists)
+                const storedPledgeInfo = localStorage.getItem('originalPledgeInfo');
+                if (storedPledgeInfo) {
+                    originalPledgeInfo = JSON.parse(storedPledgeInfo);
+                }
+                
                 const response = await fetch('/api/user/data');
                 if (response.ok) {
                     userData = await response.json();
@@ -648,12 +655,25 @@
 
         // Remove item
         function removeItem(index) {
-            // Prevent deletion of original pledge for dropped backers
-            if (cart[index]?.isOriginalPledge) {
+            const itemToRemove = cart[index];
+            
+            // Prevent deletion of original pledge for dropped backers UNLESS it's being replaced by an upgrade
+            if (itemToRemove?.isOriginalPledge && !itemToRemove?.isDroppedBackerPledge) {
                 alert('This pledge cannot be removed. Your Kickstarter payment failed, and you need to complete this payment.');
                 return;
             }
             
+            // If removing a dropped backer's upgraded pledge, restore their original pledge
+            if (itemToRemove?.isDroppedBackerPledge && originalPledgeInfo) {
+                console.log('Removing upgraded pledge, restoring original pledge');
+                cart.splice(index, 1); // Remove the upgraded pledge
+                cart.unshift(originalPledgeInfo); // Add back the original pledge at the beginning
+                sessionStorage.setItem('cart', JSON.stringify(cart));
+                loadCartItems();
+                return;
+            }
+            
+            // Regular item removal
             cart.splice(index, 1);
             sessionStorage.setItem('cart', JSON.stringify(cart));
             loadCartItems();
@@ -667,6 +687,7 @@
         // Handle logout with cart clearing
         function handleLogout() {
             sessionStorage.removeItem('cart');
+            localStorage.removeItem('originalPledgeInfo'); // Clear dropped backer pledge info
             window.location.href = '/logout';
         }
 

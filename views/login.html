@@ -498,6 +498,7 @@
                 }
                 // Clear guest cart on login
                 sessionStorage.removeItem('cart');
+                localStorage.removeItem('originalPledgeInfo'); // Clear any stale pledge info
                 window.location.href = data.redirect || '/dashboard';
             } catch (err) {
                 showError(err.message);
@@ -525,6 +526,7 @@
                 } else {
                     // Clear guest cart on login
                     sessionStorage.removeItem('cart');
+                    localStorage.removeItem('originalPledgeInfo'); // Clear any stale pledge info
                     window.location.href = data.redirect || '/dashboard';
                 }
             } catch (err) {
@@ -549,6 +551,7 @@
                 if (!res.ok) throw new Error(data.error || 'Failed to save PIN');
                 // Clear guest cart on login
                 sessionStorage.removeItem('cart');
+                localStorage.removeItem('originalPledgeInfo'); // Clear any stale pledge info
                 window.location.href = data.redirect || '/dashboard';
             } catch (err) {
                 showError(err.message);
