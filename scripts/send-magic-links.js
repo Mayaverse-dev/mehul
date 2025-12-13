@@ -61,7 +61,7 @@ function delay(ms) {
 
 async function run() {
     try {
-        const appUrl = process.env.APP_URL || 'https://store.entermaya.com';
+        const appUrl = 'https://store.entermaya.com';
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days
 
         const users = await query('SELECT id, email FROM users WHERE email IS NOT NULL');
