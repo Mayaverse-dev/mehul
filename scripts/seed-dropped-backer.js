@@ -69,6 +69,13 @@ async function seedDroppedBacker() {
         // Check if user already exists
         const existing = await queryOne('SELECT id FROM users WHERE email = ?', [email]);
         
+        // Create PIN hash (4-digit PIN for testing)
+        const pin = '1234'; // Simple PIN for testing
+        const pinHash = await bcrypt.hash(pin, 10);
+        
+        // Set last_login_at to current time so user can login directly with PIN (no OTP needed)
+        const now = new Date().toISOString();
+        
         if (existing) {
             console.log('⚠️  User already exists. Updating...');
             
@@ -83,7 +90,9 @@ async function seedDroppedBacker() {
                     pledge_amount = ?,
                     kickstarter_items = ?,
                     kickstarter_addons = ?,
-                    pledged_status = ?
+                    pledged_status = ?,
+                    pin_hash = ?,
+                    last_login_at = ?
                 WHERE email = ?`,
                 [
                     99999, // Test backer number
@@ -99,14 +108,16 @@ async function seedDroppedBacker() {
                         lorebook_addon: 1
                     }),
                     'dropped',
+                    pinHash,
+                    now,
                     email
                 ]
             );
             
             console.log('✓ Updated existing user');
         } else {
-            // Create password hash
-            const password = 'test123'; // Simple password for testing
+            // Create placeholder password (required field but not used for PIN login)
+            const password = crypto.randomBytes(16).toString('hex');
             const passwordHash = await bcrypt.hash(password, 10);
             
             // Insert new user
@@ -114,8 +125,9 @@ async function seedDroppedBacker() {
                 `INSERT INTO users (
                     email, password, backer_number, backer_uid, backer_name,
                     reward_title, backing_minimum, pledge_amount,
-                    kickstarter_items, kickstarter_addons, pledged_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    kickstarter_items, kickstarter_addons, pledged_status,
+                    pin_hash, last_login_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     email,
                     passwordHash,
@@ -131,7 +143,9 @@ async function seedDroppedBacker() {
                     JSON.stringify({
                         lorebook_addon: 1
                     }),
-                    'dropped'
+                    'dropped',
+                    pinHash,
+                    now
                 ]
             );
             
@@ -141,11 +155,11 @@ async function seedDroppedBacker() {
         console.log('\n✅ Dropped backer seeded successfully!');
         console.log('\nUser Details:');
         console.log('  Email:', email);
-        console.log('  Password: test123');
+        console.log('  PIN: 1234');
         console.log('  Pledge: The Humble Vaanar ($18)');
         console.log('  Addon: Lorebook');
         console.log('  Status: dropped (payment failed)');
-        console.log('\nYou can now login and test the payment flow.');
+        console.log('\nYou can now login with email and PIN (1234) to test the payment flow.');
         
         // Close database connection
         if (isPostgres) {
