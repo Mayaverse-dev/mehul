@@ -300,8 +300,6 @@
                 <img src="/images/icons/cart-01.svg" alt="Cart" style="height: 24px; width: 24px;">
                 <span id="cart-badge" class="cart-badge" style="display: none;">0</span>
             </button>
-            <span id="user-email"></span>
-            <span>|</span>
             <a href="#" onclick="handleLogout(); return false;">Logout</a>
         </div>
     </div>
@@ -924,7 +922,6 @@
                 const userData = await response.json();
 
                 // Display user info
-                document.getElementById('user-email').textContent = userData.email;
                 const pledgeAmount = parseFloat(userData.pledgeAmount) || 0;
                 document.getElementById('pledge-amount-badge').textContent = pledgeAmount.toFixed(0);
                 
