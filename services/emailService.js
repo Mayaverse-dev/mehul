@@ -144,12 +144,11 @@ async function sendCardSavedConfirmation(order) {
         const content = `
             <p>Hello ${shippingAddress?.fullName || shippingAddress?.name || 'Valued Customer'},</p>
             
-            <p>Thank you for your order! Your payment method has been successfully saved and will be charged when we ship your items.</p>
+            <p>Thank you for your order!</p>
             
             <div style="background-color: #2c2c2c; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
                 <h2 style="margin-top: 0; color: #dc2626;">Order Summary</h2>
                 <p style="margin: 5px 0;"><strong>Order ID:</strong> #${order.id}</p>
-                <p style="margin: 5px 0;"><strong>Charge Timing:</strong> We will charge your card when we ship your items.</p>
             </div>
 
             <h3 style="color: #c8b696; margin-top: 30px;">Order Items</h3>
@@ -177,7 +176,7 @@ async function sendCardSavedConfirmation(order) {
 
             <div style="background-color: #2c2c2c; padding: 20px; border-radius: 8px; margin: 30px 0; border-left: 4px solid #059669;">
                 <p style="margin: 0;"><strong>What happens next?</strong></p>
-                <p style="margin: 10px 0 0 0;">We will charge your card when we ship your items. You will receive a payment confirmation email once the charge is processed.</p>
+                <p style="margin: 10px 0 0 0;">Your order is confirmed and will be processed for fulfillment. You will receive shipping updates as your order progresses.</p>
             </div>
 
             <p style="margin-top: 30px;">If you have any questions or need to update your payment method, please contact us.</p>
@@ -186,12 +185,12 @@ async function sendCardSavedConfirmation(order) {
             <p>The MAYA Team</p>
         `;
 
-        const html = getEmailTemplate('Card Saved for Autodebit', content);
+        const html = getEmailTemplate('Order Confirmation', content);
 
         const result = await resend.emails.send({
             from: `${FROM_NAME} <${FROM_EMAIL}>`,
             to: recipientEmail,
-            subject: `Order #${order.id} - Card Saved for Autodebit`,
+            subject: `Order #${order.id} - Order Confirmation`,
             html: html
         });
 

@@ -1520,7 +1520,7 @@ app.post('/api/save-payment-method', async (req, res) => {
                     userId: order.user_id,
                     recipientEmail: JSON.parse(order.shipping_address || '{}').email,
                     emailType: 'card_saved',
-                    subject: `Order #${order.id} - Card Saved for Autodebit`,
+                    subject: `Order #${order.id} - Order Confirmation`,
                     status: emailResult.success ? 'sent' : 'failed',
                     resendMessageId: emailResult.messageId || null,
                     errorMessage: emailResult.error || null
@@ -1755,7 +1755,7 @@ app.post('/api/guest/save-payment-method', async (req, res) => {
                     userId: fullOrder.user_id,
                     recipientEmail: customerEmail,
                     emailType: 'card_saved',
-                    subject: `Order #${fullOrder.id} - Card Saved for Autodebit`,
+                    subject: `Order #${fullOrder.id} - Order Confirmation`,
                     status: emailResult.success ? 'sent' : 'failed',
                     resendMessageId: emailResult.messageId || null,
                     errorMessage: emailResult.error || null
