@@ -1123,6 +1123,26 @@ async function validateCartPrices(cartItems, isLoggedIn) {
             continue; // Skip database lookup for pledge upgrades
         }
         
+        // Special handling for original pledges (dropped backers) - use price from cart
+        // These are not in products/addons tables, they're user-specific pledges
+        if (item.isOriginalPledge || item.isDroppedBackerPledge) {
+            const quantity = parseInt(item.quantity) || 1;
+            const pledgePrice = parseFloat(item.price) || 0;
+            const itemTotal = pledgePrice * quantity;
+            serverTotal += itemTotal;
+            
+            validatedItems.push({
+                id: item.id,
+                name: item.name,
+                price: pledgePrice,
+                quantity: quantity,
+                subtotal: itemTotal,
+                isOriginalPledge: item.isOriginalPledge || false,
+                isDroppedBackerPledge: item.isDroppedBackerPledge || false
+            });
+            continue; // Skip database lookup for original/dropped backer pledges
+        }
+        
         // Fetch actual price from database
         let dbItem = null;
         
