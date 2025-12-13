@@ -388,7 +388,7 @@
                     document.getElementById('nav-right-content').innerHTML = `
                         <span>${userData.email}</span>
                         <span>|</span>
-                        <a href="/logout">Logout</a>
+                        <a href="#" onclick="handleLogout(); return false;">Logout</a>
                     `;
                 } else {
                     // User is not logged in (guest)
@@ -636,6 +636,12 @@
         // Proceed to shipping
         function proceedToShipping() {
             window.location.href = '/shipping';
+        }
+
+        // Handle logout with cart clearing
+        function handleLogout() {
+            sessionStorage.removeItem('cart');
+            window.location.href = '/logout';
         }
 
         // Initialize

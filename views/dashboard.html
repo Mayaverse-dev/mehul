@@ -295,7 +295,7 @@
             </button>
             <span id="user-email"></span>
             <span>|</span>
-            <a href="/logout">Logout</a>
+            <a href="#" onclick="handleLogout(); return false;">Logout</a>
         </div>
     </div>
 
@@ -360,6 +360,12 @@
         let cart = JSON.parse(sessionStorage.getItem('cart')) || [];
         let products = [];
 
+
+        // Handle logout with cart clearing
+        function handleLogout() {
+            sessionStorage.removeItem('cart');
+            window.location.href = '/logout';
+        }
 
         // Update cart display
         function updateCart() {
@@ -839,9 +845,6 @@
         // Load user data
         async function loadUserData() {
             try {
-                // Clear any guest cart when backer logs in
-                sessionStorage.removeItem('cart');
-                
                 const response = await fetch('/api/user/data');
                 const userData = await response.json();
 
