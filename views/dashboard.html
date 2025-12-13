@@ -468,11 +468,6 @@
         // Load pledge image based on reward title
         async function loadPledgeImage(rewardTitle) {
             try {
-                if (!rewardTitle) {
-                    console.log('No reward title provided');
-                    return;
-                }
-
                 const pledgeImage = document.getElementById('pledge-image');
                 if (!pledgeImage) {
                     console.error('Pledge image element not found');
@@ -481,6 +476,18 @@
                 
                 // Detect if mobile screen (phone)
                 const isMobile = window.innerWidth <= 768;
+                
+                // If no reward title, show upgrade pledge message
+                if (!rewardTitle || rewardTitle.trim().length === 0) {
+                    console.log('No pledge tier - showing upgrade message');
+                    const upgradeImage = isMobile 
+                        ? '/images/pledges/upgrade-pledge-mobile.webp' 
+                        : '/images/pledges/upgrade-pledge-desktop.webp';
+                    pledgeImage.src = upgradeImage;
+                    pledgeImage.alt = 'Upgrade Your Pledge at Kickstarter Rates';
+                    console.log('✓ Loaded upgrade pledge image:', upgradeImage);
+                    return;
+                }
 
                 // First, try direct mapping
                 const rewardTitleLower = rewardTitle.toLowerCase().trim();
@@ -1010,9 +1017,8 @@
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
-                if (currentRewardTitle) {
-                    loadPledgeImage(currentRewardTitle);
-                }
+                // Reload image (works for both pledge tiers and no-pledge upgrade message)
+                loadPledgeImage(currentRewardTitle);
             }, 250); // Debounce resize events
         });
 
