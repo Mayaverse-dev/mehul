@@ -836,17 +836,30 @@
                         && !item.isOriginalPledge; // Also remove original pledge for dropped backers
                 });
                 
-            // Add new pledge upgrade
+            // For dropped backers: add as regular pledge (they need to pay full amount)
+            // For paid backers: add as upgrade (they only pay difference)
+            if (isDroppedBacker) {
+                // Dropped backer: replace original pledge with new pledge (full amount)
                 cartWithoutPledges.push({
                     id: pledgeId,
-                name: `${pledgeName} (Upgrade)`,
-                price: amountToCharge,
-                originalPrice: newPledgePrice, // Store original price for display
-                currentPledgeAmount: currentPledge, // Store current pledge for reference
-                isPledgeUpgrade: true, // Flag to identify pledge upgrades
-                isDroppedBackerUpgrade: isDroppedBacker, // Flag for dropped backer upgrades
+                    name: pledgeName, // No "(Upgrade)" suffix for dropped backers
+                    price: amountToCharge,
+                    isOriginalPledge: true, // Mark as unremovable pledge
+                    isDroppedBackerPledge: true, // Flag for dropped backer pledge
                     quantity: 1
                 });
+            } else {
+                // Paid backer: add as pledge upgrade (only pay difference)
+                cartWithoutPledges.push({
+                    id: pledgeId,
+                    name: `${pledgeName} (Upgrade)`,
+                    price: amountToCharge,
+                    originalPrice: newPledgePrice, // Store original price for display
+                    currentPledgeAmount: currentPledge, // Store current pledge for reference
+                    isPledgeUpgrade: true, // Flag to identify pledge upgrades
+                    quantity: 1
+                });
+            }
                 
                 sessionStorage.setItem('cart', JSON.stringify(cartWithoutPledges));
                 

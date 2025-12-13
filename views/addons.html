@@ -435,7 +435,8 @@
             // Check if user is a Kickstarter backer (only if logged in)
             const isKickstarterBacker = userData && userData.backerNumber != null;
             const hasKickstarterItems = userData && userData.kickstarterItems && Object.keys(userData.kickstarterItems).length > 0;
-            const pledgePaid = userData && userData.pledgeAmount > 0; // If they paid on Kickstarter
+            // Dropped backers have NOT paid yet, so no "Paid" badge
+            const pledgePaid = userData && userData.pledgeAmount > 0 && userData.pledgedStatus !== 'dropped';
 
             // Show Kickstarter pledge if they're a backer
             if (isKickstarterBacker && hasKickstarterItems) {
@@ -518,9 +519,10 @@
             const products = await productsResponse.json();
             const hasBackerPricing = products.some(p => p.is_backer_price);
 
-            // Separate pledge upgrades from regular add-ons
-            const pledgeUpgrades = cart.filter(item => item.isPledgeUpgrade);
-            const regularItems = cart.filter(item => !item.isPledgeUpgrade);
+            // Separate pledge upgrades from regular add-ons and dropped backer pledges
+            // Dropped backer pledges are treated as regular items (need to pay full amount)
+            const pledgeUpgrades = cart.filter(item => item.isPledgeUpgrade && !item.isDroppedBackerPledge);
+            const regularItems = cart.filter(item => !item.isPledgeUpgrade || item.isDroppedBackerPledge);
 
             // Show pledge upgrade if exists
             if (pledgeUpgrades.length > 0) {
