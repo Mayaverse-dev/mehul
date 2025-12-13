@@ -333,7 +333,19 @@
         <!-- Add-ons Section -->
         <div style="margin-top: 60px;">
             <h2 style="font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 40px; text-align: center; margin-bottom: 16px; color: #ffffff;">Free and Paid Add-ons</h2>
-            <p style="text-align: center; color: #ffffff; font-size: 18px; margin-bottom: 50px;">All items ship together</p>
+            <p style="text-align: center; color: #ffffff; font-size: 18px; margin-bottom: 20px;">All items ship together</p>
+            
+            <!-- Warning for backers without pledge -->
+            <div id="no-pledge-warning" style="display: none; background: #fef3c7; border: 2px solid #f59e0b; border-radius: 12px; padding: 24px; margin: 0 auto 40px; max-width: 800px; text-align: center;">
+                <div style="font-size: 32px; margin-bottom: 12px;">⚠️</div>
+                <h3 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 24px; color: #92400e; margin-bottom: 12px;">Upgrade to a Pledge First</h3>
+                <p style="font-family: 'Inter', sans-serif; font-size: 16px; color: #92400e; line-height: 1.6; margin-bottom: 16px;">
+                    Thanks for backing MAYA on Kickstarter! To add paid add-ons to your order, please upgrade to one of our pledge tiers using the "Upgrade Pledge" section above.
+                </p>
+                <p style="font-family: 'Inter', sans-serif; font-size: 14px; color: #b45309; font-weight: 600;">
+                    Scroll up to browse pledge options →
+                </p>
+            </div>
 
             <!-- Products Grid -->
             <div id="products-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 40px; margin-bottom: 60px;">
@@ -395,6 +407,9 @@
         function addProductToCart(productId) {
             const product = products.find(p => p.id === productId);
             if (!product) return;
+            
+            // Reload cart from sessionStorage to ensure we have the latest state
+            cart = JSON.parse(sessionStorage.getItem('cart')) || [];
 
             const existingItem = cart.find(item => item.id === productId);
             if (existingItem) {
@@ -588,6 +603,7 @@
 
         // Store current pledge amount globally
         let currentPledgeAmount = 0;
+        let hasValidPledge = false; // Track if user has a pledge tier
 
         // Load upgrade pledge options
         async function loadUpgradePledges(pledgeTiers) {
@@ -762,11 +778,11 @@
             }
             
             // Add to cart (will replace current pledge) - no confirmation needed for backers
-                const cart = JSON.parse(sessionStorage.getItem('cart') || '[]');
+                const tempCart = JSON.parse(sessionStorage.getItem('cart') || '[]');
                 
                 // Remove any existing pledges from cart
                 const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
-                const cartWithoutPledges = cart.filter(item => {
+                const cartWithoutPledges = tempCart.filter(item => {
                     const name = item.name.toLowerCase();
                 return !pledgeNames.some(pledge => name.includes(pledge)) && !item.isPledgeUpgrade;
                 });
@@ -784,7 +800,19 @@
                 
                 sessionStorage.setItem('cart', JSON.stringify(cartWithoutPledges));
                 
-                // Update button to show "Upgraded" state
+                // CRITICAL: Update the global cart variable to match sessionStorage
+                cart = cartWithoutPledges;
+                
+                // Reset ALL pledge upgrade buttons to normal state first
+                document.querySelectorAll('button[onclick*="upgradeToPledge"]').forEach(btn => {
+                    btn.style.background = '#dc2626';
+                    btn.style.borderColor = '#dc2626';
+                    btn.innerHTML = 'Upgrade Pledge';
+                    btn.disabled = false;
+                    btn.style.cursor = 'pointer';
+                });
+                
+                // Update only the current button to show "Upgraded" state
                 const upgradeButton = document.querySelector(`button[onclick*="upgradeToPledge(${pledgeId}"]`);
                 if (upgradeButton) {
                     upgradeButton.style.background = '#059669';
@@ -792,6 +820,27 @@
                     upgradeButton.innerHTML = '✓ Pledge Upgraded';
                     upgradeButton.disabled = true;
                     upgradeButton.style.cursor = 'default';
+                }
+                
+                // Enable add-ons now that user has upgraded to a pledge
+                hasValidPledge = true;
+                const warningEl = document.getElementById('no-pledge-warning');
+                if (warningEl) {
+                    warningEl.style.display = 'none';
+                }
+                
+                // Refresh products display to enable "Add to Cart" buttons
+                if (products.length > 0) {
+                    const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+                    const addOnsOnly = products.filter(p => {
+                        const name = (p.name || '').toLowerCase();
+                        const type = (p.type || '').toLowerCase();
+                        if (type === 'pledge' || pledgeNames.some(pledge => name.includes(pledge))) {
+                            return false;
+                        }
+                        return true;
+                    });
+                    displayProducts(addOnsOnly);
                 }
                 
                 // Update cart badge
@@ -834,8 +883,8 @@
                     </div>
                     
                     <!-- Add to Cart Button -->
-                    <button id="add-btn-${product.id}" onclick="${isInCart ? '' : 'addProductToCart(' + product.id + ')'}" style="background: ${isInCart ? '#059669' : '#dc2626'}; border: 1px solid ${isInCart ? '#059669' : '#dc2626'}; color: white; border-radius: 10px; padding: 14px; margin: 0 24px 24px 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; cursor: ${isInCart ? 'default' : 'pointer'}; white-space: nowrap; transition: all 0.3s ease;" ${isInCart ? 'disabled' : ''}>
-                        ${isInCart ? '✓ Added' : 'Add to Cart'}
+                    <button id="add-btn-${product.id}" onclick="${isInCart ? '' : (hasValidPledge ? 'addProductToCart(' + product.id + ')' : '')}" style="background: ${isInCart ? '#059669' : (hasValidPledge ? '#dc2626' : '#6b7280')}; border: 1px solid ${isInCart ? '#059669' : (hasValidPledge ? '#dc2626' : '#6b7280')}; color: white; border-radius: 10px; padding: 14px; margin: 0 24px 24px 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; cursor: ${isInCart || !hasValidPledge ? 'default' : 'pointer'}; white-space: nowrap; transition: all 0.3s ease; opacity: ${hasValidPledge ? '1' : '0.6'};" ${isInCart || !hasValidPledge ? 'disabled' : ''}>
+                        ${isInCart ? '✓ Added' : (hasValidPledge ? 'Add to Cart' : '🔒 Upgrade Pledge First')}
                     </button>
                 `;
                 grid.appendChild(card);
@@ -855,6 +904,10 @@
                 
                 // Store current pledge amount for upgrade filtering
                 currentPledgeAmount = pledgeAmount;
+                
+                // Check if user has a valid pledge tier (not just a random backing amount)
+                const rewardTitle = userData.rewardTitle || '';
+                hasValidPledge = rewardTitle.trim().length > 0 && pledgeAmount >= 18;
 
                 // Load pledge image based on reward title
                 loadPledgeImage(userData.rewardTitle);
@@ -909,6 +962,12 @@
                     itemsListEl.textContent = itemsArray.join(', ');
                 } else {
                     itemsListEl.textContent = 'No items included in this pledge tier.';
+                }
+                
+                // Show/hide warning message for backers without pledge
+                const warningEl = document.getElementById('no-pledge-warning');
+                if (warningEl) {
+                    warningEl.style.display = hasValidPledge ? 'none' : 'block';
                 }
 
             } catch (error) {

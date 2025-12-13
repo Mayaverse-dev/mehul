@@ -1103,6 +1103,24 @@ async function validateCartPrices(cartItems, isLoggedIn) {
     const validatedItems = [];
     
     for (const item of cartItems) {
+        // Special handling for pledge upgrades - use the difference price from cart
+        if (item.isPledgeUpgrade) {
+            const quantity = parseInt(item.quantity) || 1;
+            const pledgeUpgradePrice = parseFloat(item.price) || 0;
+            const itemTotal = pledgeUpgradePrice * quantity;
+            serverTotal += itemTotal;
+            
+            validatedItems.push({
+                id: item.id,
+                name: item.name,
+                price: pledgeUpgradePrice,
+                quantity: quantity,
+                subtotal: itemTotal,
+                isPledgeUpgrade: true
+            });
+            continue; // Skip database lookup for pledge upgrades
+        }
+        
         // Fetch actual price from database
         let dbItem = null;
         
