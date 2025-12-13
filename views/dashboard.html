@@ -473,6 +473,9 @@
                     console.error('Pledge image element not found');
                     return;
                 }
+                
+                // Detect if mobile screen (phone)
+                const isMobile = window.innerWidth <= 768;
 
                 // First, try direct mapping
                 const rewardTitleLower = rewardTitle.toLowerCase().trim();
@@ -524,27 +527,43 @@
 
                 // Set the image
                 if (imageFilename) {
-                    pledgeImage.src = `/images/pledges/${imageFilename}`;
+                    // Use mobile-friendly images on phone screens
+                    if (isMobile) {
+                        const mobileImageMap = {
+                            'humble-vaanar.png': 'vaanar.png',
+                            'industrious-manushya.png': 'manushya.png',
+                            'resplendant-garuda.png': 'garuda.png',
+                            'resplendent-garuda.png': 'garuda.png',
+                            'benevolent-divya.png': 'divya.png',
+                            'founders-of-neh.png': 'founders.png'
+                        };
+                        const mobileImage = mobileImageMap[imageFilename] || imageFilename;
+                        pledgeImage.src = `/images/upgrade pledges/${mobileImage}`;
+                        console.log('✓ Mobile pledge image loaded:', mobileImage);
+                    } else {
+                        pledgeImage.src = `/images/pledges/${imageFilename}`;
+                        console.log('✓ Desktop pledge image loaded:', imageFilename);
+                    }
                     pledgeImage.alt = rewardTitle;
-                    console.log('✓ Pledge image loaded:', imageFilename);
                 } else {
                     // Fallback: try to guess from reward title keywords
                     if (rewardTitleLower.includes('vaanar')) {
-                        imageFilename = 'humble-vaanar.png';
+                        imageFilename = isMobile ? 'vaanar.png' : 'humble-vaanar.png';
                     } else if (rewardTitleLower.includes('manushya')) {
-                        imageFilename = 'industrious-manushya.png';
+                        imageFilename = isMobile ? 'manushya.png' : 'industrious-manushya.png';
                     } else if (rewardTitleLower.includes('garuda')) {
-                        imageFilename = 'resplendant-garuda.png';
+                        imageFilename = isMobile ? 'garuda.png' : 'resplendant-garuda.png';
                     } else if (rewardTitleLower.includes('divya') || rewardTitleLower.includes('benevolent')) {
-                        imageFilename = 'benevolent-divya.png';
+                        imageFilename = isMobile ? 'divya.png' : 'benevolent-divya.png';
                     } else if (rewardTitleLower.includes('founder') || rewardTitleLower.includes('neh')) {
-                        imageFilename = 'founders-of-neh.png';
+                        imageFilename = isMobile ? 'founders.png' : 'founders-of-neh.png';
                     }
                     
                     if (imageFilename) {
-                        pledgeImage.src = `/images/pledges/${imageFilename}`;
+                        const imageFolder = isMobile ? '/images/upgrade pledges/' : '/images/pledges/';
+                        pledgeImage.src = `${imageFolder}${imageFilename}`;
                         pledgeImage.alt = rewardTitle;
-                        console.log('✓ Pledge image loaded via fallback:', imageFilename);
+                        console.log(`✓ Pledge image loaded via fallback (${isMobile ? 'mobile' : 'desktop'}):`, imageFilename);
                     } else {
                         console.warn('⚠ No matching pledge image found for:', rewardTitle);
                         // Keep default image or show placeholder
@@ -909,6 +928,9 @@
                 const rewardTitle = userData.rewardTitle || '';
                 hasValidPledge = rewardTitle.trim().length > 0 && pledgeAmount >= 18;
 
+                // Store reward title for responsive image switching
+                currentRewardTitle = userData.rewardTitle;
+                
                 // Load pledge image based on reward title
                 loadPledgeImage(userData.rewardTitle);
 
@@ -975,6 +997,20 @@
                 document.getElementById('items-list').textContent = 'Error loading pledge information. Please refresh the page.';
             }
         }
+
+        // Store current reward title globally for responsive image switching
+        let currentRewardTitle = '';
+
+        // Handle window resize to switch between mobile and desktop images
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                if (currentRewardTitle) {
+                    loadPledgeImage(currentRewardTitle);
+                }
+            }, 250); // Debounce resize events
+        });
 
         // Initialize
         loadUserData();
