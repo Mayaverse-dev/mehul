@@ -386,8 +386,6 @@
                     userData = await response.json();
                     // User is logged in
                     document.getElementById('nav-right-content').innerHTML = `
-                        <span>${userData.email}</span>
-                        <span>|</span>
                         <a href="#" onclick="handleLogout(); return false;">Logout</a>
                     `;
                 } else {
