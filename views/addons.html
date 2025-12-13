@@ -444,9 +444,20 @@
             const hasKickstarterItems = userData && userData.kickstarterItems && Object.keys(userData.kickstarterItems).length > 0;
             // Dropped backers have NOT paid yet, so no "Paid" badge
             const pledgePaid = userData && userData.pledgeAmount > 0 && userData.pledgedStatus !== 'dropped';
+            
+            // Check if dropped backer has ANY pledge in cart (upgraded or restored original)
+            // If they have a pledge in cart, don't show Kickstarter section (pledge is already in cart)
+            const hasPledgeInCart = cart.some(item => item.isDroppedBackerPledge || item.isOriginalPledge);
+            const isDroppedBacker = userData && userData.pledgedStatus === 'dropped';
+            
+            // Show Kickstarter pledge ONLY if:
+            // 1. They're a backer with Kickstarter items
+            // 2. AND (they're NOT a dropped backer OR they don't have any pledge in cart yet)
+            // For dropped backers: only show original pledge if they haven't added any pledge to cart
+            const shouldShowKickstarterPledge = isKickstarterBacker && hasKickstarterItems && 
+                (!isDroppedBacker || !hasPledgeInCart);
 
-            // Show Kickstarter pledge if they're a backer
-            if (isKickstarterBacker && hasKickstarterItems) {
+            if (shouldShowKickstarterPledge) {
                 const items = userData.kickstarterItems || {};
                 const addons = userData.kickstarterAddons || {};
                 
@@ -583,35 +594,79 @@
                 });
             }
 
-            // Show new cart items as "Add-ons" section with individual items and controls
-            if (regularItems.length > 0) {
+            // Separate dropped backer pledges from regular add-ons
+            // Pledges include: upgraded pledges (isDroppedBackerPledge) OR restored original pledges (isOriginalPledge but not isDroppedBackerPledge)
+            const allPledges = regularItems.filter(item => item.isDroppedBackerPledge || (item.isOriginalPledge && !item.isDroppedBackerPledge));
+            const actualAddons = regularItems.filter(item => !item.isDroppedBackerPledge && !item.isOriginalPledge);
+            
+            // Show pledge section if exists (upgraded pledge OR restored original pledge)
+            if (allPledges.length > 0) {
+                const pledgeSection = document.createElement('div');
+                pledgeSection.className = 'cart-section';
+                
+                let pledgeHTML = '';
+                allPledges.forEach((pledge) => {
+                    const pledgeIndex = cart.indexOf(pledge);
+                    const pledgeTotal = pledge.price * pledge.quantity;
+                    const isUpgradedPledge = pledge.isDroppedBackerPledge;
+                    const isRestoredOriginal = pledge.isOriginalPledge && !pledge.isDroppedBackerPledge;
+                    
+                    // Upgraded pledges CAN be removed (to restore original)
+                    // Restored original pledges CANNOT be removed
+                    const deleteButton = isRestoredOriginal
+                        ? `<div style="width: 40px; text-align: center; color: #dc2626; font-weight: bold; font-size: 12px;">REQUIRED</div>`
+                        : `<button class="delete-btn" onclick="removeItem(${pledgeIndex})">🗑️</button>`;
+                    
+                    pledgeHTML += `
+                        <div class="cart-item" style="border-left: 3px solid #dc2626;">
+                            <div class="item-info">
+                                <div class="item-name">${pledge.name} <span style="color: #dc2626; font-size: 12px;">(PAYMENT REQUIRED)</span></div>
+                                <div class="item-qty-label">Qty: ${pledge.quantity}</div>
+                            </div>
+                            <div class="item-controls">
+                                ${deleteButton}
+                                <div class="qty-display">${pledge.quantity}</div>
+                                <button class="qty-btn" onclick="updateQuantity(${pledgeIndex}, 1)" disabled style="opacity: 0.3; cursor: not-allowed;">+</button>
+                            </div>
+                            <div class="item-price">$${pledgeTotal.toFixed(1)}</div>
+                        </div>
+                    `;
+                    total += pledgeTotal;
+                });
+                
+                pledgeSection.innerHTML = `
+                    <div class="section-header">
+                        <div class="section-title">Pledge</div>
+                    </div>
+                    ${pledgeHTML}
+                `;
+                
+                cartItemsContainer.appendChild(pledgeSection);
+            }
+            
+            // Show regular add-ons section (no pledges here)
+            if (actualAddons.length > 0) {
                 let cartTotal = 0;
                 
                 const cartSection = document.createElement('div');
                 cartSection.className = 'cart-section';
                 
                 let cartItemsHTML = '';
-                regularItems.forEach((item) => {
+                actualAddons.forEach((item) => {
                     const itemIndex = cart.indexOf(item);
                     const itemTotal = item.price * item.quantity;
                     cartTotal += itemTotal;
                     
-                    // Check if this is an original pledge for dropped backer (cannot be removed)
-                    const isOriginalPledge = item.isOriginalPledge || false;
-                    const deleteButton = isOriginalPledge 
-                        ? `<div style="width: 40px; text-align: center; color: #dc2626; font-weight: bold; font-size: 12px;">REQUIRED</div>`
-                        : `<button class="delete-btn" onclick="removeItem(${itemIndex})">🗑️</button>`;
-                    
                     cartItemsHTML += `
-                        <div class="cart-item" style="${isOriginalPledge ? 'border-left: 3px solid #dc2626;' : ''}">
+                        <div class="cart-item">
                             <div class="item-info">
-                                <div class="item-name">${item.name}${isOriginalPledge ? ' <span style="color: #dc2626; font-size: 12px;">(PAYMENT REQUIRED)</span>' : ''}</div>
+                                <div class="item-name">${item.name}</div>
                                 <div class="item-qty-label">Qty: ${item.quantity}</div>
                             </div>
                             <div class="item-controls">
-                                ${deleteButton}
+                                <button class="delete-btn" onclick="removeItem(${itemIndex})">🗑️</button>
                                 <div class="qty-display">${item.quantity}</div>
-                                <button class="qty-btn" onclick="updateQuantity(${itemIndex}, 1)" ${isOriginalPledge ? 'disabled style="opacity: 0.3; cursor: not-allowed;"' : ''}>+</button>
+                                <button class="qty-btn" onclick="updateQuantity(${itemIndex}, 1)">+</button>
                             </div>
                             <div class="item-price">$${itemTotal.toFixed(1)}</div>
                         </div>
