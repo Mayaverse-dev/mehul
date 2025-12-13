@@ -707,19 +707,47 @@
             }
         }
 
-        // Create payment intent (save card for autodebit)
+        // Create payment intent (backer: save card, guest: charge immediately)
         async function createPaymentIntent(amount, cart, shippingAddress, shippingCost) {
             try {
-                console.log('Creating Payment Intent...');
-                const response = await fetch('/api/create-payment-intent', {
+                // Check if user is a logged-in backer or guest
+                let isBacker = false;
+                let userEmail = shippingAddress.email;
+                
+                try {
+                    const sessionResponse = await fetch('/api/user/session');
+                    const sessionData = await sessionResponse.json();
+                    isBacker = sessionData.isLoggedIn && sessionData.user && sessionData.user.backer_number;
+                    if (isBacker) {
+                        userEmail = sessionData.user.email;
+                    }
+                } catch (err) {
+                    console.log('User not logged in - processing as guest');
+                }
+                
+                // Use different endpoint based on user type
+                const endpoint = isBacker ? '/api/create-payment-intent' : '/api/guest/create-payment-intent';
+                const paymentType = isBacker ? 'save card for later charge' : 'charge immediately';
+                
+                console.log(`Creating Payment Intent (${paymentType})...`);
+                console.log('Endpoint:', endpoint);
+                
+                const requestBody = {
+                    amount,
+                    cartItems: cart,
+                    shippingAddress,
+                    shippingCost
+                };
+                
+                // Add customerEmail for guest endpoint
+                if (!isBacker) {
+                    requestBody.customerEmail = userEmail;
+                }
+                
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        amount,
-                        cartItems: cart,
-                        shippingAddress,
-                        shippingCost
-                    })
+                    body: JSON.stringify(requestBody)
                 });
 
                 const data = await response.json();
