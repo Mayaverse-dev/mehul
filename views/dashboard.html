@@ -587,6 +587,44 @@
             }
         }
 
+        // Sync pledge button states with cart
+        function syncPledgeButtonsWithCart() {
+            // Reset all pledge buttons to normal state first
+            document.querySelectorAll('button[onclick*="upgradeToPledge"]').forEach(btn => {
+                btn.style.background = '#dc2626';
+                btn.style.borderColor = '#dc2626';
+                btn.innerHTML = 'Upgrade to This Tier';
+                btn.disabled = false;
+                btn.style.cursor = 'pointer';
+            });
+            
+            // Check cart for upgraded pledges
+            const currentCart = JSON.parse(sessionStorage.getItem('cart')) || [];
+            
+            // Find upgraded pledge in cart (for dropped backers: isDroppedBackerPledge, for paid: isPledgeUpgrade)
+            const upgradedPledge = currentCart.find(item => 
+                item.isDroppedBackerPledge || item.isPledgeUpgrade
+            );
+            
+            if (upgradedPledge) {
+                // Extract pledge ID from cart item
+                const upgradedPledgeId = upgradedPledge.id;
+                
+                // Find the matching button and mark it as upgraded
+                const upgradeButton = document.querySelector(`button[onclick*="upgradeToPledge(${upgradedPledgeId}"]`);
+                if (upgradeButton) {
+                    upgradeButton.style.background = '#059669';
+                    upgradeButton.style.borderColor = '#059669';
+                    upgradeButton.innerHTML = '✓ Pledge Upgraded';
+                    upgradeButton.disabled = true;
+                    upgradeButton.style.cursor = 'default';
+                    console.log('✓ Synced pledge button state: upgraded pledge found in cart');
+                }
+            } else {
+                console.log('✓ Synced pledge button state: no upgraded pledge in cart, all buttons reset');
+            }
+        }
+
         // Load products
         async function loadProducts() {
             try {
@@ -684,6 +722,8 @@
                         upgradeSection.style.display = 'block';
                     displayUpgradePledges(upgradePledges);
                         console.log('✓ Upgrade section displayed');
+                        // Sync pledge button states with cart after buttons are rendered
+                        setTimeout(() => syncPledgeButtonsWithCart(), 100);
                     } else {
                         console.error('Upgrade section element not found!');
                     }
@@ -1073,6 +1113,10 @@
                 if (warningEl) {
                     warningEl.style.display = hasValidPledge ? 'none' : 'block';
                 }
+                
+                // Sync pledge button states with cart after user data loads
+                // Use setTimeout to ensure buttons are rendered first
+                setTimeout(() => syncPledgeButtonsWithCart(), 200);
 
             } catch (error) {
                 console.error('Error loading user data:', error);
