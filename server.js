@@ -144,6 +144,7 @@ async function initializeDatabase() {
         await addColumnIfMissing('users', 'magic_link_token TEXT');
         await addColumnIfMissing('users', `magic_link_expires_at ${timestampType}`);
         await addColumnIfMissing('users', `last_login_at ${timestampType}`);
+        await addColumnIfMissing('users', 'pledged_status TEXT');
 
         // Add-ons table
         await execute(`CREATE TABLE IF NOT EXISTS addons (
@@ -729,6 +730,7 @@ app.get('/api/user/data', requireAuth, async (req, res) => {
             rewardTitle: user.reward_title,
             backingMinimum: user.backing_minimum,
             pledgeAmount: user.pledge_amount,
+            pledgedStatus: user.pledged_status || 'collected', // 'dropped' or 'collected'
             kickstarterItems: user.kickstarter_items ? JSON.parse(user.kickstarter_items) : {},
             kickstarterAddons: user.kickstarter_addons ? JSON.parse(user.kickstarter_addons) : {},
             shippingCountry: user.shipping_country,

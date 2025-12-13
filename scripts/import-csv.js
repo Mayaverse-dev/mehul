@@ -128,6 +128,7 @@ fs.createReadStream(csvFilePath)
                 const backingMinimum = parseFloat(row['Backing Minimum']?.replace(/[$,]/g, '')) || 0;
                 const pledgeAmount = parseFloat(row['Pledge Amount']?.replace(/[$,]/g, '')) || 0;
                 const shippingCountry = row['Shipping Country'];
+                const pledgedStatus = row['Pledged Status'] || 'collected'; // 'dropped' or 'collected'
 
                 // Parse Kickstarter items
                 const items = {};
@@ -155,8 +156,8 @@ fs.createReadStream(csvFilePath)
                 await query(`INSERT INTO users (
                     email, password, backer_number, backer_uid, backer_name,
                     reward_title, backing_minimum, pledge_amount,
-                    kickstarter_items, kickstarter_addons, shipping_country
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    kickstarter_items, kickstarter_addons, shipping_country, pledged_status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(email) DO UPDATE SET
                     password = excluded.password,
                     backer_number = excluded.backer_number,
@@ -167,7 +168,8 @@ fs.createReadStream(csvFilePath)
                     pledge_amount = excluded.pledge_amount,
                     kickstarter_items = excluded.kickstarter_items,
                     kickstarter_addons = excluded.kickstarter_addons,
-                    shipping_country = excluded.shipping_country`,
+                    shipping_country = excluded.shipping_country,
+                    pledged_status = excluded.pledged_status`,
                 [
                     email,
                     hashedPassword,
@@ -179,7 +181,8 @@ fs.createReadStream(csvFilePath)
                     pledgeAmount,
                     JSON.stringify(items),
                     JSON.stringify(addons),
-                    shippingCountry
+                    shippingCountry,
+                    pledgedStatus
                 ]);
 
                 importedCount++;
