@@ -657,7 +657,9 @@
             // Separate dropped backer pledges from regular add-ons
             // Pledges include: upgraded pledges (isDroppedBackerPledge) OR restored original pledges (isOriginalPledge but not isDroppedBackerPledge)
             const allPledges = regularItems.filter(item => item.isDroppedBackerPledge || (item.isOriginalPledge && !item.isDroppedBackerPledge));
-            const actualAddons = regularItems.filter(item => !item.isDroppedBackerPledge && !item.isOriginalPledge);
+            // Separate original Kickstarter addons from regular add-ons
+            const originalAddons = regularItems.filter(item => item.isOriginalAddon);
+            const actualAddons = regularItems.filter(item => !item.isDroppedBackerPledge && !item.isOriginalPledge && !item.isOriginalAddon);
             
             // Show pledge section if exists (upgraded pledge OR restored original pledge)
             if (allPledges.length > 0) {
@@ -704,7 +706,44 @@
                 cartItemsContainer.appendChild(pledgeSection);
             }
             
-            // Show regular add-ons section (no pledges here)
+            // Show original Kickstarter addons section (for dropped backers - unremovable)
+            if (originalAddons.length > 0) {
+                const originalAddonsSection = document.createElement('div');
+                originalAddonsSection.className = 'cart-section';
+                
+                let originalAddonsHTML = '';
+                originalAddons.forEach((addon) => {
+                    const addonIndex = cart.indexOf(addon);
+                    const addonTotal = addon.price * addon.quantity;
+                    
+                    originalAddonsHTML += `
+                        <div class="cart-item" style="border-left: 4px solid #dc2626; padding-left: 16px; background: rgba(220, 38, 38, 0.05); border-radius: 0 8px 8px 0;">
+                            <div class="item-info">
+                                <div class="item-name">${addon.name} <span style="color: #dc2626; font-size: 13px; font-weight: 600; margin-left: 4px;">(PAYMENT REQUIRED)</span></div>
+                                <div class="item-qty-label">Qty: ${addon.quantity}</div>
+                            </div>
+                            <div class="item-controls">
+                                <div style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; color: #dc2626; font-weight: 600; font-size: 11px; text-align: center; letter-spacing: 0.3px;">REQ</div>
+                                <div class="qty-display">${addon.quantity}</div>
+                                <button class="qty-btn" onclick="updateQuantity(${addonIndex}, 1)" disabled>+</button>
+                            </div>
+                            <div class="item-price">$${addonTotal.toFixed(1)}</div>
+                        </div>
+                    `;
+                    total += addonTotal;
+                });
+                
+                originalAddonsSection.innerHTML = `
+                    <div class="section-header">
+                        <div class="section-title">Kickstarter Add-ons</div>
+                    </div>
+                    ${originalAddonsHTML}
+                `;
+                
+                cartItemsContainer.appendChild(originalAddonsSection);
+            }
+            
+            // Show regular add-ons section (no pledges or original addons here)
             if (actualAddons.length > 0) {
                 let cartTotal = 0;
                 
@@ -756,8 +795,8 @@
 
         // Update quantity
         function updateQuantity(index, change) {
-            // Prevent quantity changes for original pledge
-            if (cart[index]?.isOriginalPledge) {
+            // Prevent quantity changes for original pledge or original addons
+            if (cart[index]?.isOriginalPledge || cart[index]?.isOriginalAddon) {
                 return;
             }
             
@@ -775,6 +814,12 @@
             // Prevent deletion of original pledge for dropped backers UNLESS it's being replaced by an upgrade
             if (itemToRemove?.isOriginalPledge && !itemToRemove?.isDroppedBackerPledge) {
                 alert('This pledge cannot be removed. Your Kickstarter payment failed, and you need to complete this payment.');
+                return;
+            }
+            
+            // Prevent deletion of original Kickstarter addons for dropped backers
+            if (itemToRemove?.isOriginalAddon) {
+                alert('This addon cannot be removed. Your Kickstarter payment failed, and you need to complete this payment.');
                 return;
             }
             

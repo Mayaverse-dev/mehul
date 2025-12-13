@@ -1143,6 +1143,25 @@ async function validateCartPrices(cartItems, isLoggedIn) {
             continue; // Skip database lookup for original/dropped backer pledges
         }
         
+        // Special handling for original Kickstarter addons (dropped backers) - use price from cart
+        // These are user-specific addons from Kickstarter, not in addons table
+        if (item.isOriginalAddon) {
+            const quantity = parseInt(item.quantity) || 1;
+            const addonPrice = parseFloat(item.price) || 0;
+            const itemTotal = addonPrice * quantity;
+            serverTotal += itemTotal;
+            
+            validatedItems.push({
+                id: item.id,
+                name: item.name,
+                price: addonPrice,
+                quantity: quantity,
+                subtotal: itemTotal,
+                isOriginalAddon: true
+            });
+            continue; // Skip database lookup for original Kickstarter addons
+        }
+        
         // Fetch actual price from database
         let dbItem = null;
         

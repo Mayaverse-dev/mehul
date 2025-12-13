@@ -1054,7 +1054,7 @@
                 const rewardTitle = userData.rewardTitle || '';
                 hasValidPledge = rewardTitle.trim().length > 0 && pledgeAmount >= 18;
 
-                // For dropped backers, add their pledge to cart automatically
+                // For dropped backers, add their pledge and addons to cart automatically
                 if (isDroppedBacker && pledgeAmount > 0 && rewardTitle) {
                     // Store original pledge info globally and in localStorage for restoration
                     originalPledgeInfo = {
@@ -1076,6 +1076,37 @@
                         sessionStorage.setItem('cart', JSON.stringify(cart));
                         console.log('✓ Added original pledge to cart for dropped backer:', pledgeAmount);
                     }
+                    
+                    // Add Kickstarter addons to cart for dropped backers (unremovable)
+                    const addons = userData.kickstarterAddons || {};
+                    const addonNameMap = {
+                        'pendant': { name: 'Flitt Locust Pendant', price: 15 },
+                        'audiobook_addon': { name: 'MAYA: Seed Takes Root Audiobook', price: 20 },
+                        'built_env_addon': { name: 'Built Environments of MAYA Hardcover', price: 25 },
+                        'lorebook_addon': { name: 'MAYA Lorebook', price: 25 }
+                    };
+                    
+                    for (const [key, addonInfo] of Object.entries(addonNameMap)) {
+                        const quantity = addons[key] || 0;
+                        if (quantity > 0) {
+                            const addonId = 'original-addon-' + userData.backerNumber + '-' + key;
+                            const addonInCart = cart.find(item => item.id === addonId);
+                            
+                            if (!addonInCart) {
+                                cart.push({
+                                    id: addonId,
+                                    name: addonInfo.name,
+                                    price: addonInfo.price,
+                                    quantity: quantity,
+                                    isOriginalAddon: true, // Mark as unremovable
+                                    kickstarterAddonKey: key // Store original key for reference
+                                });
+                                console.log(`✓ Added Kickstarter addon to cart: ${addonInfo.name} (x${quantity})`);
+                            }
+                        }
+                    }
+                    
+                    sessionStorage.setItem('cart', JSON.stringify(cart));
                 }
 
                 // Store reward title for responsive image switching
