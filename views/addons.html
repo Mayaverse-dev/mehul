@@ -430,7 +430,7 @@
             </div>
 
             <!-- Proceed Button -->
-            <button class="btn-proceed" onclick="proceedToShipping()">Proceed to Shipping</button>
+            <button class="btn-proceed" id="proceed-shipping-btn" onclick="proceedToShipping()" disabled>Proceed to Shipping</button>
         </div>
     </div>
 
@@ -509,7 +509,7 @@
             // If they have a pledge in cart, don't show Kickstarter section (pledge is already in cart)
             const hasPledgeInCart = cart.some(item => item.isDroppedBackerPledge || item.isOriginalPledge);
             const isDroppedBacker = userData && userData.pledgedStatus === 'dropped';
-            
+
             // Show Kickstarter pledge ONLY if:
             // 1. They're a backer with Kickstarter items
             // 2. AND (they're NOT a dropped backer OR they don't have any pledge in cart yet)
@@ -679,11 +679,28 @@
                         ? `<div style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; color: #dc2626; font-weight: 600; font-size: 11px; text-align: center; letter-spacing: 0.3px;">REQ</div>`
                         : `<button class="delete-btn" onclick="removeItem(${pledgeIndex})">🗑️</button>`;
                     
+                    // Check if this is backer #3159 with partial payment
+                    let priceBreakdown = '';
+                    if (isRestoredOriginal && pledge.originalPledgeAmount && pledge.partialPaymentAmount) {
+                        const originalTotal = pledge.originalPledgeAmount * pledge.quantity;
+                        const partialTotal = pledge.partialPaymentAmount * pledge.quantity;
+                        priceBreakdown = `
+                            <div style="font-size: 13px; color: #a3a3a3; margin-top: 4px;">
+                                <span style="text-decoration: line-through;">$${originalTotal.toFixed(1)}</span>
+                                <span style="margin: 0 6px;">-</span>
+                                <span>$${partialTotal.toFixed(1)} (already paid)</span>
+                                <span style="margin: 0 6px;">=</span>
+                                <span style="color: #ffffff; font-weight: 600;">$${pledgeTotal.toFixed(1)}</span>
+                            </div>
+                        `;
+                    }
+                    
                     pledgeHTML += `
                         <div class="cart-item" style="border-left: 4px solid #dc2626; padding-left: 16px; background: rgba(220, 38, 38, 0.05); border-radius: 0 8px 8px 0;">
                             <div class="item-info">
                                 <div class="item-name">${pledge.name} <span style="color: #dc2626; font-size: 13px; font-weight: 600; margin-left: 4px;">(PAYMENT REQUIRED)</span></div>
                                 <div class="item-qty-label">Qty: ${pledge.quantity}</div>
+                                ${priceBreakdown}
                             </div>
                             <div class="item-controls">
                                 ${deleteButton}
@@ -791,6 +808,26 @@
             // Update total
             const totalElement = document.getElementById('cart-total');
             totalElement.textContent = '$' + total.toFixed(1);
+            
+            // Enable/disable proceed button based on cart state
+            const proceedBtn = document.getElementById('proceed-shipping-btn');
+            if (proceedBtn) {
+                // Allow proceeding if:
+                // 1. Cart has items and total > 0 (normal case)
+                // 2. OR user is a paid Kickstarter backer with a valid pledge (they need to provide shipping address)
+                const isPaidKickstarterBacker = userData && userData.pledgeAmount > 0 && userData.pledgedStatus !== 'dropped';
+                const hasItemsToPay = cart.length > 0 && total > 0;
+                const canProceed = hasItemsToPay || isPaidKickstarterBacker;
+                
+                proceedBtn.disabled = !canProceed;
+                if (canProceed) {
+                    proceedBtn.style.opacity = '1';
+                    proceedBtn.style.cursor = 'pointer';
+                } else {
+                    proceedBtn.style.opacity = '0.5';
+                    proceedBtn.style.cursor = 'not-allowed';
+                }
+            }
         }
 
         // Update quantity
@@ -800,11 +837,30 @@
                 return;
             }
             
+            // Check if this is a pledge - limit quantity to 1
+            if (isPledgeItem(cart[index])) {
+                if (change > 0 && cart[index].quantity >= 1) {
+                    alert('You can only have one pledge in your cart.');
+                    return;
+                }
+            }
+            
             if (cart[index].quantity + change > 0) {
                 cart[index].quantity += change;
                 sessionStorage.setItem('cart', JSON.stringify(cart));
                 loadCartItems();
             }
+        }
+
+        // Helper to check if an item is a pledge
+        function isPledgeItem(item) {
+            if (!item) return false;
+            const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+            const nameLower = (item.name || '').toLowerCase();
+            return item.isPledgeUpgrade || 
+                   item.isOriginalPledge || 
+                   item.isDroppedBackerPledge ||
+                   pledgeNames.some(pledge => nameLower.includes(pledge));
         }
 
         // Remove item
@@ -833,6 +889,33 @@
                 return;
             }
             
+            // Check if removing a pledge - if so, also remove all addons
+            if (isPledgeItem(itemToRemove)) {
+                // Check if there are any addons in cart before removing
+                const hasAddons = cart.some((item, i) => {
+                    if (i === index) return false; // Don't count the pledge being removed
+                    if (isPledgeItem(item)) return false; // Don't count other pledges
+                    if (item.isOriginalAddon) return false; // Don't count original addons (they stay)
+                    return true; // This is an addon that will be removed
+                });
+                
+                // Remove the pledge and all non-pledge items (addons)
+                cart = cart.filter((item, i) => {
+                    if (i === index) return false; // Remove the pledge being deleted
+                    if (isPledgeItem(item)) return true; // Keep other pledges
+                    if (item.isOriginalAddon) return true; // Keep original Kickstarter addons (can't be removed)
+                    return false; // Remove all other addons
+                });
+                sessionStorage.setItem('cart', JSON.stringify(cart));
+                
+                // Only show alert if there were actually addons removed
+                if (hasAddons) {
+                    alert('Pledge removed. Add-ons have also been removed as they require a pledge.');
+                }
+                loadCartItems();
+                return;
+            }
+            
             // Regular item removal
             cart.splice(index, 1);
             sessionStorage.setItem('cart', JSON.stringify(cart));
@@ -841,6 +924,32 @@
 
         // Proceed to shipping
         function proceedToShipping() {
+            // Check if user is a paid Kickstarter backer (they can proceed even with $0 total)
+            const isPaidKickstarterBacker = userData && userData.pledgeAmount > 0 && userData.pledgedStatus !== 'dropped';
+            
+            // Paid Kickstarter backers can proceed to provide shipping address
+            if (isPaidKickstarterBacker) {
+                window.location.href = '/shipping';
+                return;
+            }
+            
+            // For non-backers or dropped backers, check cart has items
+            if (!cart || cart.length === 0) {
+                alert('Your cart is empty. Please add items before proceeding to checkout.');
+                return;
+            }
+            
+            // Calculate total to ensure there's something to checkout
+            let total = 0;
+            cart.forEach(item => {
+                total += (item.price || 0) * (item.quantity || 0);
+            });
+            
+            if (total <= 0) {
+                alert('Your cart is empty. Please add items before proceeding to checkout.');
+                return;
+            }
+            
             window.location.href = '/shipping';
         }
 

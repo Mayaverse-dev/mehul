@@ -263,7 +263,7 @@
             <img src="/images/maya-logo.png" alt="MAYA" style="height: 100%; width: auto; object-fit: contain; cursor: pointer;">
         </a>
         <div class="nav-right" style="display: flex; align-items: center; gap: 20px;">
-            <a href="/login" style="background: none; border: none; cursor: pointer; position: relative; padding: 5px; text-decoration: none; color: inherit; display: flex; align-items: center;" title="Login">
+            <a id="profile-link" href="/login" style="background: none; border: none; cursor: pointer; position: relative; padding: 5px; text-decoration: none; color: inherit; display: flex; align-items: center;" title="Login">
                 <img src="/images/icons/Profile.svg" alt="Profile" style="height: 24px; width: 24px;">
             </a>
             <button onclick="scrollToCart()" style="background: none; border: none; cursor: pointer; position: relative; padding: 5px; display: flex; align-items: center;">
@@ -422,197 +422,12 @@
             </button>
         </div>
 
-        <!-- Checkout Modal (Multi-step: Cart → Shipping → Payment) -->
-        <div id="cart-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;" onclick="closeCartModal(event)">
-            <div class="modal" style="max-width: 600px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;" onclick="event.stopPropagation()">
-                <!-- Step Indicator -->
-                <div style="background: #1e1e1e; padding: 20px; border-bottom: 2px solid #3a3a3a;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; max-width: 400px; margin: 0 auto;">
-                        <div class="checkout-step" id="step-cart" style="flex: 1; text-align: center;">
-                            <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--primary-red); color: white; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-weight: 600;">1</div>
-                            <div style="font-size: 12px; font-weight: 500;">Cart</div>
-                        </div>
-                        <div style="flex: 0.3; height: 2px; background: var(--border-color); margin: 0 10px 20px;"></div>
-                        <div class="checkout-step" id="step-shipping" style="flex: 1; text-align: center;">
-                            <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--border-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-weight: 600;">2</div>
-                            <div style="font-size: 12px; font-weight: 500; color: var(--text-muted);">Shipping</div>
-                        </div>
-                        <div style="flex: 0.3; height: 2px; background: var(--border-color); margin: 0 10px 20px;"></div>
-                        <div class="checkout-step" id="step-payment" style="flex: 1; text-align: center;">
-                            <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--border-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-weight: 600;">3</div>
-                            <div style="font-size: 12px; font-weight: 500; color: var(--text-muted);">Payment</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Modal Header -->
-                <div class="modal-header">
-                    <h3 id="modal-title">Your Cart</h3>
-                    <button class="modal-close" onclick="closeCartModal()">×</button>
-                </div>
-
-                <!-- Modal Body -->
-                <div class="modal-body" style="overflow-y: auto; flex: 1;">
-                    <!-- Step 1: Cart View -->
-                    <div id="cart-view">
-                        <div id="cart-items">
-                            <p style="color: var(--text-muted); text-align: center; padding: 20px;">
-                                Your cart is empty.
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Step 2: Shipping Form -->
-                    <div id="shipping-view" style="display: none;">
-                        <form id="shipping-form-modal">
-                            <div class="form-group">
-                                <label class="form-label">Full Name *</label>
-                                <input type="text" class="form-input" id="modal-name" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Email *</label>
-                                <input type="email" class="form-input" id="modal-email" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Address Line 1 *</label>
-                                <input type="text" class="form-input" id="modal-address1" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Address Line 2</label>
-                                <input type="text" class="form-input" id="modal-address2">
-                            </div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                                <div class="form-group">
-                                    <label class="form-label">City *</label>
-                                    <input type="text" class="form-input" id="modal-city" required>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">State/Province *</label>
-                                    <input type="text" class="form-input" id="modal-state" required>
-                                </div>
-                            </div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                                <div class="form-group">
-                                    <label class="form-label">Postal Code *</label>
-                                    <input type="text" class="form-input" id="modal-postal" required>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Country *</label>
-                                    <select class="form-select" id="modal-country" required onchange="calculateModalShipping()">
-                                        <option value="">Select Country</option>
-                                        <option value="US">United States</option>
-                                        <option value="CA">Canada</option>
-                                        <option value="GB">United Kingdom</option>
-                                        <option value="AU">Australia</option>
-                                        <option value="IN">India</option>
-                                        <option value="OTHER">Other</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div id="shipping-cost-display" style="display: none; margin-top: 20px; padding: 15px; background: var(--neutral-gray-light); border-radius: 6px;">
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                                    <span>Subtotal:</span>
-                                    <span><strong>$<span id="modal-subtotal">0.00</span></strong></span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                                    <span>Shipping:</span>
-                                    <span><strong>$<span id="modal-shipping-cost">0.00</span></strong></span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 2px solid var(--border-color); font-size: 18px;">
-                                    <span><strong>Total:</strong></span>
-                                    <span style="color: var(--primary-red);"><strong>$<span id="modal-grand-total">0.00</span></strong></span>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-
-                    <!-- Step 3: Payment Form -->
-                    <div id="payment-view" style="display: none;">
-                        <div id="payment-error" class="alert alert-error hidden" style="margin-bottom: 15px;"></div>
-                        
-                        <form id="payment-form-modal">
-                            <div class="form-group">
-                                <label class="form-label">Card Details *</label>
-                                <div id="card-element-modal" style="padding: 12px; border: 2px solid #3a3a3a; border-radius: 6px; background: #0a0a0a;">
-                                    <div style="text-align: center; padding: 20px; color: var(--text-muted);">
-                                        <div class="spinner" style="margin: 0 auto 10px;"></div>
-                                        Loading payment form...
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div style="background: var(--neutral-gray-light); padding: 15px; border-radius: 6px; margin-top: 20px;">
-                                <h4 style="margin: 0 0 15px 0; font-size: 14px; font-weight: 600;">Order Summary</h4>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px;">
-                                    <span>Subtotal:</span>
-                                    <span>$<span id="payment-subtotal">0.00</span></span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px;">
-                                    <span>Shipping:</span>
-                                    <span>$<span id="payment-shipping">0.00</span></span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 2px solid var(--border-color); font-size: 18px; font-weight: 600;">
-                                    <span>Total:</span>
-                                    <span style="color: var(--primary-red);">$<span id="payment-total">0.00</span></span>
-                                </div>
-                            </div>
-
-                            <div class="alert alert-info" style="margin-top: 15px; font-size: 12px;">
-                                🔒 Your payment is secure and encrypted via Stripe
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Modal Footer -->
-                <div class="modal-footer" style="border-top: 2px solid var(--border-color); padding: 20px;">
-                    <!-- Cart Step Footer -->
-                    <div id="cart-footer">
-                        <div class="cart-total" id="cart-total-section" style="display: none; margin-bottom: 15px;">
-                            <span><strong>Subtotal:</strong></span>
-                            <span><strong>$<span id="cart-total">0.00</span></strong></span>
-                        </div>
-                        <button class="btn btn-primary btn-block" onclick="goToShippingStep()" id="modal-next-btn" style="display: none;">
-                            Next: Shipping Information →
-                        </button>
-                    </div>
-
-                    <!-- Shipping Step Footer -->
-                    <div id="shipping-footer" style="display: none;">
-                        <div style="display: flex; gap: 10px;">
-                            <button class="btn btn-secondary" onclick="goToCartStep()" style="flex: 1;">
-                                ← Back to Cart
-                            </button>
-                            <button class="btn btn-primary" onclick="goToPaymentStep()" id="proceed-payment-btn" style="flex: 2;" disabled>
-                                Proceed to Payment →
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Payment Step Footer -->
-                    <div id="payment-footer" style="display: none;">
-                        <div style="display: flex; gap: 10px;">
-                            <button class="btn btn-secondary" onclick="goToShippingStep()" style="flex: 1;">
-                                ← Back to Shipping
-                            </button>
-                            <button type="button" class="btn btn-primary" onclick="submitPayment()" id="pay-btn" style="flex: 2;">
-                                Save Card for $<span id="pay-amount">0.00</span> (Charged at Shipping)
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script>
         let cart = JSON.parse(sessionStorage.getItem('cart')) || [];
         let products = [];
         let heroBook = null; // Will hold the main book product
-        let stripe = null;
-        let elements = null;
-        let cardElement = null;
-        let paymentIntentClientSecret = null;
         let isBacker = false; // Track if user is a Kickstarter backer
 
         // Check if user is a backer
@@ -620,20 +435,55 @@
             try {
                 const response = await fetch('/api/user/session');
                 const data = await response.json();
-                isBacker = data.isLoggedIn && data.user && data.user.backer_number != null;
+                // Use the server's isBacker flag which checks backer_number, pledge_amount, or reward_title
+                isBacker = data.isBacker === true;
+                console.log('User backer status:', isBacker ? 'Kickstarter backer' : 'Non-backer/Guest');
+                
+                // Update profile link based on login/backer status
+                const profileLink = document.getElementById('profile-link');
+                if (profileLink) {
+                    if (data.isBacker) {
+                        profileLink.href = '/dashboard';
+                        profileLink.title = 'Dashboard';
+                    } else if (data.isLoggedIn) {
+                        profileLink.href = '/';
+                        profileLink.title = 'Store';
+                    } else {
+                        profileLink.href = '/login';
+                        profileLink.title = 'Login';
+                    }
+                }
             } catch (error) {
                 console.error('Error checking user status:', error);
                 isBacker = false;
             }
         }
 
-        // Check if cart has a pledge
+        // Check if cart has a pledge OR user is a paid Kickstarter backer (who already has a pledge)
         function hasPledgeInCart() {
+            // Paid Kickstarter backers already have a pledge from their KS backing
+            if (isBacker) {
+                return true;
+            }
+            
             const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
             return cart.some(item => {
+                // Check item name directly first (most reliable)
+                if (item.name) {
+                    const nameLower = item.name.toLowerCase();
+                    if (pledgeNames.some(pledge => nameLower.includes(pledge))) {
+                        return true;
+                    }
+                }
+                
+                // Check by item flags
+                if (item.isPledgeUpgrade || item.isOriginalPledge || item.isDroppedBackerPledge) {
+                    return true;
+                }
+                
+                // Fallback: check via product lookup
                 const cartProduct = products.find(p => p.id === item.id);
                 if (!cartProduct) return false;
-                // Check by name or type field
                 const isPledgeByName = pledgeNames.some(pledge => cartProduct.name.toLowerCase().includes(pledge));
                 const isPledgeByType = cartProduct.type === 'pledge';
                 return isPledgeByName || isPledgeByType;
@@ -843,7 +693,7 @@
                             </div>
                             <div style="flex: 1; min-width: 250px;">
                                 <p style="font-family: 'Inter', sans-serif; font-size: 15px; color: #a0a0a0; margin: 0 0 20px 0; line-height: 1.6;">${getPledgeDescription(pledge.name)}</p>
-                                <button onclick="addPledgeToCart(${pledge.id})" id="add-pledge-btn-${pledge.id}" style="background: #dc2626; color: white; border: none; padding: 14px 24px; border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; width: auto; min-width: 200px;">
+                                <button onclick="addPledgeToCart('${pledge.id}')" id="add-pledge-btn-${pledge.id}" style="background: #dc2626; color: white; border: none; padding: 14px 24px; border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; width: auto; min-width: 200px;">
                                     Add to Cart
                                 </button>
                             </div>
@@ -860,11 +710,48 @@
             const pledge = products.find(p => p.id === pledgeId);
             if (!pledge) return;
 
+            // Check if there's already a pledge in cart (different from the one being added)
+            const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+            const existingPledge = cart.find(item => {
+                // Don't check the same pledge being added
+                if (item.id === pledgeId) return false;
+                
+                // Check cart item flags first
+                if (item.isPledgeUpgrade || item.isOriginalPledge || item.isDroppedBackerPledge) {
+                    return true;
+                }
+                
+                // Check cart item name directly (most reliable)
+                if (item.name) {
+                    const nameLower = item.name.toLowerCase();
+                    if (pledgeNames.some(pledge => nameLower.includes(pledge))) {
+                        return true;
+                    }
+                }
+                
+                // Check by product lookup (if products array is loaded)
+                const itemProduct = products.find(p => p.id === item.id);
+                if (itemProduct) {
+                    if (itemProduct.type === 'pledge' || 
+                        pledgeNames.some(pledge => itemProduct.name.toLowerCase().includes(pledge))) {
+                        return true;
+                    }
+                }
+                
+                return false;
+            });
+            
+            if (existingPledge) {
+                alert('You can only have one pledge in your cart. Please remove the existing pledge before adding a new one.');
+                return;
+            }
+
             // Check if pledge is already in cart
             const cartItem = cart.find(item => item.id === pledgeId);
             if (cartItem) {
-                // Increase quantity if already in cart
-                cartItem.quantity++;
+                // Can't increase quantity - already at max of 1
+                alert('You can only have one pledge in your cart.');
+                return;
             } else {
                 // Add new pledge to cart
                 cart.push({
@@ -969,6 +856,9 @@
         function displayProducts() {
             const grid = document.getElementById('products-grid');
             
+            // Re-read cart from sessionStorage to ensure it's fresh (in case user removed items)
+            cart = JSON.parse(sessionStorage.getItem('cart')) || [];
+            
             // Filter out the main book (hero product) - only show add-ons
             // Filter to show only add-ons (not pledge tiers or hero)
             const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
@@ -1045,15 +935,15 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                             ${priceHTML}
                             <div style="display: flex; gap: 8px; align-items: center;">
-                                <button onclick="decreaseCartQuantity(${product.id})" style="background: #828282; color: white; border: none; border-radius: 6px; padding: 0; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">−</button>
+                                <button onclick="decreaseCartQuantity('${product.id}')" style="background: #828282; color: white; border: none; border-radius: 6px; padding: 0; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">−</button>
                                 <div style="background: #828282; color: white; border-radius: 6px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 18px; min-width: 50px; height: 36px; display: flex; align-items: center; justify-content: center;" id="qty-${product.id}">${quantity}</div>
-                                <button onclick="increaseCartQuantity(${product.id})" style="background: #828282; color: white; border: none; border-radius: 6px; padding: 0; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">+</button>
+                                <button onclick="increaseCartQuantity('${product.id}')" style="background: #828282; color: white; border: none; border-radius: 6px; padding: 0; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">+</button>
                             </div>
                         </div>
                     </div>
                     
                     <!-- Add to Cart Button -->
-                    <button id="add-btn-${product.id}" onclick="${isInCart ? '' : 'addProductToCart(' + product.id + ')'}" style="background: ${isInCart ? '#059669' : '#dc2626'}; border: 1px solid ${isInCart ? '#059669' : '#dc2626'}; color: white; border-radius: 10px; padding: 14px; margin: 0 24px 24px 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; cursor: ${isInCart ? 'default' : 'pointer'}; white-space: nowrap; transition: all 0.3s ease;" ${isInCart ? 'disabled' : ''}>
+                    <button id="add-btn-${product.id}" onclick="${isInCart ? '' : "addProductToCart('" + product.id + "')"}" style="background: ${isInCart ? '#059669' : '#dc2626'}; border: 1px solid ${isInCart ? '#059679' : '#dc2626'}; color: white; border-radius: 10px; padding: 14px; margin: 0 24px 24px 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; cursor: ${isInCart ? 'default' : 'pointer'}; white-space: nowrap; transition: all 0.3s ease;" ${isInCart ? 'disabled' : ''}>
                         ${isInCart ? '✓ Added' : 'Add to Cart'}
                     </button>
                 `;
@@ -1066,9 +956,48 @@
             const product = products.find(p => p.id === productId);
             if (!product) return;
 
+            // Check if this is a pledge
+            const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+            const isPledge = product.type === 'pledge' || 
+                             pledgeNames.some(pledge => product.name.toLowerCase().includes(pledge));
+
+            // If trying to add a pledge, check if one already exists
+            if (isPledge) {
+                const existingPledge = cart.find(item => {
+                    // Check cart item flags first
+                    if (item.isPledgeUpgrade || item.isOriginalPledge || item.isDroppedBackerPledge) {
+                        return true;
+                    }
+                    
+                    // Check cart item name directly (most reliable)
+                    if (item.name) {
+                        const nameLower = item.name.toLowerCase();
+                        if (pledgeNames.some(pledge => nameLower.includes(pledge))) {
+                            return true;
+                        }
+                    }
+                    
+                    // Check by product lookup (if products array is loaded)
+                    const itemProduct = products.find(p => p.id === item.id);
+                    if (itemProduct) {
+                        if (itemProduct.type === 'pledge' || 
+                            pledgeNames.some(pledge => itemProduct.name.toLowerCase().includes(pledge))) {
+                            return true;
+                        }
+                    }
+                    
+                    return false;
+                });
+                
+                if (existingPledge) {
+                    alert('You can only have one pledge in your cart. Please remove the existing pledge before adding a new one.');
+                    return;
+                }
+            }
+
             // Check if this is an add-on (not a pledge tier)
-            // If it's an add-on and user is not a backer, require a pledge in cart
-            if (isAddon(product) && !isBacker) {
+            // ALL users must have a pledge in cart before adding add-ons
+            if (isAddon(product)) {
                 if (!hasPledgeInCart()) {
                     alert('Please select a pledge tier first before adding add-ons to your order.');
                     return;
@@ -1103,14 +1032,77 @@
         // Cart modal specific quantity functions
         function increaseCartQuantity(productId) {
             let cartItem = cart.find(item => item.id === productId);
+            const product = products.find(p => p.id === productId);
+            
             if (cartItem) {
+                // Check if this is a pledge - limit quantity to 1
+                const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+                
+                // Check cart item flags first
+                let isPledge = cartItem.isPledgeUpgrade || cartItem.isOriginalPledge || cartItem.isDroppedBackerPledge;
+                
+                // Check by product lookup
+                if (!isPledge && product) {
+                    isPledge = product.type === 'pledge' || 
+                               pledgeNames.some(pledge => product.name.toLowerCase().includes(pledge));
+                }
+                
+                // Fallback: check cart item name directly
+                if (!isPledge && cartItem.name) {
+                    const nameLower = cartItem.name.toLowerCase();
+                    isPledge = pledgeNames.some(pledge => nameLower.includes(pledge));
+                }
+                
+                if (isPledge && cartItem.quantity >= 1) {
+                    alert('You can only have one pledge in your cart.');
+                    return;
+                }
+                
                 cartItem.quantity++;
             } else {
                 // Add to cart if not already there
-                const product = products.find(p => p.id === productId);
                 if (product) {
-                    // Check if this is an add-on and user is not a backer
-                    if (isAddon(product) && !isBacker) {
+                    // Check if this is a pledge
+                    const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+                    const isPledge = product.type === 'pledge' || 
+                                     pledgeNames.some(pledge => product.name.toLowerCase().includes(pledge));
+                    
+                    // If trying to add a pledge, check if one already exists
+                    if (isPledge) {
+                        const existingPledge = cart.find(item => {
+                            // Check cart item flags first
+                            if (item.isPledgeUpgrade || item.isOriginalPledge || item.isDroppedBackerPledge) {
+                                return true;
+                            }
+                            
+                            // Check cart item name directly (most reliable)
+                            if (item.name) {
+                                const nameLower = item.name.toLowerCase();
+                                if (pledgeNames.some(pledge => nameLower.includes(pledge))) {
+                                    return true;
+                                }
+                            }
+                            
+                            // Check by product lookup (if products array is loaded)
+                            const itemProduct = products.find(p => p.id === item.id);
+                            if (itemProduct) {
+                                if (itemProduct.type === 'pledge' || 
+                                    pledgeNames.some(pledge => itemProduct.name.toLowerCase().includes(pledge))) {
+                                    return true;
+                                }
+                            }
+                            
+                            return false;
+                        });
+                        
+                        if (existingPledge) {
+                            alert('You can only have one pledge in your cart. Please remove the existing pledge before adding a new one.');
+                            return;
+                        }
+                    }
+                    
+                    // ALL users must have a pledge in cart before adding add-ons
+                    if (isAddon(product)) {
                         if (!hasPledgeInCart()) {
                             alert('Please select a pledge tier first before adding add-ons to your order.');
                             return;
@@ -1128,6 +1120,56 @@
             updateCart();
         }
 
+        // Helper to check if an item is a pledge
+        function isPledgeItem(productId, cartItem) {
+            const product = products.find(p => p.id === productId);
+            const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+            
+            // Check product type/name
+            const isPledgeByProduct = product && (
+                product.type === 'pledge' || 
+                pledgeNames.some(pledge => product.name.toLowerCase().includes(pledge))
+            );
+            
+            // Check cart item flags
+            const isPledgeByFlags = cartItem && (
+                cartItem.isPledgeUpgrade || 
+                cartItem.isOriginalPledge || 
+                cartItem.isDroppedBackerPledge
+            );
+            
+            // Check cart item name directly (in case product not found)
+            const isPledgeByCartName = cartItem && cartItem.name && 
+                pledgeNames.some(pledge => cartItem.name.toLowerCase().includes(pledge));
+            
+            return isPledgeByProduct || isPledgeByFlags || isPledgeByCartName;
+        }
+        
+        // Helper to remove pledge and all addons
+        function removePledgeAndAddons(pledgeProductId) {
+            const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+            
+            // Check if there are any addons in cart before removing
+            const hasAddons = cart.some(item => {
+                if (item.id === pledgeProductId) return false; // Don't count the pledge being removed
+                return !isPledgeItem(item.id, item); // Addons are non-pledge items
+            });
+            
+            cart = cart.filter(item => {
+                // Remove the pledge being deleted
+                if (item.id === pledgeProductId) return false;
+                // Keep other pledges
+                if (isPledgeItem(item.id, item)) return true;
+                // Remove all addons
+                return false;
+            });
+            
+            // Only show alert if there were actually addons removed
+            if (hasAddons) {
+                alert('Pledge removed. Add-ons have also been removed as they require a pledge.');
+            }
+        }
+
         function decreaseCartQuantity(productId) {
             const cartItem = cart.find(item => item.id === productId);
             if (!cartItem) return;
@@ -1135,25 +1177,33 @@
             if (cartItem.quantity > 1) {
                 cartItem.quantity--;
             } else {
-                cart = cart.filter(item => item.id !== productId);
+                // About to remove item - check if it's a pledge
+                if (isPledgeItem(productId, cartItem)) {
+                    removePledgeAndAddons(productId);
+                } else {
+                    cart = cart.filter(item => item.id !== productId);
+                }
             }
             updateCart();
         }
 
         function removeFromCart(productId) {
-            cart = cart.filter(item => item.id !== productId);
+            const cartItem = cart.find(item => item.id === productId);
+            
+            if (isPledgeItem(productId, cartItem)) {
+                removePledgeAndAddons(productId);
+            } else {
+                cart = cart.filter(item => item.id !== productId);
+            }
             updateCart();
         }
 
         function updateCart() {
             sessionStorage.setItem('cart', JSON.stringify(cart));
 
-            const cartItemsDiv = document.getElementById('cart-items');
-            const totalSection = document.getElementById('cart-total-section');
             const cartBadge = document.getElementById('cart-count-badge');
             const floatingCheckout = document.getElementById('floating-checkout');
             const floatingTotal = document.getElementById('floating-total');
-            const modalNextBtn = document.getElementById('modal-next-btn');
             
             // Update cart count badge
             const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -1171,46 +1221,10 @@
             });
             
             if (cart.length === 0) {
-                cartItemsDiv.innerHTML = `
-                    <p style="color: var(--text-muted); text-align: center; padding: 20px;">
-                        Your cart is empty.
-                    </p>
-                `;
-                totalSection.style.display = 'none';
                 floatingCheckout.style.display = 'none';
-                modalNextBtn.style.display = 'none';
             } else {
-                let html = '';
-
-                cart.forEach(item => {
-                    const itemTotal = item.price * item.quantity;
-                    html += `
-                        <div class="cart-item" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 15px; border-bottom: 1px solid var(--border-color);">
-                            <div style="flex: 1;">
-                                <strong>${item.name}</strong><br>
-                                <small style="color: var(--text-muted);">$${item.price.toFixed(2)} each</small>
-                                <div style="display: flex; gap: 8px; align-items: center; margin-top: 10px;">
-                                    <div class="quantity-selector" style="display: inline-flex; align-items: center; border: 1px solid var(--border-color); border-radius: 4px; overflow: hidden;">
-                                        <button onclick="decreaseCartQuantity(${item.id})" style="padding: 5px 10px; background: #1e1e1e; color: #ffffff; border: 1px solid #3a3a3a; cursor: pointer; font-size: 14px;">-</button>
-                                        <span style="padding: 5px 12px; font-size: 14px; font-weight: 600; min-width: 30px; text-align: center; border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color);">${item.quantity}</span>
-                                        <button onclick="increaseCartQuantity(${item.id})" style="padding: 5px 10px; background: #1e1e1e; color: #ffffff; border: 1px solid #3a3a3a; cursor: pointer; font-size: 14px;">+</button>
-                                    </div>
-                                    <button onclick="removeFromCart(${item.id})" style="padding: 5px 12px; background: var(--error-red); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">Remove</button>
-                                </div>
-                            </div>
-                            <div style="text-align: right; font-weight: 600; font-size: 16px;">
-                                $${itemTotal.toFixed(2)}
-                            </div>
-                        </div>
-                    `;
-                });
-
-                cartItemsDiv.innerHTML = html;
-                document.getElementById('cart-total').textContent = total.toFixed(2);
                 floatingTotal.textContent = '$' + total.toFixed(2);
-                totalSection.style.display = 'flex';
                 floatingCheckout.style.display = 'block';
-                document.getElementById('modal-next-btn').style.display = 'block';
             }
 
             // Update product card buttons and quantity displays
@@ -1249,333 +1263,8 @@
             window.location.href = '/addons';
         }
 
-        function closeCartModal(event) {
-            if (!event || event.target === event.currentTarget) {
-                document.getElementById('cart-modal').style.display = 'none';
-                // Reset to cart step when closing
-                goToCartStep();
-            }
-        }
-
         function proceedToCheckout() {
             window.location.href = '/addons';
-        }
-
-        function openCartModal() {
-            // Reset to cart step
-            goToCartStep();
-            document.getElementById('cart-modal').style.display = 'flex';
-        }
-
-        function goToShippingStep() {
-            // Hide other views
-            document.getElementById('cart-view').style.display = 'none';
-            document.getElementById('cart-footer').style.display = 'none';
-            document.getElementById('payment-view').style.display = 'none';
-            document.getElementById('payment-footer').style.display = 'none';
-
-            // Show shipping view
-            document.getElementById('shipping-view').style.display = 'block';
-            document.getElementById('shipping-footer').style.display = 'block';
-            document.getElementById('modal-title').textContent = 'Shipping Information';
-
-            // Update step indicators
-            updateStepIndicator('shipping');
-
-            // Populate subtotal
-            let subtotal = 0;
-            cart.forEach(item => {
-                subtotal += item.price * item.quantity;
-            });
-            document.getElementById('modal-subtotal').textContent = subtotal.toFixed(2);
-        }
-
-        function goToCartStep() {
-            // Show cart view
-            document.getElementById('cart-view').style.display = 'block';
-            document.getElementById('cart-footer').style.display = 'block';
-
-            // Hide other views
-            document.getElementById('shipping-view').style.display = 'none';
-            document.getElementById('shipping-footer').style.display = 'none';
-            document.getElementById('payment-view').style.display = 'none';
-            document.getElementById('payment-footer').style.display = 'none';
-            document.getElementById('modal-title').textContent = 'Your Cart';
-
-            // Update step indicators
-            updateStepIndicator('cart');
-        }
-
-        function updateStepIndicator(currentStep) {
-            const steps = {
-                cart: { num: 1, id: 'step-cart' },
-                shipping: { num: 2, id: 'step-shipping' },
-                payment: { num: 3, id: 'step-payment' }
-            };
-
-            Object.keys(steps).forEach(stepKey => {
-                const step = steps[stepKey];
-                const stepEl = document.getElementById(step.id);
-                const circle = stepEl.querySelector('div:first-child');
-                const label = stepEl.querySelector('div:last-child');
-
-                if (steps[stepKey].num <= steps[currentStep].num) {
-                    // Active or completed
-                    circle.style.background = 'var(--primary-red)';
-                    circle.style.color = 'white';
-                    label.style.color = 'var(--text-dark)';
-                } else {
-                    // Inactive
-                    circle.style.background = 'var(--border-color)';
-                    circle.style.color = 'var(--text-muted)';
-                    label.style.color = 'var(--text-muted)';
-                }
-            });
-        }
-
-        async function calculateModalShipping() {
-            const country = document.getElementById('modal-country').value;
-            if (!country) return;
-
-            try {
-                const response = await fetch('/api/guest/calculate-shipping', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ country, cartItems: cart })
-                });
-
-                const data = await response.json();
-                
-                if (data.shippingCost !== undefined) {
-                    const shippingCost = data.shippingCost;
-                    document.getElementById('modal-shipping-cost').textContent = shippingCost.toFixed(2);
-                    
-                    // Calculate grand total
-                    let subtotal = 0;
-                    cart.forEach(item => {
-                        subtotal += item.price * item.quantity;
-                    });
-                    const grandTotal = subtotal + shippingCost;
-                    document.getElementById('modal-grand-total').textContent = grandTotal.toFixed(2);
-
-                    // Show shipping cost display
-                    document.getElementById('shipping-cost-display').style.display = 'block';
-
-                    // Enable proceed button
-                    validateShippingForm();
-                }
-            } catch (error) {
-                console.error('Error calculating shipping:', error);
-                alert('Error calculating shipping. Please try again.');
-            }
-        }
-
-        function validateShippingForm() {
-            const form = document.getElementById('shipping-form-modal');
-            const proceedBtn = document.getElementById('proceed-payment-btn');
-            const country = document.getElementById('modal-country').value;
-            const shippingCostDisplay = document.getElementById('shipping-cost-display').style.display;
-            
-            const isValid = form.checkValidity() && country && shippingCostDisplay !== 'none';
-            proceedBtn.disabled = !isValid;
-        }
-
-        // Add input listeners for form validation
-        document.addEventListener('DOMContentLoaded', function() {
-            const formInputs = ['modal-name', 'modal-email', 'modal-address1', 'modal-city', 'modal-state', 'modal-postal', 'modal-country'];
-            formInputs.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.addEventListener('input', validateShippingForm);
-                    el.addEventListener('change', validateShippingForm);
-                }
-            });
-        });
-
-        async function goToPaymentStep() {
-            // Hide shipping view
-            document.getElementById('shipping-view').style.display = 'none';
-            document.getElementById('shipping-footer').style.display = 'none';
-
-            // Show payment view
-            document.getElementById('payment-view').style.display = 'block';
-            document.getElementById('payment-footer').style.display = 'block';
-            document.getElementById('modal-title').textContent = 'Payment Information';
-
-            // Update step indicators
-            updateStepIndicator('payment');
-
-            // Calculate totals
-            let subtotal = 0;
-            cart.forEach(item => {
-                subtotal += item.price * item.quantity;
-            });
-            const shippingCost = parseFloat(document.getElementById('modal-shipping-cost').textContent);
-            const total = subtotal + shippingCost;
-
-            // Update payment summary
-            document.getElementById('payment-subtotal').textContent = subtotal.toFixed(2);
-            document.getElementById('payment-shipping').textContent = shippingCost.toFixed(2);
-            document.getElementById('payment-total').textContent = total.toFixed(2);
-            document.getElementById('pay-amount').textContent = total.toFixed(2);
-
-            // Initialize Stripe if not already done
-            if (!stripe) {
-                await initializeStripe();
-            }
-
-            // Create payment intent
-            await createPaymentIntent(total);
-        }
-
-        async function initializeStripe() {
-            try {
-                const response = await fetch('/api/stripe-key');
-                const data = await response.json();
-                
-                if (!data.publishableKey || data.publishableKey.includes('YOUR_KEY_HERE')) {
-                    throw new Error('Stripe not configured');
-                }
-                
-                stripe = Stripe(data.publishableKey);
-                elements = stripe.elements();
-                cardElement = elements.create('card', {
-                    style: {
-                        base: {
-                            fontSize: '16px',
-                            color: '#1a1a1a',
-                            '::placeholder': {
-                                color: '#999'
-                            }
-                        }
-                    }
-                });
-                // Clear container before mounting to avoid Stripe warning
-                const cardElementContainer = document.getElementById('card-element-modal');
-                cardElementContainer.innerHTML = '';
-                cardElement.mount('#card-element-modal');
-            } catch (error) {
-                console.error('Error initializing Stripe:', error);
-                document.getElementById('card-element-modal').innerHTML = `
-                    <div style="padding: 15px; text-align: center; color: #ef4444; background: #fee2e2; border: 1px solid #ef4444; border-radius: 6px;">
-                        <strong>Payment Not Available</strong><br>
-                        <small>Stripe is not configured. Please contact support.</small>
-                    </div>
-                `;
-                document.getElementById('pay-btn').disabled = true;
-            }
-        }
-
-        async function createPaymentIntent(amount) {
-            try {
-                const shippingData = {
-                    name: document.getElementById('modal-name').value,
-                    email: document.getElementById('modal-email').value,
-                    address1: document.getElementById('modal-address1').value,
-                    address2: document.getElementById('modal-address2').value,
-                    city: document.getElementById('modal-city').value,
-                    state: document.getElementById('modal-state').value,
-                    postal: document.getElementById('modal-postal').value,
-                    country: document.getElementById('modal-country').value
-                };
-
-                const shippingCost = parseFloat(document.getElementById('modal-shipping-cost').textContent);
-
-                const response = await fetch('/api/guest/create-payment-intent', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        amount: Math.max(amount, 0.50), // Stripe minimum
-                        cartItems: cart,
-                        shippingAddress: shippingData,
-                        shippingCost: shippingCost,
-                        customerEmail: shippingData.email
-                    })
-                });
-
-                const data = await response.json();
-                paymentIntentClientSecret = data.clientSecret;
-            } catch (error) {
-                console.error('Error creating payment intent:', error);
-                alert('Error preparing payment. Please try again.');
-            }
-        }
-
-        async function submitPayment() {
-            const payBtn = document.getElementById('pay-btn');
-            const originalText = payBtn.innerHTML;
-            
-            payBtn.disabled = true;
-            payBtn.innerHTML = 'Saving Card Details...';
-
-            try {
-                // Use confirmCardPayment with manual confirmation to save card without charging
-                const { error, paymentIntent } = await stripe.confirmCardPayment(paymentIntentClientSecret, {
-                    payment_method: {
-                        card: cardElement,
-                        billing_details: {
-                            name: document.getElementById('modal-name').value,
-                            email: document.getElementById('modal-email').value
-                        }
-                    }
-                });
-
-                if (error) {
-                    throw new Error(error.message);
-                }
-
-                // Handle Payment Intent statuses (requires_capture for manual confirmation)
-                if (paymentIntent && (paymentIntent.status === 'requires_capture' || paymentIntent.status === 'succeeded')) {
-                    // Save the payment method ID to the order
-                    const saved = await savePaymentMethod(paymentIntent.payment_method, paymentIntent.id);
-                    
-                    if (!saved) {
-                        throw new Error('Failed to save payment method');
-                    }
-                    
-                    // Clear cart
-                    cart = [];
-                    sessionStorage.removeItem('cart');
-
-                    // Close modal and redirect to thank you page
-                    document.getElementById('cart-modal').style.display = 'none';
-                    window.location.href = '/thankyou';
-                } else {
-                    throw new Error('Unexpected payment status: ' + (paymentIntent?.status || 'unknown'));
-                }
-            } catch (error) {
-                console.error('Card save error:', error);
-                const errorDiv = document.getElementById('payment-error');
-                errorDiv.textContent = error.message || 'Failed to save card. Please try again.';
-                errorDiv.classList.remove('hidden');
-                
-                payBtn.disabled = false;
-                payBtn.innerHTML = originalText;
-            }
-        }
-
-        async function savePaymentMethod(paymentMethodId, paymentIntentId) {
-            try {
-                const shippingData = {
-                    name: document.getElementById('modal-name').value,
-                    email: document.getElementById('modal-email').value
-                };
-
-                const response = await fetch('/api/guest/save-payment-method', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        paymentMethodId: paymentMethodId,
-                        customerEmail: shippingData.email
-                    })
-                });
-
-                const data = await response.json();
-                return response.ok && data.success;
-            } catch (error) {
-                console.error('Error saving payment method:', error);
-                return false;
-            }
         }
 
         function toggleProductDetails() {
@@ -1607,6 +1296,18 @@
         // Initialize: check if user is backer and load products
         checkIfBacker();
         loadProducts();
+        
+        // Re-sync cart when page is shown (handles browser back/forward cache)
+        window.addEventListener('pageshow', function(event) {
+            // If page is loaded from cache, refresh the cart state
+            if (event.persisted) {
+                console.log('Page loaded from cache, refreshing cart state...');
+                cart = JSON.parse(sessionStorage.getItem('cart')) || [];
+                updateCart();
+                // Re-render products to update "Added" buttons
+                displayProducts();
+            }
+        });
 
         // Smart navbar scroll behavior
         let lastScrollTop = 0;

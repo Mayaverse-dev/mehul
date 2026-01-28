@@ -723,8 +723,9 @@
                 try {
                     const sessionResponse = await fetch('/api/user/session');
                     const sessionData = await sessionResponse.json();
-                    isBacker = sessionData.isLoggedIn && sessionData.user && sessionData.user.backer_number;
-                    if (isBacker) {
+                    // Use server's isBacker flag which checks backer_number, pledge_amount, or reward_title
+                    isBacker = sessionData.isBacker === true;
+                    if (isBacker && sessionData.user) {
                         userEmail = sessionData.user.email;
                     }
                 } catch (err) {
@@ -739,10 +740,10 @@
                 console.log('Endpoint:', endpoint);
                 
                 const requestBody = {
-                    amount,
-                    cartItems: cart,
-                    shippingAddress,
-                    shippingCost
+                        amount,
+                        cartItems: cart,
+                        shippingAddress,
+                        shippingCost
                 };
                 
                 // Add customerEmail for guest endpoint

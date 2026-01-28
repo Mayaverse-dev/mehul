@@ -497,29 +497,41 @@ async function sendMagicLink(email, link) {
     }
 
     try {
-        const content = `
-            <p>Hello,</p>
-            
-            <p>Click the button below to log in to your account and set up your PIN.</p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="${link}" style="background-color: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">Login to MAYA</a>
-            </div>
-            
-            <p style="color: #999; font-size: 14px;">Or copy and paste this link into your browser:</p>
-            <p style="color: #999; font-size: 14px; word-break: break-all;">${link}</p>
-            
-            <p style="margin-top: 30px;">This link will expire in 48 hours. If you did not request this email, please ignore it.</p>
-            
-            <p>The MAYA Team</p>
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="font-family: Arial, sans-serif; background-color: #ffffff; color: #000000; margin: 0; padding: 0;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 40px 20px;">
+                    <p style="margin: 0 0 20px 0; color: #000000;">Dear Supporter,</p>
+                    
+                    <p style="margin: 0 0 20px 0; color: #000000;">If your campaign pledge was unsuccessful, this is your immediate second chance. All is not lost.</p>
+                    
+                    <ul style="margin: 20px 0; padding-left: 20px; line-height: 1.8; color: #000000;">
+                        <li style="margin-bottom: 10px;">The <strong>Pledge Manager is LIVE NOW,</strong> ready for you.</li>
+                        <li style="margin-bottom: 10px;">This is your <strong>final opportunity</strong> to claim Kickstarter-exclusive rewards.</li>
+                        <li style="margin-bottom: 10px;"><strong style="color: #dc2626;">ACTION REQUIRED:</strong> <span style="color: #dc2626;">Click the button below to secure your items and finalize your payment instantly.</span></li>
+                    </ul>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="${link}" style="background-color: #dc2626; color: white; padding: 15px 40px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.2); letter-spacing: 0.5px;">CLAIM YOUR PLEDGE NOW</a>
+                    </div>
+                    
+                    <p style="margin: 20px 0; color: #000000;">If you have any trouble logging in or completing your new pledge, please contact our support team immediately.</p>
+                    
+                    <p style="margin-top: 30px; color: #000000;">Zain and Anand</p>
+                </div>
+            </body>
+            </html>
         `;
-
-        const html = getEmailTemplate('Login Link', content);
 
         const result = await resend.emails.send({
             from: `${FROM_NAME} <${FROM_EMAIL}>`,
             to: email,
-            subject: 'Login to MAYA',
+            subject: 'Second Chance: Claim Your Kickstarter Pledge Now',
             html: html
         });
 

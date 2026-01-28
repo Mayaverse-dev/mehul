@@ -340,12 +340,12 @@
             <h2 style="font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 40px; text-align: center; margin-bottom: 16px; color: #ffffff;">Free and Paid Add-ons</h2>
             <p style="text-align: center; color: #ffffff; font-size: 18px; margin-bottom: 20px;">All items ship together</p>
             
-            <!-- Warning for backers without pledge -->
+            <!-- Warning for users without pledge -->
             <div id="no-pledge-warning" style="display: none; background: #fef3c7; border: 2px solid #f59e0b; border-radius: 12px; padding: 24px; margin: 0 auto 40px; max-width: 800px; text-align: center;">
                 <div style="font-size: 32px; margin-bottom: 12px;">⚠️</div>
-                <h3 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 24px; color: #92400e; margin-bottom: 12px;">Upgrade to a Pledge First</h3>
+                <h3 style="font-family: 'Inter', sans-serif; font-weight: 700; font-size: 24px; color: #92400e; margin-bottom: 12px;">Select a Pledge First</h3>
                 <p style="font-family: 'Inter', sans-serif; font-size: 16px; color: #92400e; line-height: 1.6; margin-bottom: 16px;">
-                    Thanks for backing MAYA on Kickstarter! To add paid add-ons to your order, please upgrade to one of our pledge tiers using the "Upgrade Pledge" section above.
+                    To add paid add-ons to your order, please select one of our pledge tiers using the "Upgrade Pledge" section above.
                 </p>
                 <p style="font-family: 'Inter', sans-serif; font-size: 14px; color: #b45309; font-weight: 600;">
                     Scroll up to browse pledge options →
@@ -410,6 +410,7 @@
         }
 
         // Add product to cart
+        // Note: Dashboard is for Kickstarter backers who already have pledges, so no pledge check needed
         function addProductToCart(productId) {
             const product = products.find(p => p.id === productId);
             if (!product) return;
@@ -636,7 +637,7 @@
                 const upgradedPledgeId = upgradedPledge.id;
                 
                 // Find the matching button and mark it as upgraded
-                const upgradeButton = document.querySelector(`button[onclick*="upgradeToPledge(${upgradedPledgeId}"]`);
+                const upgradeButton = document.querySelector(`button[onclick*="upgradeToPledge('${upgradedPledgeId}'"]`);
                 if (upgradeButton) {
                     upgradeButton.style.background = '#059669';
                     upgradeButton.style.borderColor = '#059669';
@@ -837,7 +838,7 @@
                                 </div>
                                 <div style="flex: 1; min-width: 250px;">
                                     <p style="font-size: 15px; color: #a0a0a0; margin: 0 0 20px 0; line-height: 1.6;">${getPledgeDescription(pledge.name)}</p>
-                                    <button onclick="upgradeToPledge(${pledge.id}, '${pledgeNameEscaped}', ${pledgePrice})" style="background: #dc2626; color: white; border: none; padding: 14px 24px; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; width: auto; min-width: 200px;">
+                                    <button onclick="upgradeToPledge('${pledge.id}', '${pledgeNameEscaped}', ${pledgePrice})" style="background: #dc2626; color: white; border: none; padding: 14px 24px; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; width: auto; min-width: 200px;">
                                         Upgrade to This Tier
                                     </button>
                                 </div>
@@ -943,7 +944,7 @@
                 });
                 
                 // Update only the current button to show "Upgraded" state
-                const upgradeButton = document.querySelector(`button[onclick*="upgradeToPledge(${pledgeId}"]`);
+                const upgradeButton = document.querySelector(`button[onclick*="upgradeToPledge('${pledgeId}'"]`);
                 if (upgradeButton) {
                     upgradeButton.style.background = '#059669';
                     upgradeButton.style.borderColor = '#059669';
@@ -981,6 +982,9 @@
         function displayProducts(addOnsOnly) {
             const grid = document.getElementById('products-grid');
             
+            // Re-read cart from sessionStorage to ensure it's fresh (in case user removed items)
+            cart = JSON.parse(sessionStorage.getItem('cart')) || [];
+            
             if (addOnsOnly.length === 0) {
                 grid.innerHTML = `<div style="text-align: center; padding: 40px; grid-column: 1 / -1;"><p style="color: #ffffff;">No products available at this time.</p></div>`;
                 return;
@@ -1013,7 +1017,7 @@
                     </div>
                     
                     <!-- Add to Cart Button -->
-                    <button id="add-btn-${product.id}" onclick="${isInCart ? '' : (hasValidPledge ? 'addProductToCart(' + product.id + ')' : '')}" style="background: ${isInCart ? '#059669' : (hasValidPledge ? '#dc2626' : '#6b7280')}; border: 1px solid ${isInCart ? '#059669' : (hasValidPledge ? '#dc2626' : '#6b7280')}; color: white; border-radius: 10px; padding: 14px; margin: 0 24px 24px 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; cursor: ${isInCart || !hasValidPledge ? 'default' : 'pointer'}; white-space: nowrap; transition: all 0.3s ease; opacity: ${hasValidPledge ? '1' : '0.6'};" ${isInCart || !hasValidPledge ? 'disabled' : ''}>
+                    <button id="add-btn-${product.id}" onclick="${isInCart ? '' : (hasValidPledge ? "addProductToCart('" + product.id + "')" : '')}" style="background: ${isInCart ? '#059669' : (hasValidPledge ? '#dc2626' : '#6b7280')}; border: 1px solid ${isInCart ? '#059669' : (hasValidPledge ? '#dc2626' : '#6b7280')}; color: white; border-radius: 10px; padding: 14px; margin: 0 24px 24px 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; cursor: ${isInCart || !hasValidPledge ? 'default' : 'pointer'}; white-space: nowrap; transition: all 0.3s ease; opacity: ${hasValidPledge ? '1' : '0.6'};" ${isInCart || !hasValidPledge ? 'disabled' : ''}>
                         ${isInCart ? '✓ Added' : (hasValidPledge ? 'Add to Cart' : '🔒 Upgrade Pledge First')}
                     </button>
                 `;
@@ -1054,16 +1058,45 @@
                 const rewardTitle = userData.rewardTitle || '';
                 hasValidPledge = rewardTitle.trim().length > 0 && pledgeAmount >= 18;
 
-                // For dropped backers, add their pledge and addons to cart automatically
+                // For dropped backers, they have a valid pledge (even if payment failed)
+                // So they should be able to add addons
                 if (isDroppedBacker && pledgeAmount > 0 && rewardTitle) {
+                    hasValidPledge = true; // Dropped backers have a valid pledge tier
+                    console.log('✓ Dropped backer detected - addons unlocked. Pledge:', rewardTitle, 'Amount:', pledgeAmount);
+                    
+                    // Payment Over Time handling - check if backer has already made partial payment
+                    // Uses amount_paid and amount_due fields from database instead of hardcoded values
+                    let adjustedPrice = pledgeAmount;
+                    let originalPledgeAmount = null;
+                    let partialPaymentAmount = null;
+                    
+                    // Check if this backer has a partial payment (Payment Over Time)
+                    const amountPaid = userData.amountPaid || 0;
+                    const amountDue = userData.amountDue || 0;
+                    
+                    if (amountPaid > 0 && amountDue > 0) {
+                        // Backer has made partial payment - adjust price to only charge remaining amount
+                        originalPledgeAmount = pledgeAmount;
+                        partialPaymentAmount = amountPaid;
+                        adjustedPrice = amountDue; // Use amount_due as the remaining amount to charge
+                        console.log(`✓ Payment Over Time backer #${userData.backerNumber}: Original: $${originalPledgeAmount}, Paid: $${partialPaymentAmount}, Due: $${adjustedPrice}`);
+                    }
+                    
                     // Store original pledge info globally and in localStorage for restoration
                     originalPledgeInfo = {
                         id: 'original-pledge-' + userData.backerNumber,
                         name: rewardTitle,
-                        price: pledgeAmount,
+                        price: adjustedPrice, // Use adjusted price for partial payment backers
                         isOriginalPledge: true,
                         quantity: 1
                     };
+                    
+                    // Store partial payment info for display purposes
+                    if (originalPledgeAmount !== null) {
+                        originalPledgeInfo.originalPledgeAmount = originalPledgeAmount;
+                        originalPledgeInfo.partialPaymentAmount = partialPaymentAmount;
+                    }
+                    
                     localStorage.setItem('originalPledgeInfo', JSON.stringify(originalPledgeInfo));
                     
                     // Check if pledge is already in cart
@@ -1218,6 +1251,24 @@
         loadUserData();
         loadProducts();
         updateCart();
+        
+        // Re-sync cart when page is shown (handles browser back/forward cache)
+        window.addEventListener('pageshow', function(event) {
+            // If page is loaded from cache, refresh the cart state
+            if (event.persisted) {
+                console.log('Page loaded from cache, refreshing cart state...');
+                cart = JSON.parse(sessionStorage.getItem('cart')) || [];
+                updateCart();
+                // Re-render products to update "Added" buttons
+                if (typeof products !== 'undefined' && products.length > 0) {
+                    const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+                    const addOnsOnly = products.filter(p => 
+                        !pledgeNames.some(pledge => p.name.toLowerCase().includes(pledge))
+                    );
+                    displayProducts(addOnsOnly);
+                }
+            }
+        });
     </script>
 </body>
 </html>

@@ -129,6 +129,11 @@ fs.createReadStream(csvFilePath)
                 const pledgeAmount = parseFloat(row['Pledge Amount']?.replace(/[$,]/g, '')) || 0;
                 const shippingCountry = row['Shipping Country'];
                 const pledgedStatus = row['Pledged Status'] || 'collected'; // 'dropped' or 'collected'
+                
+                // Payment Over Time fields
+                const amountDue = parseFloat(row['Amount Due']?.replace(/[$,]/g, '')) || 0;
+                const amountPaid = parseFloat(row['Amount Paid']?.replace(/[$,]/g, '')) || 0;
+                const pledgeOverTime = row['Pledge Over Time']?.toLowerCase() === 'yes' ? 1 : 0;
 
                 // Parse Kickstarter items
                 const items = {};
@@ -156,8 +161,9 @@ fs.createReadStream(csvFilePath)
                 await query(`INSERT INTO users (
                     email, password, backer_number, backer_uid, backer_name,
                     reward_title, backing_minimum, pledge_amount,
-                    kickstarter_items, kickstarter_addons, shipping_country, pledged_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    kickstarter_items, kickstarter_addons, shipping_country, pledged_status,
+                    amount_due, amount_paid, pledge_over_time
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(email) DO UPDATE SET
                     password = excluded.password,
                     backer_number = excluded.backer_number,
@@ -169,7 +175,10 @@ fs.createReadStream(csvFilePath)
                     kickstarter_items = excluded.kickstarter_items,
                     kickstarter_addons = excluded.kickstarter_addons,
                     shipping_country = excluded.shipping_country,
-                    pledged_status = excluded.pledged_status`,
+                    pledged_status = excluded.pledged_status,
+                    amount_due = excluded.amount_due,
+                    amount_paid = excluded.amount_paid,
+                    pledge_over_time = excluded.pledge_over_time`,
                 [
                     email,
                     hashedPassword,
@@ -182,7 +191,10 @@ fs.createReadStream(csvFilePath)
                     JSON.stringify(items),
                     JSON.stringify(addons),
                     shippingCountry,
-                    pledgedStatus
+                    pledgedStatus,
+                    amountDue,
+                    amountPaid,
+                    pledgeOverTime
                 ]);
 
                 importedCount++;

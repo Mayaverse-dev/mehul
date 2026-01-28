@@ -9,7 +9,26 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const session = require('express-session');
 const nodemailer = require('nodemailer');
 const path = require('path');
+const cron = require('node-cron');
 const emailService = require('./services/emailService');
+const { runBackup } = require('./scripts/backup-database');
+
+// Database module
+const { initConnection, query, queryOne, execute, isPostgres, closeConnections } = require('./config/database');
+// Auth middleware
+const { requireAuth, requireBacker, requireAdmin, setUserSession, setSessionFromUser } = require('./middleware/auth');
+// Helper utilities
+const {
+    OTP_TTL_MS, MAGIC_TTL_MS, LOGIN_STALE_DAYS,
+    generateOtpCode, generateOtp, generateMagicToken, generateRandomPassword,
+    isLoginStale, needsOtp, updateLastLogin,
+    getUserByEmail, createShadowUser, ensureUserByEmail, findOrCreateShadowUser,
+    isBacker, isBackerFromSession, isBackerByUserId,
+    logEmail, calculateShipping, validateCartPrices
+} = require('./utils/helpers');
+
+// Routes
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,336 +37,8 @@ const PORT = process.env.PORT || 3000;
 const compression = require('compression');
 app.use(compression());
 
-// Auth constants
-const OTP_TTL_MS = 15 * 60 * 1000; // 15 minutes
-// Magic links valid for 30 days
-const MAGIC_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const LOGIN_STALE_DAYS = 7; // Require OTP if last login older than this
-
-// Database setup - PostgreSQL (production) or SQLite (development fallback)
-let pool = null;
-let db = null;
-let isPostgres = false;
-
-if (process.env.DATABASE_URL) {
-    // Use PostgreSQL
-    const { Pool } = require('pg');
-    pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-    });
-    isPostgres = true;
-    
-    // Test database connection
-    pool.connect((err, client, release) => {
-        if (err) {
-            console.error('Error connecting to PostgreSQL:', err);
-            process.exit(1);
-        } else {
-            console.log('✓ Connected to PostgreSQL database');
-            release();
-            initializeDatabase();
-        }
-    });
-} else {
-    // Fallback to SQLite for local development
-    const sqlite3 = require('sqlite3').verbose();
-    db = new sqlite3.Database('./database.db', (err) => {
-    if (err) {
-            console.error('Error opening SQLite database:', err);
-            process.exit(1);
-        } else {
-            console.log('✓ Using SQLite database (local development)');
-            console.log('⚠️  For production, set DATABASE_URL in .env');
-            initializeDatabase();
-        }
-    });
-}
-
-// Database query wrapper - works with both PostgreSQL and SQLite
-async function query(sql, params = []) {
-    if (isPostgres) {
-        // PostgreSQL - use $1, $2, $3 placeholders
-        const result = await pool.query(sql, params);
-        return result.rows;
-    } else {
-        // SQLite - use ? placeholders and convert query
-        const sqliteQuery = sql.replace(/\$(\d+)/g, '?');
-        return new Promise((resolve, reject) => {
-            db.all(sqliteQuery, params, (err, rows) => {
-                if (err) reject(err);
-                else resolve(rows || []);
-            });
-        });
-    }
-}
-
-async function queryOne(sql, params = []) {
-    if (isPostgres) {
-        const result = await pool.query(sql, params);
-        return result.rows[0];
-    } else {
-        const sqliteQuery = sql.replace(/\$(\d+)/g, '?');
-        return new Promise((resolve, reject) => {
-            db.get(sqliteQuery, params, (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            });
-        });
-    }
-}
-
-async function execute(sql, params = []) {
-    if (isPostgres) {
-        await pool.query(sql, params);
-    } else {
-        const sqliteQuery = sql.replace(/\$(\d+)/g, '?').replace(/SERIAL/g, 'INTEGER').replace(/TIMESTAMP/g, 'TEXT');
-        return new Promise((resolve, reject) => {
-            db.run(sqliteQuery, params, function(err) {
-                if (err) reject(err);
-                else resolve(this);
-            });
-        });
-    }
-}
-
-// Initialize database tables
-async function initializeDatabase() {
-    try {
-        const idType = isPostgres ? 'SERIAL' : 'INTEGER';
-        const timestampType = isPostgres ? 'TIMESTAMP' : 'TEXT';
-        const autoIncrement = isPostgres ? '' : 'AUTOINCREMENT';
-        
-        // Users table
-        await execute(`CREATE TABLE IF NOT EXISTS users (
-            id ${idType} PRIMARY KEY ${autoIncrement},
-            email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            backer_number INTEGER,
-            backer_uid TEXT,
-            backer_name TEXT,
-            reward_title TEXT,
-            backing_minimum REAL,
-            pledge_amount REAL,
-            kickstarter_items TEXT,
-            kickstarter_addons TEXT,
-            shipping_country TEXT,
-            has_completed INTEGER DEFAULT 0,
-            created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
-        )`);
-        console.log('✓ Users table ready');
-
-        // Add new auth-related columns if they do not exist
-        await addColumnIfMissing('users', 'pin_hash TEXT');
-        await addColumnIfMissing('users', 'otp_code TEXT');
-        await addColumnIfMissing('users', `otp_expires_at ${timestampType}`);
-        await addColumnIfMissing('users', 'magic_link_token TEXT');
-        await addColumnIfMissing('users', `magic_link_expires_at ${timestampType}`);
-        await addColumnIfMissing('users', `last_login_at ${timestampType}`);
-        await addColumnIfMissing('users', 'pledged_status TEXT');
-
-        // Add-ons table
-        await execute(`CREATE TABLE IF NOT EXISTS addons (
-            id ${idType} PRIMARY KEY ${autoIncrement},
-            name TEXT NOT NULL,
-            kickstarter_addon_id TEXT,
-            price REAL NOT NULL,
-            backer_price REAL,
-            weight REAL DEFAULT 0,
-            image TEXT,
-            active INTEGER DEFAULT 1,
-            description TEXT,
-            created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
-        )`);
-        console.log('✓ Add-ons table ready');
-        
-        // Add backer_price column to addons if missing
-        await addColumnIfMissing('addons', 'backer_price REAL');
-        
-        // Products table (for pledges on Railway/PostgreSQL)
-        try {
-            await execute(`CREATE TABLE IF NOT EXISTS products (
-                id ${idType} PRIMARY KEY ${autoIncrement},
-                name TEXT NOT NULL,
-                type TEXT NOT NULL,
-                price REAL NOT NULL,
-                backer_price REAL,
-                weight REAL DEFAULT 0,
-                image TEXT,
-                active INTEGER DEFAULT 1,
-                description TEXT,
-                created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
-            )`);
-            console.log('✓ Products table ready');
-            
-            // Add backer_price column to products if missing
-            await addColumnIfMissing('products', 'backer_price REAL');
-        } catch (err) {
-            console.log('⚠️ Products table setup skipped:', err.message);
-        }
-
-        // Orders table
-        await execute(`CREATE TABLE IF NOT EXISTS orders (
-            id ${idType} PRIMARY KEY ${autoIncrement},
-            user_id INTEGER NOT NULL,
-            new_addons TEXT,
-            shipping_address TEXT,
-            shipping_cost REAL DEFAULT 0,
-            addons_subtotal REAL DEFAULT 0,
-            total REAL DEFAULT 0,
-            stripe_payment_intent_id TEXT,
-            paid INTEGER DEFAULT 0,
-            created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP,
-            completed_at ${timestampType},
-            comped_items TEXT,
-            admin_notes TEXT,
-            updated_by_admin_id INTEGER,
-            updated_at ${timestampType},
-            stripe_customer_id TEXT,
-            stripe_setup_intent_id TEXT,
-            payment_status TEXT DEFAULT 'pending',
-            stripe_payment_method_id TEXT,
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )`);
-        console.log('✓ Orders table ready');
-
-        // Admins table
-        await execute(`CREATE TABLE IF NOT EXISTS admins (
-            id ${idType} PRIMARY KEY ${autoIncrement},
-            email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            name TEXT,
-            created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
-        )`);
-                console.log('✓ Admins table ready');
-
-        // Email logs table
-        await execute(`CREATE TABLE IF NOT EXISTS email_logs (
-            id ${idType} PRIMARY KEY ${autoIncrement},
-            order_id INTEGER,
-            user_id INTEGER,
-            recipient_email TEXT NOT NULL,
-            email_type TEXT NOT NULL,
-            subject TEXT NOT NULL,
-            status TEXT DEFAULT 'sent',
-            resend_message_id TEXT,
-            error_message TEXT,
-            sent_at ${timestampType} DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (order_id) REFERENCES orders (id),
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )`);
-        console.log('✓ Email logs table ready');
-
-        // Create default admin
-        await createDefaultAdmin();
-        
-    } catch (err) {
-        console.error('Error initializing database:', err);
-    }
-}
-
-// Attempt to add a column; ignore if it already exists
-async function addColumnIfMissing(table, columnDef) {
-    try {
-        await execute(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`);
-        console.log(`✓ Added column to ${table}: ${columnDef}`);
-    } catch (err) {
-        // SQLite/Postgres will throw if column exists; ignore
-        const msg = err.message || '';
-        if (msg.includes('duplicate column') || msg.includes('already exists')) {
-            return;
-        }
-        console.warn(`⚠️  Could not add column ${columnDef} to ${table}:`, err.message);
-    }
-}
-
-// Generate a 4-digit OTP code
-function generateOtpCode() {
-    return String(crypto.randomInt(0, 10000)).padStart(4, '0');
-}
-
-// Generate a magic link token
-function generateMagicToken() {
-    return crypto.randomUUID();
-}
-
-// Determine if a user's last login is stale and needs OTP re-verification
-function isLoginStale(user) {
-    if (!user || !user.last_login_at) return true;
-    const last = new Date(user.last_login_at).getTime();
-    return Date.now() - last > LOGIN_STALE_DAYS * 24 * 60 * 60 * 1000;
-}
-
-// Set session data for authenticated user
-function setUserSession(req, user) {
-    req.session.userId = user.id;
-    req.session.userEmail = user.email;
-    req.session.backerNumber = user.backer_number;
-    req.session.backerName = user.backer_name;
-    req.session.pledgeAmount = user.pledge_amount;
-    req.session.rewardTitle = user.reward_title;
-}
-
-// Ensure a user exists for the given email; create a shadow user if missing
-async function ensureUserByEmail(email, name) {
-    if (!email) return null;
-    const normalized = email.trim().toLowerCase();
-    let user = await queryOne('SELECT * FROM users WHERE email = $1', [normalized]);
-    if (user) return user;
-
-    const randomPassword = `shadow-${crypto.randomUUID()}`;
-    const hash = await bcrypt.hash(randomPassword, 10);
-
-    await execute(
-        `INSERT INTO users (email, password, backer_name, created_at)
-         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
-        [normalized, hash, name || null]
-    );
-
-    user = await queryOne('SELECT * FROM users WHERE email = $1', [normalized]);
-    return user;
-}
-
-// Helper function to log emails to database
-async function logEmail({ orderId, userId, recipientEmail, emailType, subject, status, resendMessageId, errorMessage }) {
-    try {
-        await execute(`INSERT INTO email_logs (
-            order_id, user_id, recipient_email, email_type, subject, 
-            status, resend_message_id, error_message
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, 
-        [
-            orderId || null,
-            userId || null,
-            recipientEmail,
-            emailType,
-            subject,
-            status,
-            resendMessageId || null,
-            errorMessage || null
-        ]);
-    } catch (err) {
-        console.error('⚠️  Failed to log email to database:', err.message);
-        // Don't fail the operation if logging fails
-    }
-}
-
-// Create default admin account
-async function createDefaultAdmin() {
-    const adminEmail = process.env.ADMIN_EMAIL || 'hello@entermaya.com';
-    const adminPassword = process.env.ADMIN_PASSWORD || 'changeme123';
-    
-    try {
-        const admin = await queryOne('SELECT * FROM admins WHERE email = $1', [adminEmail]);
-        if (!admin) {
-            const hash = await bcrypt.hash(adminPassword, 10);
-            await execute('INSERT INTO admins (email, password, name) VALUES ($1, $2, $3)', 
-                [adminEmail, hash, 'Admin']);
-            console.log('✓ Default admin created:', adminEmail);
-        }
-    } catch (err) {
-        console.error('Error creating admin:', err);
-    }
-}
+// Initialize database connection
+initConnection();
 
 // Middleware
 // Serve static files with caching
@@ -378,126 +69,9 @@ const emailTransporter = nodemailer.createTransport({
     }
 });
 
-// Auth middleware
-function requireAuth(req, res, next) {
-    if (req.session.userId) {
-        next();
-    } else {
-        res.redirect('/');
-    }
-}
-
-function requireAdmin(req, res, next) {
-    if (req.session.adminId) {
-        next();
-    } else {
-        res.redirect('/admin/login');
-    }
-}
-
-// ============================================
-// Auth helper utilities
-// ============================================
-const PIN_LOGIN_GRACE_DAYS = 7;
-const OTP_TTL_MINUTES = 15;
-const MAGIC_TTL_HOURS = 24 * 30; // 30 days
-
-function generateOtpCode() {
-    return crypto.randomInt(1000, 10000).toString().padStart(4, '0');
-}
-
-function generateMagicToken() {
-    return crypto.randomBytes(24).toString('hex');
-}
-
-function isLoginStale(lastLoginAt) {
-    if (!lastLoginAt) return true;
-    const last = new Date(lastLoginAt).getTime();
-    if (Number.isNaN(last)) return true;
-    const diffDays = (Date.now() - last) / (1000 * 60 * 60 * 24);
-    return diffDays > PIN_LOGIN_GRACE_DAYS;
-}
-
-async function setSessionFromUser(req, user) {
-    req.session.userId = user.id;
-    req.session.userEmail = user.email;
-    req.session.backerNumber = user.backer_number;
-    req.session.backerName = user.backer_name;
-    req.session.pledgeAmount = user.pledge_amount;
-    req.session.rewardTitle = user.reward_title;
-}
-
-async function getUserByEmail(email) {
-    const normalized = (email || '').trim().toLowerCase();
-    if (!normalized) return null;
-    return await queryOne('SELECT * FROM users WHERE email = $1', [normalized]);
-}
-
-async function createShadowUser(email) {
-    const normalized = (email || '').trim().toLowerCase();
-    if (!normalized) return null;
-    const dummyPassword = await bcrypt.hash(`shadow-${crypto.randomBytes(8).toString('hex')}`, 10);
-    await execute(`INSERT INTO users (email, password) VALUES ($1, $2)`, [normalized, dummyPassword]);
-    return await getUserByEmail(normalized);
-}
-
-// Generate a random password placeholder for shadow accounts
-function generateRandomPassword(length = 16) {
-    return crypto.randomBytes(length).toString('hex').slice(0, length);
-}
-
-function generateOtp() {
-    return String(crypto.randomInt(1000, 10000)).padStart(4, '0');
-}
-
-function setSessionFromUser(req, user) {
-    req.session.userId = user.id;
-    req.session.userEmail = user.email;
-    req.session.backerNumber = user.backer_number;
-    req.session.backerName = user.backer_name;
-    req.session.pledgeAmount = user.pledge_amount;
-    req.session.rewardTitle = user.reward_title;
-}
-
-function needsOtp(user) {
-    if (!user) return true;
-    if (!user.pin_hash) return true;
-    if (!user.last_login_at) return true;
-    const last = new Date(user.last_login_at);
-    const staleMs = LOGIN_STALE_DAYS * 24 * 60 * 60 * 1000;
-    return Date.now() - last.getTime() > staleMs;
-}
-
-async function updateLastLogin(userId) {
-    const now = new Date().toISOString();
-    await execute('UPDATE users SET last_login_at = $1 WHERE id = $2', [now, userId]);
-}
-
-// Find existing user by email or create a shadow user (no PIN yet)
-async function findOrCreateShadowUser(email, name = '') {
-    if (!email) throw new Error('Email is required to create shadow user');
-
-    // Check if user exists
-    const existing = await queryOne('SELECT id FROM users WHERE email = $1', [email]);
-    if (existing && existing.id) return existing.id;
-
-    // Create placeholder password
-    const password = generateRandomPassword();
-    const hash = await bcrypt.hash(password, 10);
-
-    // Insert user
-    if (isPostgres) {
-        const created = await queryOne(
-            'INSERT INTO users (email, password, backer_name) VALUES ($1, $2, $3) RETURNING id',
-            [email, hash, name || null]
-        );
-        return created.id;
-    } else {
-        await execute('INSERT INTO users (email, password, backer_name) VALUES (?, ?, ?)', [email, hash, name || null]);
-        const created = await queryOne('SELECT id FROM users WHERE email = $1', [email]);
-        return created?.id;
-    }
-}
+// Mount routes
+app.use('/admin', adminRoutes);
+app.use('/api/admin', adminRoutes);
 
 // ============================================
 // PUBLIC & USER ROUTES
@@ -709,6 +283,7 @@ app.get('/auth/magic', async (req, res) => {
 });
 
 // Dashboard - View Kickstarter order
+// Dashboard - View Kickstarter order (accessible to all logged-in users)
 app.get('/dashboard', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'dashboard.html'));
 });
@@ -734,7 +309,11 @@ app.get('/api/user/data', requireAuth, async (req, res) => {
             kickstarterItems: user.kickstarter_items ? JSON.parse(user.kickstarter_items) : {},
             kickstarterAddons: user.kickstarter_addons ? JSON.parse(user.kickstarter_addons) : {},
             shippingCountry: user.shipping_country,
-            hasCompleted: user.has_completed
+            hasCompleted: user.has_completed,
+            // Payment Over Time fields
+            amountDue: user.amount_due || 0,
+            amountPaid: user.amount_paid || 0,
+            pledgeOverTime: user.pledge_over_time === 1
         };
         
         res.json(userData);
@@ -754,11 +333,13 @@ app.get('/addons', (req, res) => {
 app.get('/api/addons', async (req, res) => {
     try {
         const addons = await query('SELECT * FROM addons WHERE active = 1');
-        const isLoggedIn = !!(req.session && req.session.userId);
+        // Only actual Kickstarter backers get backer pricing (not just logged-in users)
+        const userId = req.session?.userId || null;
+        const userIsBacker = userId ? await isBackerByUserId(userId) : false;
         
-        // Apply backer pricing if user is logged in
+        // Apply backer pricing only if user is a Kickstarter backer
         const processedAddons = addons.map(addon => {
-            if (isLoggedIn && addon.backer_price !== null && addon.backer_price !== undefined) {
+            if (userIsBacker && addon.backer_price !== null && addon.backer_price !== undefined) {
                 return {
                     ...addon,
                     original_price: addon.price,
@@ -782,8 +363,10 @@ app.get('/api/addons', async (req, res) => {
 // Get all products (pledges + add-ons)
 app.get('/api/products', async (req, res) => {
     console.log('\n=== API: Get Products ===');
-    const isLoggedIn = !!(req.session && req.session.userId);
-    console.log(`User login status: ${isLoggedIn ? 'Logged in (backer prices)' : 'Guest (retail prices)'}`);
+    // Only actual Kickstarter backers get backer pricing (not just logged-in users)
+    const userId = req.session?.userId || null;
+    const userIsBacker = userId ? await isBackerByUserId(userId) : false;
+    console.log(`User status: ${userIsBacker ? 'Kickstarter backer (backer prices)' : 'Guest/non-backer (retail prices)'}`);
     
     try {
         let pledges = [];
@@ -811,24 +394,42 @@ app.get('/api/products', async (req, res) => {
             addons = [];
         }
         
-        // Apply backer pricing if user is logged in
-        const processPricing = (item) => {
-            if (isLoggedIn && item.backer_price !== null && item.backer_price !== undefined) {
-                return {
-                    ...item,
-                    original_price: item.price,
-                    price: item.backer_price,
-                    is_backer_price: true
-                };
-            }
-            return {
+        // Apply backer pricing only if user is a Kickstarter backer
+        // Also prefix IDs to avoid collisions between products and addons tables
+        const processPledge = (item) => {
+            const processed = {
                 ...item,
+                id: `pledge-${item.id}`,  // Prefix to avoid ID collision with addons
+                db_id: item.id,            // Keep original ID for database lookups
+                source: 'products',
                 is_backer_price: false
             };
+            if (userIsBacker && item.backer_price !== null && item.backer_price !== undefined) {
+                processed.original_price = item.price;
+                processed.price = item.backer_price;
+                processed.is_backer_price = true;
+            }
+            return processed;
         };
         
-        const processedPledges = pledges.map(processPricing);
-        const processedAddons = addons.map(processPricing);
+        const processAddon = (item) => {
+            const processed = {
+                ...item,
+                id: `addon-${item.id}`,   // Prefix to avoid ID collision with pledges
+                db_id: item.id,            // Keep original ID for database lookups
+                source: 'addons',
+                is_backer_price: false
+            };
+            if (userIsBacker && item.backer_price !== null && item.backer_price !== undefined) {
+                processed.original_price = item.price;
+                processed.price = item.backer_price;
+                processed.is_backer_price = true;
+            }
+            return processed;
+        };
+
+        const processedPledges = pledges.map(processPledge);
+        const processedAddons = addons.map(processAddon);
         
         // Combine both
         const allProducts = [...processedPledges, ...processedAddons];
@@ -873,18 +474,24 @@ app.post('/api/calculate-shipping', (req, res) => {
 // Get user session info (accessible to everyone)
 app.get('/api/user/session', (req, res) => {
     if (req.session && req.session.userId) {
+        // Check if user is an actual Kickstarter backer
+        const isBacker = !!(req.session.backerNumber || req.session.pledgeAmount || req.session.rewardTitle);
         res.json({
             isLoggedIn: true,
+            isBacker: isBacker,
             user: {
                 id: req.session.userId,
                 email: req.session.userEmail,
                 backer_number: req.session.backerNumber,
-                backer_name: req.session.backerName
+                backer_name: req.session.backerName,
+                pledge_amount: req.session.pledgeAmount,
+                reward_title: req.session.rewardTitle
             }
         });
     } else {
         res.json({
             isLoggedIn: false,
+            isBacker: false,
             user: null
         });
     }
@@ -1099,115 +706,6 @@ app.post('/api/shipping/save', (req, res) => {
     });
 });
 
-// Helper function to validate cart prices server-side (security critical!)
-async function validateCartPrices(cartItems, isLoggedIn) {
-    let serverTotal = 0;
-    const validatedItems = [];
-    
-    for (const item of cartItems) {
-        // Special handling for pledge upgrades - use the difference price from cart
-        if (item.isPledgeUpgrade) {
-            const quantity = parseInt(item.quantity) || 1;
-            const pledgeUpgradePrice = parseFloat(item.price) || 0;
-            const itemTotal = pledgeUpgradePrice * quantity;
-            serverTotal += itemTotal;
-            
-            validatedItems.push({
-                id: item.id,
-                name: item.name,
-                price: pledgeUpgradePrice,
-                quantity: quantity,
-                subtotal: itemTotal,
-                isPledgeUpgrade: true
-            });
-            continue; // Skip database lookup for pledge upgrades
-        }
-        
-        // Special handling for original pledges (dropped backers) - use price from cart
-        // These are not in products/addons tables, they're user-specific pledges
-        if (item.isOriginalPledge || item.isDroppedBackerPledge) {
-            const quantity = parseInt(item.quantity) || 1;
-            const pledgePrice = parseFloat(item.price) || 0;
-            const itemTotal = pledgePrice * quantity;
-            serverTotal += itemTotal;
-            
-            validatedItems.push({
-                id: item.id,
-                name: item.name,
-                price: pledgePrice,
-                quantity: quantity,
-                subtotal: itemTotal,
-                isOriginalPledge: item.isOriginalPledge || false,
-                isDroppedBackerPledge: item.isDroppedBackerPledge || false
-            });
-            continue; // Skip database lookup for original/dropped backer pledges
-        }
-        
-        // Special handling for original Kickstarter addons (dropped backers) - use price from cart
-        // These are user-specific addons from Kickstarter, not in addons table
-        if (item.isOriginalAddon) {
-            const quantity = parseInt(item.quantity) || 1;
-            const addonPrice = parseFloat(item.price) || 0;
-            const itemTotal = addonPrice * quantity;
-            serverTotal += itemTotal;
-            
-            validatedItems.push({
-                id: item.id,
-                name: item.name,
-                price: addonPrice,
-                quantity: quantity,
-                subtotal: itemTotal,
-                isOriginalAddon: true
-            });
-            continue; // Skip database lookup for original Kickstarter addons
-        }
-        
-        // Fetch actual price from database
-        let dbItem = null;
-        
-        // Try products table first (pledges)
-        try {
-            dbItem = await queryOne('SELECT * FROM products WHERE id = $1 AND active = 1', [item.id]);
-        } catch (err) {
-            // Products table might not exist
-        }
-        
-        // If not found, try addons table
-        if (!dbItem) {
-            try {
-                dbItem = await queryOne('SELECT * FROM addons WHERE id = $1 AND active = 1', [item.id]);
-            } catch (err) {
-                console.error('Error fetching item from database:', err);
-            }
-        }
-        
-        if (!dbItem) {
-            throw new Error(`Item ${item.name} not found in database`);
-        }
-        
-        // Determine correct price based on login status
-        let correctPrice = dbItem.price;
-        if (isLoggedIn && dbItem.backer_price !== null && dbItem.backer_price !== undefined) {
-            correctPrice = dbItem.backer_price;
-        }
-        
-        // Calculate item total
-        const quantity = parseInt(item.quantity) || 1;
-        const itemTotal = correctPrice * quantity;
-        serverTotal += itemTotal;
-        
-        validatedItems.push({
-            id: dbItem.id,
-            name: dbItem.name,
-            price: correctPrice,
-            quantity: quantity,
-            subtotal: itemTotal
-        });
-    }
-    
-    return { serverTotal, validatedItems };
-}
-
 // Checkout page (accessible to both backers and guests)
 app.get('/checkout', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'checkout.html'));
@@ -1237,8 +735,60 @@ app.post('/api/create-payment-intent', async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
         
-        // Determine if user is authenticated or guest
+        // Check if user is a paid Kickstarter backer (they can checkout with just shipping)
         const isAuthenticated = req.session && req.session.userId;
+        const isPaidKickstarterBacker = isAuthenticated && 
+            req.session.rewardTitle && 
+            req.session.pledgeAmount > 0;
+        
+        console.log('Session check for paid backer:');
+        console.log('  - isAuthenticated:', isAuthenticated);
+        console.log('  - rewardTitle:', req.session?.rewardTitle);
+        console.log('  - pledgeAmount:', req.session?.pledgeAmount);
+        console.log('  - isPaidKickstarterBacker:', isPaidKickstarterBacker);
+        
+        // Validate cart has a pledge - add-ons cannot be purchased alone
+        // Exception: Paid Kickstarter backers can checkout with empty cart (just paying for shipping)
+        const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+        const pledgeItems = cartItems.filter(item => {
+            const nameLower = (item.name || '').toLowerCase();
+            return item.type === 'pledge' || 
+                   item.isPledgeUpgrade || 
+                   item.isOriginalPledge || 
+                   item.isDroppedBackerPledge ||
+                   pledgeNames.some(pledge => nameLower.includes(pledge));
+        });
+        
+        if (pledgeItems.length === 0 && !isPaidKickstarterBacker) {
+            console.error('❌ Order rejected: No pledge in cart');
+            return res.status(400).json({ 
+                error: 'Pledge required', 
+                details: 'You must have a pledge tier in your cart to checkout. Add-ons cannot be purchased alone.' 
+            });
+        }
+        
+        // For paid backers with empty cart, add their pledge info for the order record
+        if (pledgeItems.length === 0 && isPaidKickstarterBacker) {
+            console.log('✓ Paid Kickstarter backer checking out for shipping only');
+            // Add their pledge to cartItems for order record (price: 0 since already paid)
+            cartItems.push({
+                name: req.session.rewardTitle,
+                price: 0,
+                quantity: 1,
+                isPaidKickstarterPledge: true
+            });
+        }
+        
+        // Validate only one pledge in cart
+        if (pledgeItems.length > 1) {
+            console.error('❌ Order rejected: Multiple pledges in cart');
+            return res.status(400).json({ 
+                error: 'Multiple pledges not allowed', 
+                details: 'You can only have one pledge in your cart. Please remove additional pledges before checkout.' 
+            });
+        }
+        
+        // Get user ID (isAuthenticated already determined above)
         let userId = isAuthenticated ? req.session.userId : null;
         const userEmail = shippingAddress.email || (isAuthenticated ? req.session.userEmail : null);
 
@@ -1263,8 +813,10 @@ app.post('/api/create-payment-intent', async (req, res) => {
         }
         
         // SERVER-SIDE PRICE VALIDATION (Security Critical!)
+        // Only Kickstarter backers get backer pricing (not just logged-in users)
+        const userIsBacker = userId ? await isBackerByUserId(userId) : false;
         console.log('Validating cart prices server-side...');
-        const { serverTotal, validatedItems } = await validateCartPrices(cartItems, isAuthenticated);
+        const { serverTotal, validatedItems } = await validateCartPrices(cartItems, userIsBacker);
         const expectedTotal = serverTotal + parseFloat(shippingCost || 0);
         const submittedTotal = parseFloat(amount);
         
@@ -1286,10 +838,15 @@ app.post('/api/create-payment-intent', async (req, res) => {
         console.log(`  Cart subtotal: $${serverTotal.toFixed(2)}`);
         console.log(`  Shipping: $${parseFloat(shippingCost || 0).toFixed(2)}`);
         console.log(`  Total: $${expectedTotal.toFixed(2)}`);
-        console.log(`  Pricing: ${isAuthenticated ? 'Backer prices' : 'Retail prices'}`);
+        console.log(`  Pricing: ${userIsBacker ? 'Kickstarter backer prices' : 'Retail prices'}`);
+        
+        // Check if shipping to India (for determining charge method later)
+        const isIndianAddress = shippingAddress.country && 
+            shippingAddress.country.toLowerCase().includes('india');
         
         // Determine order type for customer metadata
-        const customerOrderType = isDroppedBacker ? 'immediate-charge' : 'pre-order-autodebit';
+        // Indian and dropped backers are charged immediately
+        const customerOrderType = (isDroppedBacker || isIndianAddress) ? 'immediate-charge' : 'pre-order-autodebit';
         
         console.log('Creating Stripe customer...');
         // Create Stripe customer
@@ -1301,7 +858,8 @@ app.post('/api/create-payment-intent', async (req, res) => {
                 metadata: {
                     userId: userId ? userId.toString() : 'guest',
                     orderType: customerOrderType,
-                    userType: isDroppedBacker ? 'dropped-backer' : (isAuthenticated ? 'backer' : 'guest')
+                    userType: isDroppedBacker ? 'dropped-backer' : (isIndianAddress && isAuthenticated ? 'indian-backer' : (isAuthenticated ? 'backer' : 'guest')),
+                    shippingCountry: shippingAddress.country || 'unknown'
                 }
             });
             console.log('✓ Customer created:', customer.id);
@@ -1309,6 +867,7 @@ app.post('/api/create-payment-intent', async (req, res) => {
             console.log('  - Name:', shippingAddress.fullName);
             console.log('  - User ID:', userId || 'guest');
             console.log('  - Order Type:', customerOrderType);
+            console.log('  - Shipping Country:', shippingAddress.country || 'N/A');
         } catch (stripeError) {
             console.error('✗ Stripe customer creation failed');
             console.error('  - Error:', stripeError.message);
@@ -1317,18 +876,35 @@ app.post('/api/create-payment-intent', async (req, res) => {
             return res.status(500).json({ error: 'Failed to create customer', details: stripeError.message });
         }
         
-        // Determine payment method based on user type
+        // Determine payment method based on user type and location
         // Dropped backers: charge immediately (like new customers)
+        // Indian backers: charge immediately (RBI regulations require immediate charge)
         // Regular backers: save card, charge later
-        const chargeImmediately = isDroppedBacker;
+        const chargeImmediately = isDroppedBacker || isIndianAddress;
         const captureMethod = chargeImmediately ? 'automatic' : 'manual';
         const orderType = chargeImmediately ? 'immediate-charge' : 'pre-order-autodebit';
+        
+        if (isIndianAddress && !isDroppedBacker) {
+            console.log('✓ User is from India - will charge immediately (RBI regulations)');
+        }
         
         console.log(`Creating Payment Intent (${chargeImmediately ? 'immediate charge' : 'save card for later'})...`);
         // Create Payment Intent
         // Dropped backers: automatic capture (charge immediately)
+        // Indian backers: automatic capture (charge immediately - RBI regulations)
         // Regular backers: manual capture (save card, charge later)
         const amountInCents = Math.round(amount * 100);
+        
+        // Determine user type for metadata
+        let userType = 'guest';
+        if (isDroppedBacker) {
+            userType = 'dropped-backer';
+        } else if (isIndianAddress && isAuthenticated) {
+            userType = 'indian-backer';
+        } else if (isAuthenticated) {
+            userType = 'backer';
+        }
+        
         let paymentIntent;
         try {
             paymentIntent = await stripe.paymentIntents.create({
@@ -1337,14 +913,15 @@ app.post('/api/create-payment-intent', async (req, res) => {
                 customer: customer.id,
                 setup_future_usage: 'off_session', // Save card for future use (both cases)
                 confirmation_method: 'automatic', // Allow frontend to confirm
-                capture_method: captureMethod, // Automatic for dropped backers, manual for regular backers
+                capture_method: captureMethod, // Automatic for dropped/Indian backers, manual for regular backers
                 payment_method_types: ['card'],
                 metadata: {
                     userId: userId ? userId.toString() : 'guest',
                     userEmail: userEmail || 'unknown',
                     orderAmount: amount.toString(),
                     orderType: orderType,
-                    userType: isDroppedBacker ? 'dropped-backer' : (isAuthenticated ? 'backer' : 'guest')
+                    userType: userType,
+                    shippingCountry: shippingAddress.country || 'unknown'
                 }
             });
             console.log('✓ Payment Intent created:', paymentIntent.id);
@@ -1407,7 +984,7 @@ app.post('/api/create-payment-intent', async (req, res) => {
         if (chargeImmediately) {
             console.log('✓ Payment setup complete - dropped backer will be charged immediately');
         } else {
-            console.log('✓ Payment setup complete - card will be saved for autodebit');
+        console.log('✓ Payment setup complete - card will be saved for autodebit');
         }
         res.json({ 
             clientSecret: paymentIntent.client_secret,
@@ -1614,6 +1191,34 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
         // Ensure shipping address carries the email
         const shippingWithEmail = { ...(shippingAddress || {}), email: emailForOrder };
         
+        // Validate cart has a pledge - add-ons cannot be purchased alone
+        const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+        const pledgeItems = cartItems.filter(item => {
+            const nameLower = (item.name || '').toLowerCase();
+            return item.type === 'pledge' || 
+                   item.isPledgeUpgrade || 
+                   item.isOriginalPledge || 
+                   item.isDroppedBackerPledge ||
+                   pledgeNames.some(pledge => nameLower.includes(pledge));
+        });
+        
+        if (pledgeItems.length === 0) {
+            console.error('❌ Guest order rejected: No pledge in cart');
+            return res.status(400).json({ 
+                error: 'Pledge required', 
+                details: 'You must have a pledge tier in your cart to checkout. Add-ons cannot be purchased alone.' 
+            });
+        }
+        
+        // Validate only one pledge in cart
+        if (pledgeItems.length > 1) {
+            console.error('❌ Guest order rejected: Multiple pledges in cart');
+            return res.status(400).json({ 
+                error: 'Multiple pledges not allowed', 
+                details: 'You can only have one pledge in your cart. Please remove additional pledges before checkout.' 
+            });
+        }
+        
         // SERVER-SIDE PRICE VALIDATION (Security Critical!)
         // Guests always get retail prices (isLoggedIn = false)
         console.log('Validating guest cart prices server-side...');
@@ -1717,7 +1322,7 @@ app.post('/api/guest/save-payment-method', async (req, res) => {
     try {
         // Find the most recent order for this email
         let order;
-        if (isPostgres) {
+        if (isPostgres()) {
             order = await queryOne(`SELECT id FROM orders 
                 WHERE shipping_address::json->>'email' = $1 
                 AND stripe_payment_method_id IS NULL
@@ -1770,319 +1375,6 @@ app.post('/api/guest/save-payment-method', async (req, res) => {
     } catch (err) {
         console.error('Error saving payment method:', err);
         res.status(500).json({ error: 'Failed to save payment method', details: err.message });
-    }
-});
-
-// Admin endpoint to bulk charge all orders with saved cards
-app.post('/api/admin/bulk-charge-orders', requireAdmin, async (req, res) => {
-    console.log('\n=== BULK CHARGE ORDERS REQUEST ===');
-    console.log('Admin ID:', req.session.adminId);
-    console.log('Timestamp:', new Date().toISOString());
-    
-    try {
-        // Get all orders with saved cards that haven't been charged yet
-        const orders = await query(`SELECT * FROM orders 
-            WHERE payment_status = 'card_saved' 
-            AND paid = 0 
-            AND stripe_customer_id IS NOT NULL 
-            AND stripe_payment_method_id IS NOT NULL`);
-
-        console.log(`Found ${orders.length} orders with saved cards ready to charge`);
-
-        if (orders.length === 0) {
-            console.log('✓ No orders to charge');
-            return res.json({ 
-                success: true,
-                message: 'No orders to charge',
-                charged: 0,
-                failed: 0,
-                total: 0
-            });
-        }
-
-        const results = {
-            charged: [],
-            failed: [],
-            total: orders.length
-        };
-
-        console.log(`\nProcessing ${orders.length} orders...`);
-
-        // Process each order
-        for (let i = 0; i < orders.length; i++) {
-            const order = orders[i];
-            console.log(`\n[${i + 1}/${orders.length}] Processing Order #${order.id}`);
-            console.log(`  - Amount: $${order.total}`);
-            console.log(`  - Customer: ${order.stripe_customer_id}`);
-            console.log(`  - Payment Method: ${order.stripe_payment_method_id}`);
-            
-            try {
-                // Charge the saved card using off-session payment
-                const amountInCents = Math.round(order.total * 100);
-                console.log(`  - Charging ${amountInCents} cents ($${order.total})...`);
-                
-                const paymentIntent = await stripe.paymentIntents.create({
-                    amount: amountInCents,
-                    currency: 'usd',
-                    customer: order.stripe_customer_id,
-                    payment_method: order.stripe_payment_method_id,
-                    off_session: true, // Important: indicates customer is not present
-                    confirm: true, // Automatically confirm and charge
-                    metadata: {
-                        orderId: order.id.toString(),
-                        orderType: 'bulk-charge-autodebit',
-                        chargedAt: new Date().toISOString()
-                    }
-                });
-
-                console.log(`  ✓ Payment Intent created: ${paymentIntent.id}`);
-                console.log(`  ✓ Status: ${paymentIntent.status}`);
-
-                // Update order status
-                await execute(`UPDATE orders 
-                    SET paid = 1, 
-                        payment_status = 'charged', 
-                        stripe_payment_intent_id = $1,
-                        updated_at = CURRENT_TIMESTAMP 
-                    WHERE id = $2`, 
-                    [paymentIntent.id, order.id]);
-
-                const shippingAddress = JSON.parse(order.shipping_address);
-                results.charged.push({
-                    orderId: order.id,
-                    email: shippingAddress.email,
-                    amount: order.total,
-                    paymentIntentId: paymentIntent.id
-                });
-
-                console.log(`  ✓ Order #${order.id} charged successfully`);
-
-                // Send payment successful email
-                try {
-                    const emailResult = await emailService.sendPaymentSuccessful(order, paymentIntent.id);
-                    // Log email to database
-                    await logEmail({
-                        orderId: order.id,
-                        userId: order.user_id,
-                        recipientEmail: shippingAddress.email,
-                        emailType: 'payment_success',
-                        subject: `Order #${order.id} - Payment Confirmation`,
-                        status: emailResult.success ? 'sent' : 'failed',
-                        resendMessageId: emailResult.messageId || null,
-                        errorMessage: emailResult.error || null
-                    });
-                } catch (emailError) {
-                    console.error(`  ⚠️  Failed to send payment success email for order ${order.id}:`, emailError.message);
-                    // Don't fail the charge if email fails
-                }
-
-            } catch (error) {
-                console.error(`  ✗ Failed to charge order ${order.id}`);
-                console.error(`    - Error: ${error.message}`);
-                console.error(`    - Error type: ${error.type}`);
-                console.error(`    - Error code: ${error.code}`);
-                
-                // Mark as failed
-                await execute(`UPDATE orders 
-                    SET payment_status = 'charge_failed' 
-                    WHERE id = $1`, 
-                    [order.id]);
-
-                const shippingAddress = JSON.parse(order.shipping_address);
-                results.failed.push({
-                    orderId: order.id,
-                    email: shippingAddress.email,
-                    amount: order.total,
-                    error: error.message,
-                    errorCode: error.code
-                });
-
-                // Send payment failed email
-                try {
-                    const emailResult = await emailService.sendPaymentFailed(order, error.message, error.code);
-                    // Log email to database
-                    await logEmail({
-                        orderId: order.id,
-                        userId: order.user_id,
-                        recipientEmail: shippingAddress.email,
-                        emailType: 'payment_failed',
-                        subject: `Order #${order.id} - Payment Failed`,
-                        status: emailResult.success ? 'sent' : 'failed',
-                        resendMessageId: emailResult.messageId || null,
-                        errorMessage: emailResult.error || null
-                    });
-                } catch (emailError) {
-                    console.error(`  ⚠️  Failed to send payment failed email for order ${order.id}:`, emailError.message);
-                    // Don't fail the operation if email fails
-                }
-            }
-        }
-
-        // Return summary
-        console.log('\n=== BULK CHARGE SUMMARY ===');
-        console.log(`Total orders: ${results.total}`);
-        console.log(`✓ Successfully charged: ${results.charged.length}`);
-        console.log(`✗ Failed: ${results.failed.length}`);
-        
-        if (results.charged.length > 0) {
-            const totalCharged = results.charged.reduce((sum, order) => sum + order.amount, 0);
-            console.log(`Total amount charged: $${totalCharged.toFixed(2)}`);
-        }
-        
-        if (results.failed.length > 0) {
-            console.log('\nFailed orders:');
-            results.failed.forEach(fail => {
-                console.log(`  - Order #${fail.orderId}: ${fail.error}`);
-            });
-        }
-
-        // Send admin summary email
-        try {
-            const emailResult = await emailService.sendAdminBulkChargeSummary(results);
-            // Log email to database
-            await logEmail({
-                orderId: null,
-                userId: null,
-                recipientEmail: process.env.ADMIN_EMAIL,
-                emailType: 'admin_bulk_charge_summary',
-                subject: `Bulk Charge Summary - ${results.charged.length} Succeeded, ${results.failed.length} Failed`,
-                status: emailResult.success ? 'sent' : 'failed',
-                resendMessageId: emailResult.messageId || null,
-                errorMessage: emailResult.error || null
-            });
-        } catch (emailError) {
-            console.error('⚠️  Failed to send admin bulk charge summary email:', emailError.message);
-            // Don't fail the operation if email fails
-        }
-        
-        res.json({
-            success: true,
-            message: `Bulk charge completed: ${results.charged.length} succeeded, ${results.failed.length} failed`,
-            charged: results.charged.length,
-            failed: results.failed.length,
-            total: results.total,
-            totalAmountCharged: results.charged.reduce((sum, order) => sum + order.amount, 0),
-            details: results
-        });
-    } catch (error) {
-        console.error('\n✗ Error in bulk charge:', error.message);
-        console.error('  - Stack:', error.stack);
-        res.status(500).json({ 
-            error: 'Failed to process bulk charge',
-            details: error.message 
-        });
-    }
-});
-
-// Admin endpoint to charge a customer's saved card
-app.post('/api/admin/charge-order/:orderId', requireAdmin, async (req, res) => {
-    const orderId = req.params.orderId;
-    
-    try {
-        // Get order details
-        const order = await queryOne('SELECT * FROM orders WHERE id = $1', [orderId]);
-        
-        if (!order) {
-            return res.status(404).json({ error: 'Order not found' });
-        }
-        
-        if (!order.stripe_customer_id || !order.stripe_payment_method_id) {
-            return res.status(400).json({ error: 'No saved payment method for this order' });
-        }
-        
-        if (order.payment_status === 'charged') {
-            return res.status(400).json({ error: 'Order already charged' });
-        }
-        
-        try {
-            // Charge the saved card
-            const paymentIntent = await stripe.paymentIntents.create({
-                amount: Math.round(order.total * 100), // Convert to cents
-                currency: 'usd',
-                customer: order.stripe_customer_id,
-                payment_method: order.stripe_payment_method_id,
-                off_session: true,
-                confirm: true,
-                metadata: {
-                    orderId: orderId.toString(),
-                    orderType: 'pre-order-charged'
-                }
-            });
-            
-            // Update order status
-            await execute(`UPDATE orders 
-                SET paid = 1, 
-                    payment_status = 'charged', 
-                    stripe_payment_intent_id = $1,
-                    updated_at = CURRENT_TIMESTAMP 
-                WHERE id = $2`, 
-                [paymentIntent.id, orderId]);
-            
-            // Send payment successful email
-            try {
-                const shippingAddress = typeof order.shipping_address === 'string' 
-                    ? JSON.parse(order.shipping_address) 
-                    : order.shipping_address;
-                const emailResult = await emailService.sendPaymentSuccessful(order, paymentIntent.id);
-                // Log email to database
-                await logEmail({
-                    orderId: order.id,
-                    userId: order.user_id,
-                    recipientEmail: shippingAddress?.email,
-                    emailType: 'payment_success',
-                    subject: `Order #${order.id} - Payment Confirmation`,
-                    status: emailResult.success ? 'sent' : 'failed',
-                    resendMessageId: emailResult.messageId || null,
-                    errorMessage: emailResult.error || null
-                });
-            } catch (emailError) {
-                console.error('⚠️  Failed to send payment success email:', emailError.message);
-                // Don't fail the charge if email fails
-            }
-            
-            res.json({ 
-                success: true, 
-                paymentIntentId: paymentIntent.id,
-                message: `Successfully charged $${order.total.toFixed(2)}`
-            });
-        } catch (stripeError) {
-            console.error('Stripe charge error:', stripeError);
-            
-            // Update order with failed status
-            await execute(`UPDATE orders 
-                SET payment_status = 'charge_failed' 
-                WHERE id = $1`, 
-                [orderId]);
-            
-            // Send payment failed email
-            try {
-                const shippingAddress = typeof order.shipping_address === 'string' 
-                    ? JSON.parse(order.shipping_address) 
-                    : order.shipping_address;
-                const emailResult = await emailService.sendPaymentFailed(order, stripeError.message, stripeError.code);
-                // Log email to database
-                await logEmail({
-                    orderId: order.id,
-                    userId: order.user_id,
-                    recipientEmail: shippingAddress?.email,
-                    emailType: 'payment_failed',
-                    subject: `Order #${order.id} - Payment Failed`,
-                    status: emailResult.success ? 'sent' : 'failed',
-                    resendMessageId: emailResult.messageId || null,
-                    errorMessage: emailResult.error || null
-                });
-            } catch (emailError) {
-                console.error('⚠️  Failed to send payment failed email:', emailError.message);
-                // Don't fail the operation if email fails
-            }
-            
-            res.status(500).json({ 
-                error: 'Failed to charge card: ' + stripeError.message 
-            });
-        }
-    } catch (error) {
-        console.error('Error charging order:', error);
-        res.status(500).json({ error: 'Failed to process charge' });
     }
 });
 
@@ -2149,339 +1441,6 @@ app.get('/api/order/summary', async (req, res) => {
 });
 
 // ============================================
-// ADMIN ROUTES
-// ============================================
-
-// Admin login page
-app.get('/admin/login', (req, res) => {
-    if (req.session.adminId) {
-        res.redirect('/admin/dashboard');
-    } else {
-        res.sendFile(path.join(__dirname, 'views', 'admin', 'login.html'));
-    }
-});
-
-// Admin login handler
-app.post('/admin/login', async (req, res) => {
-    const { email, password } = req.body;
-    
-    try {
-        const admin = await queryOne('SELECT * FROM admins WHERE email = $1', [email]);
-        
-        if (!admin) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-        
-        const match = await bcrypt.compare(password, admin.password);
-        if (!match) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-        
-        req.session.adminId = admin.id;
-        req.session.adminEmail = admin.email;
-        res.json({ success: true, redirect: '/admin/dashboard' });
-    } catch (err) {
-        console.error('Admin login error:', err);
-        res.status(500).json({ error: 'Database error' });
-    }
-});
-
-// Admin dashboard
-app.get('/admin/dashboard', requireAdmin, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'admin', 'dashboard.html'));
-});
-
-// Get admin statistics
-app.get('/api/admin/stats', requireAdmin, async (req, res) => {
-    try {
-    const stats = {};
-    
-        const r1 = await query('SELECT COUNT(*) as total FROM users');
-        stats.totalBackers = parseInt(r1[0].total);
-        
-        const r2 = await query('SELECT COUNT(*) as total FROM orders WHERE paid = 1');
-        stats.completedOrders = parseInt(r2[0].total);
-            
-        const r3 = await query('SELECT SUM(total) as revenue FROM orders WHERE paid = 1');
-        stats.totalRevenue = parseFloat(r3[0].revenue) || 0;
-                
-        const r4 = await query('SELECT COUNT(*) as total FROM orders WHERE paid = 0');
-        stats.pendingOrders = parseInt(r4[0].total);
-                    
-                    res.json(stats);
-    } catch (err) {
-        console.error('Error fetching stats:', err);
-        res.status(500).json({ error: 'Database error' });
-    }
-});
-
-// Get all users
-app.get('/api/admin/users', requireAdmin, async (req, res) => {
-    try {
-        const users = await query('SELECT id, email, backer_number, backer_name, reward_title, pledge_amount, has_completed FROM users ORDER BY backer_number');
-        res.json(users);
-    } catch (err) {
-        console.error('Error fetching users:', err);
-        res.status(500).json({ error: 'Database error' });
-    }
-});
-
-// Get all orders
-app.get('/api/admin/orders', requireAdmin, async (req, res) => {
-    try {
-        const orders = await query(`SELECT o.*, u.email, u.backer_number, u.backer_name 
-            FROM orders o 
-            LEFT JOIN users u ON o.user_id = u.id 
-            ORDER BY o.created_at DESC`);
-        res.json(orders);
-    } catch (err) {
-        console.error('Error fetching orders:', err);
-        res.status(500).json({ error: 'Database error' });
-    }
-});
-
-// Get email logs
-app.get('/api/admin/email-logs', requireAdmin, async (req, res) => {
-    try {
-        const emailLogs = await query(`SELECT el.*, o.id as order_id_from_orders, u.email as user_email_from_users, u.backer_name
-            FROM email_logs el
-            LEFT JOIN orders o ON el.order_id = o.id
-            LEFT JOIN users u ON el.user_id = u.id
-            ORDER BY el.sent_at DESC LIMIT 500`);
-        
-        const stats = {};
-        const totalEmails = emailLogs.length;
-        const successfulEmails = emailLogs.filter(log => log.status === 'sent').length;
-        const failedEmails = emailLogs.filter(log => log.status === 'failed').length;
-        
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        const last24Hours = emailLogs.filter(log => new Date(log.sent_at) > twentyFourHoursAgo).length;
-
-        stats.totalEmails = totalEmails;
-        stats.successfulEmails = successfulEmails;
-        stats.failedEmails = failedEmails;
-        stats.last24Hours = last24Hours;
-
-        res.json({ logs: emailLogs, stats: stats });
-    } catch (err) {
-        console.error('Error fetching email logs:', err);
-        res.status(500).json({ error: 'Database error' });
-    }
-});
-
-// Get single order (with parsed JSON)
-app.get('/api/admin/orders/:id', requireAdmin, async (req, res) => {
-    try {
-        const order = await queryOne(`SELECT o.*, u.email, u.backer_number, u.backer_name 
-            FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE o.id = $1`, [req.params.id]);
-        
-        if (!order) {
-            return res.status(404).json({ error: 'Order not found' });
-        }
-        
-        try {
-            order.new_addons = order.new_addons ? JSON.parse(order.new_addons) : [];
-            order.shipping_address = order.shipping_address ? JSON.parse(order.shipping_address) : {};
-            order.comped_items = order.comped_items ? JSON.parse(order.comped_items) : [];
-        } catch (_) {}
-        
-        res.json(order);
-    } catch (err) {
-        console.error('Error fetching order:', err);
-        res.status(500).json({ error: 'Database error' });
-    }
-});
-
-// Update comped items on an order
-app.put('/api/admin/orders/:id/comped-items', requireAdmin, async (req, res) => {
-    const orderId = req.params.id;
-    let compedItems = Array.isArray(req.body.compedItems) ? req.body.compedItems : [];
-    
-    // Server-enforce free/no-shipping
-    compedItems = compedItems.map(item => ({
-        id: item.id || null,
-        name: String(item.name || '').slice(0, 200),
-        quantity: Math.max(0, parseInt(item.quantity || 0, 10)),
-        price: 0,
-        weight: 0,
-        excludeFromShipping: true,
-        note: item.note ? String(item.note).slice(0, 500) : undefined
-    })).filter(i => i.quantity > 0 && i.name);
-
-    try {
-        await execute(`UPDATE orders SET comped_items = $1, 
-            updated_by_admin_id = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, 
-            [JSON.stringify(compedItems), req.session.adminId, orderId]);
-        
-        res.json({ success: true });
-    } catch (err) {
-        console.error('Error updating comped items:', err);
-        res.status(500).json({ error: 'Database error' });
-    }
-});
-
-// Export users to CSV
-app.get('/api/admin/export/users', requireAdmin, async (req, res) => {
-    try {
-        const users = await query('SELECT * FROM users ORDER BY backer_number');
-        
-        // Create CSV
-        let csv = 'Backer Number,Email,Name,Reward Tier,Pledge Amount,Completed,Created\n';
-        users.forEach(user => {
-            csv += `${user.backer_number || ''},`;
-            csv += `"${user.email || ''}",`;
-            csv += `"${user.backer_name || ''}",`;
-            csv += `"${user.reward_title || ''}",`;
-            csv += `${user.pledge_amount || 0},`;
-            csv += `${user.has_completed ? 'Yes' : 'No'},`;
-            csv += `"${user.created_at || ''}"\n`;
-        });
-        
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', 'attachment; filename=maya-users-export.csv');
-        res.send(csv);
-    } catch (err) {
-        console.error('Error exporting users:', err);
-        res.status(500).json({ error: 'Database error' });
-    }
-});
-
-// Export orders to CSV
-app.get('/api/admin/export/orders', requireAdmin, async (req, res) => {
-    try {
-        // First get all available add-ons to create columns
-        const availableAddons = await query('SELECT id, name FROM addons ORDER BY name');
-        
-        const orders = await query(`SELECT o.*, u.email, u.backer_number, u.backer_name 
-            FROM orders o 
-            LEFT JOIN users u ON o.user_id = u.id 
-            ORDER BY o.created_at DESC`);
-        
-        // Build CSV header with add-on columns and detailed shipping info
-        let csv = 'Order ID,Backer Number,Backer Name,Email,';
-        
-        // Add column for each add-on
-        availableAddons.forEach(addon => {
-            csv += `"${addon.name}",`;
-        });
-        
-        csv += 'Add-ons Subtotal,Shipping Cost,Total,Paid,Payment Status,Stripe Payment Intent ID,';
-        csv += 'Full Name,Address Line 1,Address Line 2,City,State,Postal Code,Country,Phone,';
-        csv += 'Created Date,Comped Items\n';
-        
-        // Build rows
-        orders.forEach(order => {
-            const addons = order.new_addons ? JSON.parse(order.new_addons) : [];
-            const address = order.shipping_address ? JSON.parse(order.shipping_address) : {};
-            const comped = order.comped_items ? JSON.parse(order.comped_items) : [];
-            
-            csv += `${order.id},`;
-            csv += `${order.backer_number || ''},`;
-            csv += `"${order.backer_name || ''}",`;
-            csv += `"${order.email || address.email || ''}",`;
-            
-            // For each available add-on, output quantity (0 if not in order)
-            availableAddons.forEach(availableAddon => {
-                const purchased = addons.find(a => a.id === availableAddon.id || a.name === availableAddon.name);
-                csv += `${purchased ? purchased.quantity : 0},`;
-            });
-            
-            csv += `${order.addons_subtotal || 0},`;
-            csv += `${order.shipping_cost || 0},`;
-            csv += `${order.total || 0},`;
-            csv += `${order.paid ? 'Yes' : 'No'},`;
-            csv += `"${order.payment_status || 'pending'}",`;
-            csv += `"${order.stripe_payment_intent_id || ''}",`;
-            
-            // Detailed shipping address fields
-            csv += `"${address.fullName || address.name || ''}",`;
-            csv += `"${address.addressLine1 || address.address1 || ''}",`;
-            csv += `"${address.addressLine2 || address.address2 || ''}",`;
-            csv += `"${address.city || ''}",`;
-            csv += `"${address.state || ''}",`;
-            csv += `"${address.postalCode || address.postal || ''}",`;
-            csv += `"${address.country || ''}",`;
-            csv += `"${address.phone || ''}",`;
-            
-            csv += `"${order.created_at || ''}",`;
-            
-            // Format comped items
-            const compedStr = comped.map(c => `${c.name} x${c.quantity}${c.note ? ' (' + c.note + ')' : ''}`).join('; ');
-            csv += `"${compedStr}"\n`;
-        });
-        
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', 'attachment; filename=maya-orders-export.csv');
-        res.send(csv);
-    } catch (err) {
-        console.error('Error exporting orders:', err);
-        res.status(500).json({ error: 'Database error' });
-    }
-});
-
-// Admin logout
-app.get('/admin/logout', (req, res) => {
-    req.session.destroy();
-    res.redirect('/admin/login');
-});
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-function calculateShipping(country, cartItems = []) {
-    const { shippingRates, resolveZone } = require('./config/shipping-rates');
-
-    const normalize = (str = '') => str.trim().toLowerCase();
-    const zone = resolveZone(country || '');
-    const rates = shippingRates[zone] || shippingRates['REST OF WORLD'];
-
-    let total = 0;
-
-    // Identify pledge tier in cart (by name match)
-    const pledgeEntry = cartItems.find(item => {
-        const n = normalize(item.name || '');
-        return [
-            'humble vaanar',
-            'industrious manushya',
-            'resplendent garuda',
-            'benevolent divya',
-            'founders of neh'
-        ].some(key => n.includes(key));
-    });
-
-    if (pledgeEntry) {
-        const pledgeName = [
-            'humble vaanar',
-            'industrious manushya',
-            'resplendent garuda',
-            'benevolent divya',
-            'founders of neh'
-        ].find(key => normalize(pledgeEntry.name || '').includes(key));
-        if (pledgeName && rates.pledges?.[pledgeName]) {
-            total += rates.pledges[pledgeName];
-        }
-    }
-
-    // Add-on shipping (Built Environments / Lorebook / Paperback / Hardcover)
-    cartItems.forEach(item => {
-        const n = normalize(item.name || '');
-        const qty = item.quantity || 1;
-        if (n.includes('built environments')) {
-            total += (rates.addons?.['Built Environments'] || 0) * qty;
-        } else if (n.includes('lorebook')) {
-            total += (rates.addons?.['Lorebook'] || 0) * qty;
-        } else if (n.includes('paperback')) {
-            total += (rates.addons?.['Paperback'] || 0) * qty;
-        } else if (n.includes('hardcover')) {
-            total += (rates.addons?.['Hardcover'] || 0) * qty;
-        }
-    });
-
-    return total;
-}
-
-// ============================================
 // TEMPORARY SEED ENDPOINT (REMOVE AFTER USE)
 // ============================================
 app.get('/api/seed-main-book/:secret', async (req, res) => {
@@ -2492,7 +1451,7 @@ app.get('/api/seed-main-book/:secret', async (req, res) => {
     try {
         await query(
             `INSERT INTO addons (name, price, weight, description, image, active)
-             VALUES (${isPostgres ? '$1, $2, $3, $4, $5, $6' : '?, ?, ?, ?, ?, ?'})`,
+             VALUES (${isPostgres() ? '$1, $2, $3, $4, $5, $6' : '?, ?, ?, ?, ?, ?'})`,
             ['MAYA: Seed Takes Root Hardcover', 50.00, 500, 'An epic sci-fiction fantasy with intricate worldbuilding. Six species, one planet, zero privacy. Enter the age of narrative warfare.', 'maya-book.jpeg', 1]
         );
         res.json({ success: true, message: 'Successfully added main book' });
@@ -2563,7 +1522,7 @@ app.get('/api/seed-addons-temp/:secret', async (req, res) => {
         for (const addon of addons) {
             await query(
                 `INSERT INTO addons (name, price, weight, description, image, active)
-                 VALUES (${isPostgres ? '$1, $2, $3, $4, $5, $6' : '?, ?, ?, ?, ?, ?'})`,
+                 VALUES (${isPostgres() ? '$1, $2, $3, $4, $5, $6' : '?, ?, ?, ?, ?, ?'})`,
                 [addon.name, addon.price, addon.weight, addon.description, addon.image, addon.active]
             );
             results.push(`Added: ${addon.name} ($${addon.price})`);
@@ -2585,19 +1544,31 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`   1. Set DATABASE_URL in .env (or Railway will auto-provide it)`);
     console.log(`   2. Import Kickstarter CSV: npm run import-csv path-to-csv.csv`);
     console.log(`   3. Admin login at: http://localhost:${PORT}/admin/login\n`);
+    
+    // Schedule hourly database backups (production only)
+    if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL) {
+        cron.schedule('0 * * * *', async () => {
+            console.log('\n⏰ Running scheduled hourly database backup...');
+            try {
+                const result = await runBackup();
+                if (result.success) {
+                    console.log('✓ Scheduled backup completed successfully');
+                } else {
+                    console.error('✗ Scheduled backup failed:', result.reason || result.error);
+                }
+            } catch (err) {
+                console.error('✗ Scheduled backup error:', err.message);
+            }
+        });
+        console.log('📦 Hourly database backup scheduled (runs at minute 0 of each hour)');
+    } else if (process.env.NODE_ENV !== 'production') {
+        console.log('📦 Database backups disabled (not in production mode)');
+    }
 });
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
     console.log('\nShutting down gracefully...');
-    if (isPostgres && pool) {
-        await pool.end();
-        console.log('PostgreSQL connections closed.');
-    } else if (db) {
-    db.close((err) => {
-            if (err) console.error(err.message);
-            console.log('SQLite database connection closed.');
-        });
-        }
-        process.exit(0);
+    await closeConnections();
+    process.exit(0);
 });

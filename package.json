@@ -12,7 +12,9 @@
     "update-backer-prices": "node scripts/update-backer-prices.js",
     "cleanup-products": "node scripts/cleanup-products.js",
     "add-book-addons": "node scripts/add-book-addons.js",
-    "seed-dropped-backer": "node scripts/seed-dropped-backer.js"
+    "seed-dropped-backer": "node scripts/seed-dropped-backer.js",
+    "backup": "node scripts/backup-database.js",
+    "migrate-to-postgres": "node scripts/migrate-to-postgres.js"
   },
   "keywords": [
     "pledge-manager",
@@ -27,6 +29,7 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-session": "^1.17.3",
+    "node-cron": "^4.2.1",
     "nodemailer": "^6.9.7",
     "pg": "^8.11.3",
     "resend": "^3.5.0",

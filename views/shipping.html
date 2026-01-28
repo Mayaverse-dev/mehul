@@ -580,6 +580,7 @@
 
     <script>
         let isBacker = false;
+        let userData = null; // Store user data for shipping calculation
 
         // Check if user is logged in backer
         async function checkUserStatus() {
@@ -587,13 +588,15 @@
                 const response = await fetch('/api/user/session');
                 const data = await response.json();
                 
-                if (data.isLoggedIn && data.user && data.user.backer_number) {
+                // Use server's isBacker flag which checks backer_number, pledge_amount, or reward_title
+                if (data.isBacker === true) {
                     isBacker = true;
+                    userData = data.user; // Store user data
                     document.getElementById('nav-user-link').href = '/dashboard';
                     document.getElementById('logo-link').href = '/dashboard';
                     
                     // Pre-fill email for backers
-                    if (data.user.email) {
+                    if (data.user && data.user.email) {
                         const emailInput = document.getElementById('email');
                         emailInput.value = data.user.email;
                         emailInput.readOnly = true;
@@ -601,6 +604,10 @@
                         emailInput.style.cursor = 'not-allowed';
                         emailInput.title = 'Email cannot be changed for existing backers';
                     }
+                } else if (data.isLoggedIn) {
+                    // Logged in but not a backer
+                    document.getElementById('nav-user-link').href = '/';
+                    document.getElementById('logo-link').href = '/';
                 } else {
                     document.getElementById('nav-user-link').href = '/login';
                 }
@@ -647,7 +654,24 @@
 
             try {
                 // Get cart from session storage
-                const cart = JSON.parse(sessionStorage.getItem('cart') || '[]');
+                let cart = JSON.parse(sessionStorage.getItem('cart') || '[]');
+                
+                // For paid Kickstarter backers, always include their pledge for shipping calculation
+                // Their pledge isn't in sessionStorage cart (it's already paid), but shipping still applies
+                if (isBacker && userData && userData.reward_title) {
+                    // Check if pledge is already in cart (shouldn't be, but just in case)
+                    const pledgeNames = ['humble vaanar', 'industrious manushya', 'resplendent garuda', 'benevolent divya', 'founders of neh'];
+                    const hasPledgeInCart = cart.some(item => 
+                        pledgeNames.some(p => (item.name || '').toLowerCase().includes(p))
+                    );
+                    
+                    if (!hasPledgeInCart) {
+                        cart.push({
+                            name: userData.reward_title,
+                            quantity: 1
+                        });
+                    }
+                }
                 
                 // Calculate shipping
                 const response = await fetch('/api/calculate-shipping', {
@@ -759,9 +783,12 @@
             lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
         }, false);
 
-        // Initialize
-        checkUserStatus();
-        loadCartSummary();
+        // Initialize - ensure user status is checked before loading cart
+        async function init() {
+            await checkUserStatus();
+            loadCartSummary();
+        }
+        init();
     </script>
 </body>
 </html>
