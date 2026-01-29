@@ -1,8 +1,6 @@
 require('dotenv').config();
 const fs = require('fs');
 const csv = require('csv-parser');
-const bcrypt = require('bcrypt');
-const crypto = require('crypto');
 
 // Database setup - PostgreSQL or SQLite
 let pool = null;
@@ -67,10 +65,8 @@ if (!fs.existsSync(csvFilePath)) {
 
 console.log('📂 Reading CSV file:', csvFilePath);
 
-// Generate random password (placeholder for legacy column)
-function generatePassword(length = 12) {
-    return crypto.randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
-}
+// Static placeholder for legacy password column (not used - we use PIN/OTP auth)
+const PLACEHOLDER_PASSWORD = 'not_used_pin_auth_only';
 
 // Item name mappings (adjust these based on your actual Kickstarter CSV column names)
 const itemColumns = {
@@ -153,9 +149,7 @@ fs.createReadStream(csvFilePath)
                     }
                 }
 
-                // Generate placeholder password (legacy column only)
-                const password = generatePassword();
-                const hashedPassword = await bcrypt.hash(password, 10);
+                // Use static placeholder for legacy password column (we use PIN/OTP auth, not passwords)
 
                 // Insert into database
                 await query(`INSERT INTO users (
@@ -181,7 +175,7 @@ fs.createReadStream(csvFilePath)
                     pledge_over_time = excluded.pledge_over_time`,
                 [
                     email,
-                    hashedPassword,
+                    PLACEHOLDER_PASSWORD,
                     backerNumber,
                     backerUID,
                     backerName,

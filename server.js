@@ -801,23 +801,16 @@ app.post('/api/create-payment-intent', async (req, res) => {
         }
         
         // Determine payment method based on user type and location
-        // Dropped backers: charge immediately (like new customers)
-        // Indian backers: charge immediately (RBI regulations require immediate charge)
-        // Regular backers: save card, charge later
+        // Dropped backers: charge immediately (PaymentIntent with automatic capture)
+        // Indian backers: charge immediately (PaymentIntent with automatic capture - RBI regulations)
+        // Regular KS backers: save card only (SetupIntent - no charge, no hold)
         const chargeImmediately = isDroppedBacker || isIndianAddress;
-        const captureMethod = chargeImmediately ? 'automatic' : 'manual';
+        const useSetupIntent = isAuthenticated && !chargeImmediately; // KS backers (non-India) use SetupIntent
         const orderType = chargeImmediately ? 'immediate-charge' : 'pre-order-autodebit';
         
         if (isIndianAddress && !isDroppedBacker) {
             console.log('✓ User is from India - will charge immediately (RBI regulations)');
         }
-        
-        console.log(`Creating Payment Intent (${chargeImmediately ? 'immediate charge' : 'save card for later'})...`);
-        // Create Payment Intent
-        // Dropped backers: automatic capture (charge immediately)
-        // Indian backers: automatic capture (charge immediately - RBI regulations)
-        // Regular backers: manual capture (save card, charge later)
-        const amountInCents = Math.round(amount * 100);
         
         // Determine user type for metadata
         let userType = 'guest';
@@ -829,43 +822,91 @@ app.post('/api/create-payment-intent', async (req, res) => {
             userType = 'backer';
         }
         
-        let paymentIntent;
-        try {
-            paymentIntent = await stripe.paymentIntents.create({
-                amount: amountInCents,
-                currency: 'usd',
-                customer: customer.id,
-                setup_future_usage: 'off_session', // Save card for future use (both cases)
-                confirmation_method: 'automatic', // Allow frontend to confirm
-                capture_method: captureMethod, // Automatic for dropped/Indian backers, manual for regular backers
-                payment_method_types: ['card'],
-                metadata: {
-                    userId: userId ? userId.toString() : 'guest',
-                    userEmail: userEmail || 'unknown',
-                    orderAmount: amount.toString(),
-                    orderType: orderType,
-                    userType: userType,
-                    shippingCountry: shippingAddress.country || 'unknown'
-                }
-            });
-            console.log('✓ Payment Intent created:', paymentIntent.id);
-            console.log('  - Amount:', amountInCents, 'cents ($' + amount + ')');
-            console.log('  - Customer:', customer.id);
-            console.log('  - Status:', paymentIntent.status);
-            console.log('  - Capture Method:', captureMethod);
-            console.log('  - Order Type:', orderType);
-        } catch (stripeError) {
-            console.error('✗ Payment Intent creation failed:', stripeError.message);
-            console.error('  - Error type:', stripeError.type);
-            console.error('  - Error code:', stripeError.code);
-            return res.status(500).json({ error: 'Failed to create payment intent', details: stripeError.message });
+        const amountInCents = Math.round(amount * 100);
+        const addonsSubtotal = amount - shippingCost;
+        
+        // Variables to store Stripe objects
+        let setupIntent = null;
+        let paymentIntent = null;
+        let stripeIntentId = null;
+        
+        if (useSetupIntent) {
+            // ========================================
+            // SetupIntent Flow (KS Backers - non-India)
+            // Save card without charging or placing a hold
+            // ========================================
+            console.log('Creating SetupIntent (save card only, no charge)...');
+            try {
+                setupIntent = await stripe.setupIntents.create({
+                    customer: customer.id,
+                    usage: 'off_session', // For charging later without customer present
+                    payment_method_types: ['card'],
+                    metadata: {
+                        userId: userId ? userId.toString() : 'guest',
+                        userEmail: userEmail || 'unknown',
+                        orderAmount: amount.toString(),
+                        orderType: orderType,
+                        userType: userType,
+                        shippingCountry: shippingAddress.country || 'unknown'
+                    }
+                });
+                stripeIntentId = setupIntent.id;
+                console.log('✓ SetupIntent created:', setupIntent.id);
+                console.log('  - Customer:', customer.id);
+                console.log('  - Status:', setupIntent.status);
+                console.log('  - Order Amount: $' + amount + ' (will be charged later)');
+                console.log('  - Order Type:', orderType);
+                console.log('  - User Type:', userType);
+            } catch (stripeError) {
+                console.error('✗ SetupIntent creation failed:', stripeError.message);
+                console.error('  - Error type:', stripeError.type);
+                console.error('  - Error code:', stripeError.code);
+                return res.status(500).json({ error: 'Failed to create setup intent', details: stripeError.message });
+            }
+        } else {
+            // ========================================
+            // PaymentIntent Flow (Indian backers, dropped backers)
+            // Charge immediately
+            // ========================================
+            console.log('Creating PaymentIntent (immediate charge)...');
+            try {
+                paymentIntent = await stripe.paymentIntents.create({
+                    amount: amountInCents,
+                    currency: 'usd',
+                    customer: customer.id,
+                    setup_future_usage: 'off_session', // Also save card for future use
+                    confirmation_method: 'automatic',
+                    capture_method: 'automatic', // Charge immediately
+                    payment_method_types: ['card'],
+                    metadata: {
+                        userId: userId ? userId.toString() : 'guest',
+                        userEmail: userEmail || 'unknown',
+                        orderAmount: amount.toString(),
+                        orderType: orderType,
+                        userType: userType,
+                        shippingCountry: shippingAddress.country || 'unknown'
+                    }
+                });
+                stripeIntentId = paymentIntent.id;
+                console.log('✓ PaymentIntent created:', paymentIntent.id);
+                console.log('  - Amount:', amountInCents, 'cents ($' + amount + ')');
+                console.log('  - Customer:', customer.id);
+                console.log('  - Status:', paymentIntent.status);
+                console.log('  - Capture Method: automatic (charge immediately)');
+                console.log('  - Order Type:', orderType);
+                console.log('  - User Type:', userType);
+            } catch (stripeError) {
+                console.error('✗ PaymentIntent creation failed:', stripeError.message);
+                console.error('  - Error type:', stripeError.type);
+                console.error('  - Error code:', stripeError.code);
+                return res.status(500).json({ error: 'Failed to create payment intent', details: stripeError.message });
+            }
         }
         
         console.log('Saving order to database...');
         // Create order in database
-        // Dropped backers: mark as succeeded and paid immediately
-        // Regular backers: mark as pending (will be charged later)
-        const addonsSubtotal = amount - shippingCost;
+        // SetupIntent (KS backers): mark as pending (will be charged later)
+        // PaymentIntent (immediate): mark as succeeded
         const paymentStatus = chargeImmediately ? 'succeeded' : 'pending';
         const paidStatus = chargeImmediately ? 1 : 0;
         
@@ -884,18 +925,19 @@ app.post('/api/create-payment-intent', async (req, res) => {
                 addonsSubtotal,
                 amount,
                 customer.id,
-                paymentIntent.id,
+                stripeIntentId, // Can be SetupIntent ID (seti_) or PaymentIntent ID (pi_)
                 paymentStatus,
                 paidStatus
             ]);
             console.log('✓ Order saved to database');
             console.log('  - Order total: $' + amount);
-            console.log('  - Payment Intent ID:', paymentIntent.id);
+            console.log('  - Stripe Intent ID:', stripeIntentId);
+            console.log('  - Intent Type:', useSetupIntent ? 'SetupIntent' : 'PaymentIntent');
             console.log('  - Payment Status:', paymentStatus);
             console.log('  - Paid:', paidStatus === 1 ? 'Yes' : 'No (will charge later)');
 
             // Store order ID in session for summary page
-            const savedOrder = await queryOne('SELECT id FROM orders WHERE stripe_payment_intent_id = $1', [paymentIntent.id]);
+            const savedOrder = await queryOne('SELECT id FROM orders WHERE stripe_payment_intent_id = $1', [stripeIntentId]);
             if (savedOrder) {
                 req.session.lastOrderId = savedOrder.id;
                 req.session.save(); // Ensure session is saved
@@ -905,16 +947,23 @@ app.post('/api/create-payment-intent', async (req, res) => {
             return res.status(500).json({ error: 'Failed to save order', details: dbError.message });
         }
         
-        if (chargeImmediately) {
-            console.log('✓ Payment setup complete - dropped backer will be charged immediately');
+        if (useSetupIntent) {
+            console.log('✓ SetupIntent ready - card will be saved (no charge, no hold)');
+            res.json({ 
+                clientSecret: setupIntent.client_secret,
+                customerId: customer.id,
+                intentId: setupIntent.id,
+                intentType: 'setup' // Frontend uses this to call confirmCardSetup
+            });
         } else {
-        console.log('✓ Payment setup complete - card will be saved for autodebit');
+            console.log('✓ PaymentIntent ready - will charge immediately');
+            res.json({ 
+                clientSecret: paymentIntent.client_secret,
+                customerId: customer.id,
+                intentId: paymentIntent.id,
+                intentType: 'payment' // Frontend uses this to call confirmCardPayment
+            });
         }
-        res.json({ 
-            clientSecret: paymentIntent.client_secret,
-            customerId: customer.id,
-            paymentIntentId: paymentIntent.id
-        });
     } catch (error) {
         console.error('\n✗ Unexpected error in payment setup');
         console.error('  - Error:', error.message);
@@ -948,49 +997,83 @@ app.post('/api/cancel-payment-authorization', async (req, res) => {
     }
 });
 
-// Save payment method after payment intent succeeds
+// Save payment method after SetupIntent or PaymentIntent succeeds
 app.post('/api/save-payment-method', async (req, res) => {
-    const { paymentIntentId, paymentMethodId } = req.body;
+    const { intentId, paymentMethodId, intentType } = req.body;
     
-    console.log('=== Saving Payment Method ===');
-    console.log('Payment Intent ID:', paymentIntentId);
-    console.log('Payment Method ID:', paymentMethodId);
+    console.log('\n=== Saving Payment Method ===');
+    console.log('Intent ID:', intentId);
+    console.log('Intent Type:', intentType || 'auto-detect');
+    console.log('Payment Method ID:', paymentMethodId || 'will retrieve from intent');
     
     try {
-        // If paymentMethodId not provided, retrieve it from Payment Intent
         let finalPaymentMethodId = paymentMethodId;
+        let paymentStatus = 'card_saved';
+        let paidStatus = 0;
         
-        if (!finalPaymentMethodId && paymentIntentId) {
-            console.log('Retrieving Payment Intent from Stripe...');
-            const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-            finalPaymentMethodId = paymentIntent.payment_method;
-            console.log('✓ Extracted payment method from Payment Intent:', finalPaymentMethodId);
+        // Auto-detect intent type from ID prefix if not provided
+        const detectedType = intentType || (intentId?.startsWith('seti_') ? 'setup' : 'payment');
+        console.log('Detected Intent Type:', detectedType);
+        
+        if (detectedType === 'setup') {
+            // ========================================
+            // SetupIntent Flow (KS Backers - non-India)
+            // ========================================
+            console.log('Processing SetupIntent...');
+            
+            if (!finalPaymentMethodId && intentId) {
+                console.log('Retrieving SetupIntent from Stripe...');
+                const setupIntent = await stripe.setupIntents.retrieve(intentId);
+                finalPaymentMethodId = setupIntent.payment_method;
+                console.log('✓ SetupIntent status:', setupIntent.status);
+                console.log('✓ Extracted payment method:', finalPaymentMethodId);
+            }
+            
+            // SetupIntent succeeded = card saved, no charge yet
+            paymentStatus = 'card_saved';
+            paidStatus = 0;
+            console.log('✓ Card saved via SetupIntent - will be charged when items ship');
+            
+        } else {
+            // ========================================
+            // PaymentIntent Flow (Indian/Dropped backers, Guests)
+            // ========================================
+            console.log('Processing PaymentIntent...');
+            
+            if (!finalPaymentMethodId && intentId) {
+                console.log('Retrieving PaymentIntent from Stripe...');
+                const paymentIntent = await stripe.paymentIntents.retrieve(intentId);
+                finalPaymentMethodId = paymentIntent.payment_method;
+                console.log('✓ PaymentIntent status:', paymentIntent.status);
+                console.log('✓ Extracted payment method:', finalPaymentMethodId);
+                
+                // Determine status based on PaymentIntent state
+                if (paymentIntent.status === 'succeeded') {
+                    paymentStatus = 'succeeded';
+                    paidStatus = 1;
+                    console.log('✓ Payment succeeded - customer charged immediately');
+                } else if (paymentIntent.status === 'requires_capture') {
+                    // Legacy: should not happen with new flow, but handle gracefully
+                    paymentStatus = 'card_saved';
+                    paidStatus = 0;
+                    console.log('✓ Card authorized (legacy flow) - will be charged when items ship');
+                }
+            } else {
+                // If we have paymentMethodId but need to check payment status
+                const paymentIntent = await stripe.paymentIntents.retrieve(intentId);
+                console.log('✓ PaymentIntent status:', paymentIntent.status);
+                
+                if (paymentIntent.status === 'succeeded') {
+                    paymentStatus = 'succeeded';
+                    paidStatus = 1;
+                    console.log('✓ Payment succeeded - customer charged immediately');
+                }
+            }
         }
         
         if (!finalPaymentMethodId) {
             console.error('✗ No payment method ID available');
             return res.status(400).json({ error: 'Payment method ID is required' });
-        }
-        
-        // Retrieve the Payment Intent to check its status
-        console.log('Retrieving Payment Intent status...');
-        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-        console.log('✓ Payment Intent status:', paymentIntent.status);
-        
-        // Determine if this was an immediate charge (guest) or card save (backer)
-        let paymentStatus = 'card_saved';
-        let paidStatus = 0;
-        
-        if (paymentIntent.status === 'succeeded') {
-            // Payment was captured immediately (guest/non-backer)
-            paymentStatus = 'succeeded';
-            paidStatus = 1;
-            console.log('✓ Payment succeeded - customer charged immediately');
-        } else if (paymentIntent.status === 'requires_capture') {
-            // Payment authorized but not captured (backer)
-            paymentStatus = 'card_saved';
-            paidStatus = 0;
-            console.log('✓ Card authorized - will be charged when items ship');
         }
         
         // Update order with payment method ID and status
@@ -1002,7 +1085,7 @@ app.post('/api/save-payment-method', async (req, res) => {
             finalPaymentMethodId,
             paymentStatus,
             paidStatus,
-            paymentIntentId
+            intentId
         ]);
         
         console.log('✓ Payment method saved successfully');
@@ -1010,9 +1093,9 @@ app.post('/api/save-payment-method', async (req, res) => {
         console.log('  - Order status:', paymentStatus);
         console.log('  - Paid:', paidStatus === 1 ? 'Yes' : 'No (charge on shipment)');
         
-        // Send card saved confirmation email
+        // Send confirmation email
         try {
-            const order = await queryOne('SELECT * FROM orders WHERE stripe_payment_intent_id = $1', [paymentIntentId]);
+            const order = await queryOne('SELECT * FROM orders WHERE stripe_payment_intent_id = $1', [intentId]);
             if (order) {
                 const emailResult = await emailService.sendCardSavedConfirmation(order);
                 // Log email to database
@@ -1028,13 +1111,14 @@ app.post('/api/save-payment-method', async (req, res) => {
                 });
             }
         } catch (emailError) {
-            console.error('⚠️  Failed to send card saved confirmation email:', emailError.message);
+            console.error('⚠️  Failed to send confirmation email:', emailError.message);
             // Don't fail the request if email fails
         }
         
         res.json({ 
             success: true,
-            paymentMethodId: finalPaymentMethodId
+            paymentMethodId: finalPaymentMethodId,
+            paymentStatus: paymentStatus
         });
     } catch (err) {
         console.error('✗ Error saving payment method:', err.message);
@@ -1228,9 +1312,12 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
             req.session.save(); // Ensure session is saved
         }
         
+        console.log('✓ Guest PaymentIntent ready - will charge immediately');
         res.json({ 
             clientSecret: paymentIntent.client_secret,
-            paymentIntentId: paymentIntent.id
+            customerId: customer.id,
+            intentId: paymentIntent.id,
+            intentType: 'payment' // Guests always use PaymentIntent (charge immediately)
         });
     } catch (error) {
         console.error('✗ Error creating guest Payment Intent:', error.message);

@@ -462,8 +462,9 @@
         let stripe;
         let elements;
         let cardElement;
-        let paymentIntentClientSecret;
-        let paymentIntentId;
+        let intentClientSecret;  // Can be SetupIntent or PaymentIntent client secret
+        let intentId;            // Can be SetupIntent ID (seti_) or PaymentIntent ID (pi_)
+        let intentType;          // 'setup' for KS backers, 'payment' for Indian/dropped backers
 
         // Country name to ISO 3166-1 alpha-2 code mapping
         const countryToISO = {
@@ -772,13 +773,20 @@
                     return;
                 }
                 
-                paymentIntentClientSecret = data.clientSecret;
-                paymentIntentId = data.paymentIntentId;
-                console.log('✓ Payment Intent created successfully');
-                console.log('  - Card will be saved for autodebit');
-                console.log('  - Payment Intent ID:', paymentIntentId);
+                intentClientSecret = data.clientSecret;
+                intentId = data.intentId;
+                intentType = data.intentType || 'payment'; // Default to payment for backward compatibility
+                
+                console.log('✓ Stripe Intent created successfully');
+                console.log('  - Intent Type:', intentType);
+                console.log('  - Intent ID:', intentId);
+                if (intentType === 'setup') {
+                    console.log('  - Flow: SetupIntent (save card, no charge)');
+                } else {
+                    console.log('  - Flow: PaymentIntent (charge immediately)');
+                }
             } catch (error) {
-                console.error('✗ Error creating Payment Intent:', error);
+                console.error('✗ Error creating Stripe Intent:', error);
                 showError('Failed to initialize payment. Please refresh the page.');
             }
         }
@@ -787,14 +795,20 @@
         document.getElementById('payment-form').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            if (!stripe || !cardElement || !paymentIntentClientSecret) {
+            if (!stripe || !cardElement || !intentClientSecret) {
                 showError('Payment not ready. Please wait or refresh the page.');
                 return;
             }
 
             const payButton = document.getElementById('pay-button');
             payButton.disabled = true;
-            payButton.textContent = 'Saving Card for Autodebit...';
+            
+            // Update button text based on intent type
+            if (intentType === 'setup') {
+                payButton.textContent = 'Saving Card...';
+            } else {
+                payButton.textContent = 'Processing Payment...';
+            }
 
             try {
                 const shippingAddress = JSON.parse(sessionStorage.getItem('shippingAddress'));
@@ -805,122 +819,171 @@
                     throw new Error(`Invalid country: ${shippingAddress.country}. Please select a valid country.`);
                 }
                 
-                console.log('Confirming Payment Intent to save card...');
-                // Confirm Payment Intent with manual confirmation (saves card, doesn't charge)
-                const { error, paymentIntent } = await stripe.confirmCardPayment(paymentIntentClientSecret, {
-                    payment_method: {
-                        card: cardElement,
-                        billing_details: {
-                            name: shippingAddress.fullName,
-                            email: shippingAddress.email,
-                            address: {
-                                line1: shippingAddress.addressLine1,
-                                line2: shippingAddress.addressLine2 || undefined,
-                                city: shippingAddress.city,
-                                state: shippingAddress.state || undefined,
-                                postal_code: shippingAddress.postalCode,
-                                country: countryCode
-                            }
-                        }
+                // Billing details for Stripe
+                const billingDetails = {
+                    name: shippingAddress.fullName,
+                    email: shippingAddress.email,
+                    address: {
+                        line1: shippingAddress.addressLine1,
+                        line2: shippingAddress.addressLine2 || undefined,
+                        city: shippingAddress.city,
+                        state: shippingAddress.state || undefined,
+                        postal_code: shippingAddress.postalCode,
+                        country: countryCode
                     }
-                });
+                };
+                
+                let confirmResult;
+                let resultIntent;
+                let paymentMethodId;
+                
+                if (intentType === 'setup') {
+                    // ========================================
+                    // SetupIntent Flow (KS Backers - non-India)
+                    // Save card without charging
+                    // ========================================
+                    console.log('Confirming SetupIntent (save card only)...');
+                    confirmResult = await stripe.confirmCardSetup(intentClientSecret, {
+                        payment_method: {
+                            card: cardElement,
+                            billing_details: billingDetails
+                        }
+                    });
+                    
+                    if (confirmResult.error) {
+                        throw confirmResult.error;
+                    }
+                    
+                    resultIntent = confirmResult.setupIntent;
+                    paymentMethodId = resultIntent.payment_method;
+                    console.log('✓ SetupIntent confirmed');
+                    console.log('  - Status:', resultIntent.status);
+                    console.log('  - Payment Method:', paymentMethodId);
+                    
+                } else {
+                    // ========================================
+                    // PaymentIntent Flow (Indian/Dropped backers)
+                    // Charge immediately
+                    // ========================================
+                    console.log('Confirming PaymentIntent (charge immediately)...');
+                    confirmResult = await stripe.confirmCardPayment(intentClientSecret, {
+                        payment_method: {
+                            card: cardElement,
+                            billing_details: billingDetails
+                        }
+                    });
+                    
+                    if (confirmResult.error) {
+                        throw confirmResult.error;
+                    }
+                    
+                    resultIntent = confirmResult.paymentIntent;
+                    paymentMethodId = resultIntent.payment_method;
+                    console.log('✓ PaymentIntent confirmed');
+                    console.log('  - Status:', resultIntent.status);
+                    console.log('  - Payment Method:', paymentMethodId);
+                }
+                
+                // Handle successful confirmation
+                const successStatuses = ['succeeded', 'requires_capture']; // requires_capture for legacy
+                if (intentType === 'setup' && resultIntent.status === 'succeeded') {
+                    // SetupIntent succeeded - card saved, no charge
+                    console.log('✓ Card saved successfully via SetupIntent');
+                    
+                    // Save payment method to order
+                    console.log('Saving payment method to order...');
+                    const saveResponse = await fetch('/api/save-payment-method', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            intentId: resultIntent.id,
+                            paymentMethodId: paymentMethodId,
+                            intentType: 'setup'
+                        })
+                    });
 
-                if (error) {
-                    console.error('✗ Payment Intent confirmation error:', error);
-                    console.error('  - Error type:', error.type);
-                    console.error('  - Error code:', error.code);
-                    const errorMessage = `${error.message}${error.code ? ' (' + error.code + ')' : ''}`;
-                    showError(errorMessage || 'Failed to save card. Please try again.');
+                    const saveData = await saveResponse.json();
+                    
+                    if (!saveResponse.ok) {
+                        console.error('✗ Failed to save payment method:', saveData);
+                        showError('Card saved but failed to update order. Please contact support.');
+                        return;
+                    }
+
+                    console.log('✓ Order updated with saved card');
+                    console.log('  - Payment Method ID:', paymentMethodId);
+                    console.log('  - No charge placed, no authorization hold');
+
+                    // Clear cart and redirect
+                    sessionStorage.removeItem('cart');
+                    sessionStorage.removeItem('shippingAddress');
+                    sessionStorage.removeItem('shippingCost');
+                    window.location.href = '/thankyou';
+                    
+                } else if (resultIntent.status === 'succeeded' || resultIntent.status === 'requires_capture') {
+                    // PaymentIntent succeeded or authorized
+                    console.log('✓ Payment processed:', resultIntent.status);
+                    
+                    // Save payment method to order
+                    console.log('Saving payment method to order...');
+                    const saveResponse = await fetch('/api/save-payment-method', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            intentId: resultIntent.id,
+                            paymentMethodId: paymentMethodId,
+                            intentType: 'payment'
+                        })
+                    });
+
+                    const saveData = await saveResponse.json();
+                    
+                    if (!saveResponse.ok) {
+                        console.error('✗ Failed to save payment method:', saveData);
+                        showError('Payment processed but failed to update order. Please contact support.');
+                        return;
+                    }
+
+                    console.log('✓ Order updated');
+                    console.log('  - Payment Method ID:', paymentMethodId);
+                    console.log('  - Payment Status:', saveData.paymentStatus);
+
+                    // Clear cart and redirect
+                    sessionStorage.removeItem('cart');
+                    sessionStorage.removeItem('shippingAddress');
+                    sessionStorage.removeItem('shippingCost');
+                    window.location.href = '/thankyou';
+                    
+                } else if (resultIntent.status === 'requires_action') {
+                    // Handle 3D Secure or other actions
+                    console.log('⚠ Payment requires additional action');
+                    showError('Your card requires additional verification. Please try again.');
                     payButton.disabled = false;
                     const paymentAmountEl = document.getElementById('payment-amount');
                     const amount = paymentAmountEl ? paymentAmountEl.textContent : '0.00';
                     payButton.innerHTML = 'Pay $<span id="payment-amount">' + amount + '</span>';
-                    return;
-                }
-
-                // Handle Payment Intent statuses
-                if (paymentIntent) {
-                    console.log('✓ Payment Intent status:', paymentIntent.status);
-                    
-                    // With capture_method: 'manual', status will be 'requires_capture' (authorized but not charged)
-                    // Card is saved via setup_future_usage for future charges
-                    if (paymentIntent.status === 'requires_capture' || paymentIntent.status === 'succeeded') {
-                    // Card saved successfully - update order with payment method
-                        console.log('Saving payment method to order...');
-                        const saveResponse = await fetch('/api/save-payment-method', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                                paymentIntentId: paymentIntent.id,
-                                paymentMethodId: paymentIntent.payment_method
-                        })
-                    });
-
-                        const saveData = await saveResponse.json();
-                        
-                        if (!saveResponse.ok) {
-                            console.error('✗ Failed to save payment method:', saveData);
-                            showError('Card saved but failed to update order. Please contact support.');
-                            return;
-                        }
-
-                        console.log('✓ Card saved successfully for autodebit');
-                        console.log('  - Payment Method ID:', paymentIntent.payment_method);
-
-                        // If payment is authorized but not captured, cancel the authorization
-                        // This releases the hold on funds while keeping the card saved
-                        if (paymentIntent.status === 'requires_capture') {
-                            console.log('Cancelling authorization to release funds hold...');
-                            try {
-                                await fetch('/api/cancel-payment-authorization', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        paymentIntentId: paymentIntent.id
-                                    })
-                                });
-                                console.log('✓ Authorization cancelled - funds released, card still saved');
-                            } catch (cancelError) {
-                                console.warn('⚠ Could not cancel authorization:', cancelError);
-                                // Continue anyway - card is saved
-                            }
-                        }
-
-                    // Clear cart
-                    sessionStorage.removeItem('cart');
-                    sessionStorage.removeItem('shippingAddress');
-                    sessionStorage.removeItem('shippingCost');
-
-                        // Redirect to common thank you page
-                    window.location.href = '/thankyou';
-                    } else if (paymentIntent.status === 'requires_action') {
-                        // Handle 3D Secure or other actions
-                        console.log('⚠ Payment requires additional action');
-                        showError('Your card requires additional verification. Please try again.');
-                        payButton.disabled = false;
-                        const paymentAmountEl = document.getElementById('payment-amount');
-                        const amount = paymentAmountEl ? paymentAmountEl.textContent : '0.00';
-                        payButton.innerHTML = 'Pay $<span id="payment-amount">' + amount + '</span>';
-                    } else if (paymentIntent.status === 'requires_payment_method') {
-                        console.error('✗ Payment method required');
-                        showError('Please check your card details and try again.');
-                        payButton.disabled = false;
-                        const paymentAmountEl = document.getElementById('payment-amount');
-                        const amount = paymentAmountEl ? paymentAmountEl.textContent : '0.00';
-                        payButton.innerHTML = 'Pay $<span id="payment-amount">' + amount + '</span>';
-                    } else {
-                        console.error('✗ Unexpected Payment Intent status:', paymentIntent.status);
-                        showError('Unexpected payment status. Please contact support.');
-                        payButton.disabled = false;
-                        const paymentAmountEl = document.getElementById('payment-amount');
-                        const amount = paymentAmountEl ? paymentAmountEl.textContent : '0.00';
-                        payButton.innerHTML = 'Pay $<span id="payment-amount">' + amount + '</span>';
-                    }
+                } else if (resultIntent.status === 'requires_payment_method') {
+                    console.error('✗ Payment method required');
+                    showError('Please check your card details and try again.');
+                    payButton.disabled = false;
+                    const paymentAmountEl = document.getElementById('payment-amount');
+                    const amount = paymentAmountEl ? paymentAmountEl.textContent : '0.00';
+                    payButton.innerHTML = 'Pay $<span id="payment-amount">' + amount + '</span>';
+                } else {
+                    console.error('✗ Unexpected intent status:', resultIntent.status);
+                    showError('Unexpected payment status. Please contact support.');
+                    payButton.disabled = false;
+                    const paymentAmountEl = document.getElementById('payment-amount');
+                    const amount = paymentAmountEl ? paymentAmountEl.textContent : '0.00';
+                    payButton.innerHTML = 'Pay $<span id="payment-amount">' + amount + '</span>';
                 }
             } catch (error) {
-                console.error('✗ Payment error:', error);
+                console.error('✗ Payment/Setup error:', error);
+                console.error('  - Error type:', error.type);
+                console.error('  - Error code:', error.code);
                 console.error('  - Error message:', error.message);
-                showError(error.message || 'Failed to save card. Please try again.');
+                const errorMessage = error.message ? `${error.message}${error.code ? ' (' + error.code + ')' : ''}` : 'Failed to process. Please try again.';
+                showError(errorMessage);
                 payButton.disabled = false;
                 const paymentAmountEl = document.getElementById('payment-amount');
                 const amount = paymentAmountEl ? paymentAmountEl.textContent : '0.00';
