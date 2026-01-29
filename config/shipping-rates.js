@@ -29,8 +29,8 @@ const shippingRates = {
         addons: { 'Built Environments': 5, 'Lorebook': 5, 'Paperback': 5, 'Hardcover': 5 }
     },
     'CANADA': {
-        pledges: { 'humble vaanar': 18, 'industrious manushya': 23, 'resplendent garuda': 72, 'benevolent divya': 92, 'founders of neh': 120 },
-        addons: { 'Built Environments': 10, 'Lorebook': 10, 'Paperback': 10, 'Hardcover': 10 }
+        pledges: { 'humble vaanar': 12, 'industrious manushya': 15, 'resplendent garuda': 48, 'benevolent divya': 62, 'founders of neh': 80 },
+        addons: { 'Built Environments': 7, 'Lorebook': 7, 'Paperback': 7, 'Hardcover': 7 }
     },
     'MEXICO': {
         pledges: { 'humble vaanar': 18, 'industrious manushya': 23, 'resplendent garuda': 72, 'benevolent divya': 92, 'founders of neh': 120 },
