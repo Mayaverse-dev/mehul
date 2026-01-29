@@ -30,6 +30,59 @@ const {
 // Routes
 const adminRoutes = require('./routes/admin');
 
+// Google Sheets Order Logging
+const GOOGLE_SHEETS_WEBHOOK_URL = process.env.GOOGLE_SHEETS_WEBHOOK_URL;
+
+async function logOrderToGoogleSheets(order, shippingAddress, items) {
+    if (!GOOGLE_SHEETS_WEBHOOK_URL) {
+        console.log('⚠️  Google Sheets logging disabled (no webhook URL configured)');
+        return;
+    }
+    
+    try {
+        console.log('\n=== Logging Order to Google Sheets ===');
+        console.log('Order ID:', order.id);
+        
+        // Format order details
+        const orderDetails = items.map(item => 
+            `${item.name} x${item.quantity || 1} - $${item.price}`
+        ).join(', ') + ` | Total: $${order.total} | Shipping: $${order.shipping_cost}`;
+        
+        // Format shipping address
+        const addressStr = [
+            shippingAddress.fullName,
+            shippingAddress.addressLine1,
+            shippingAddress.addressLine2,
+            `${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.postalCode}`,
+            shippingAddress.country,
+            `Phone: ${shippingAddress.phone || 'N/A'}`
+        ].filter(Boolean).join(' | ');
+        
+        const payload = {
+            email: shippingAddress.email || 'N/A',
+            orderDetails: orderDetails,
+            shippingAddress: addressStr
+        };
+        
+        console.log('Sending to Google Sheets...');
+        
+        const response = await fetch(GOOGLE_SHEETS_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+            console.log('✓ Order logged to Google Sheets successfully');
+        } else {
+            console.error('✗ Google Sheets logging failed:', response.status);
+        }
+    } catch (error) {
+        console.error('✗ Error logging to Google Sheets:', error.message);
+        // Don't throw - this is a non-critical operation
+    }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -1432,6 +1485,19 @@ app.get('/api/order/summary', async (req, res) => {
             newAddons = JSON.parse(order.new_addons || '[]');
         } catch (e) {
             console.error('Error parsing order JSON:', e);
+        }
+
+        // Log to Google Sheets (only once per order using session flag)
+        const loggedKey = `order_${orderId}_logged`;
+        if (!req.session[loggedKey]) {
+            // Mark as logged before async call to prevent duplicates on rapid refreshes
+            req.session[loggedKey] = true;
+            req.session.save();
+            
+            // Log asynchronously (don't wait for it)
+            logOrderToGoogleSheets(order, shippingAddress, newAddons).catch(err => {
+                console.error('Google Sheets logging error:', err.message);
+            });
         }
 
         // Return safe summary data
