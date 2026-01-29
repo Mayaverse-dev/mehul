@@ -441,7 +441,7 @@
         }
 
         async function initiateAuth(email, forceOtp = false) {
-            const payload = { email };
+            const payload = { email, forceOtp };
             try {
                 const res = await fetch('/api/auth/initiate', {
                     method: 'POST',

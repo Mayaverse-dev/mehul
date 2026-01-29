@@ -498,86 +498,10 @@ app.get('/api/user/session', (req, res) => {
 });
 
 // =============================
-// New Auth (PIN / OTP / Magic)
+// Additional Auth Routes
 // =============================
-
-// Initiate login (decide PIN or OTP)
-app.post('/api/auth/initiate', async (req, res) => {
-    try {
-        const { email } = req.body;
-        if (!email) {
-            return res.status(400).json({ error: 'Email is required' });
-        }
-
-        // Ensure user exists
-        await findOrCreateShadowUser(email);
-        const user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
-        if (!user) return res.status(404).json({ error: 'User not found' });
-
-        const requireOtp = !user.pin_hash || forceOtp;
-
-        if (requireOtp) {
-            const otp = generateOtp();
-            const expires = new Date(Date.now() + OTP_TTL_MS).toISOString();
-            await execute('UPDATE users SET otp_code = $1, otp_expires_at = $2 WHERE id = $3', [otp, expires, user.id]);
-
-            try {
-                await emailService.sendOTP(email, otp);
-            } catch (err) {
-                console.error('OTP send error:', err.message);
-            }
-
-            return res.json({ status: 'otp_sent' });
-        }
-
-        // PIN flow
-        return res.json({ status: 'pin_required' });
-    } catch (err) {
-        console.error('Initiate auth error:', err);
-        res.status(500).json({ error: 'Auth initiation failed' });
-    }
-});
-
-// Verify OTP
-app.post('/api/auth/verify-otp', async (req, res) => {
-    try {
-        const { email, otp } = req.body;
-        if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
-
-        const user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
-        if (!user) return res.status(404).json({ error: 'User not found' });
-
-        if (!user.otp_code || !user.otp_expires_at) {
-            return res.status(400).json({ error: 'No OTP requested' });
-        }
-
-        const expires = new Date(user.otp_expires_at).getTime();
-        if (Date.now() > expires) {
-            return res.status(400).json({ error: 'OTP expired' });
-        }
-
-        if (String(user.otp_code) !== String(otp)) {
-            return res.status(400).json({ error: 'Invalid OTP' });
-        }
-
-        // Clear OTP
-        await execute('UPDATE users SET otp_code = NULL, otp_expires_at = NULL WHERE id = $1', [user.id]);
-
-        // Set session
-        setSessionFromUser(req, user);
-        await updateLastLogin(user.id);
-
-        if (user.pin_hash) {
-            return res.json({ success: true, requiresPin: false, redirect: '/dashboard' });
-        } else {
-            req.session.requirePinSetup = true;
-            return res.json({ success: true, requiresPin: true });
-        }
-    } catch (err) {
-        console.error('Verify OTP error:', err);
-        res.status(500).json({ error: 'OTP verification failed' });
-    }
-});
+// Note: Main /api/auth/initiate and /api/auth/verify-otp are defined earlier (lines ~135-225)
+// Duplicate routes were removed to prevent conflicts
 
 // Login with PIN
 app.post('/api/auth/login-pin', async (req, res) => {
