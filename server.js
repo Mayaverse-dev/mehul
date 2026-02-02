@@ -670,6 +670,63 @@ app.get('/api/user/pledge-info', (req, res) => {
     }
 });
 
+// Get user's completed order (for dashboard locked state)
+app.get('/api/user/completed-order', requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.userId;
+        console.log(`Checking for completed order for user ${userId}`);
+        
+        // Find the user's most recent order with shipping address and payment method saved
+        const order = await queryOne(`
+            SELECT * FROM orders 
+            WHERE user_id = $1 
+              AND shipping_address IS NOT NULL 
+              AND shipping_address != '{}'
+              AND (
+                  stripe_payment_method_id IS NOT NULL 
+                  OR payment_status IN ('card_saved', 'succeeded')
+              )
+            ORDER BY created_at DESC 
+            LIMIT 1
+        `, [userId]);
+        
+        if (!order) {
+            console.log(`No completed order found for user ${userId}`);
+            return res.json({ hasCompletedOrder: false });
+        }
+        
+        console.log(`Found completed order ${order.id} for user ${userId}`);
+        
+        // Parse JSON fields safely
+        let shippingAddress = {};
+        let orderItems = [];
+        try {
+            shippingAddress = JSON.parse(order.shipping_address || '{}');
+            orderItems = JSON.parse(order.new_addons || '[]');
+        } catch (e) {
+            console.error('Error parsing order JSON:', e);
+        }
+        
+        res.json({
+            hasCompletedOrder: true,
+            order: {
+                id: order.id,
+                total: order.total,
+                shippingCost: order.shipping_cost,
+                addonsSubtotal: order.addons_subtotal,
+                paymentStatus: order.payment_status,
+                paid: order.paid === 1,
+                createdAt: order.created_at,
+                items: orderItems,
+                shippingAddress: shippingAddress
+            }
+        });
+    } catch (err) {
+        console.error('Error checking completed order:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // Save shipping address (accessible to both backers and guests)
 app.post('/api/shipping/save', (req, res) => {
     const shippingAddress = req.body;

@@ -306,6 +306,58 @@
 
     <!-- Main Content -->
     <div class="main-content">
+        <!-- Order Completed View (shown when user has already checked out) -->
+        <div id="order-completed-view" style="display: none;">
+            <div style="background: #1e1e1e; border-radius: 16px; padding: 40px; margin-bottom: 30px;">
+                <div style="text-align: center; margin-bottom: 40px;">
+                    <div style="font-size: 64px; margin-bottom: 20px;">✅</div>
+                    <h1 style="font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 36px; color: #059669; margin-bottom: 12px;">Order Confirmed</h1>
+                    <p style="color: #a0a0a0; font-size: 18px;">Your order has been placed. We'll charge your saved card when we ship.</p>
+                </div>
+                
+                <!-- Order Summary -->
+                <div style="background: #0f0f0f; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+                    <h2 style="font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 20px; border-bottom: 1px solid #2c2c2c; padding-bottom: 12px;">Order Summary</h2>
+                    <div id="completed-order-items" style="margin-bottom: 20px;">
+                        <!-- Items will be populated here -->
+                    </div>
+                    <div style="border-top: 1px solid #2c2c2c; padding-top: 16px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="color: #a0a0a0;">Subtotal</span>
+                            <span id="completed-subtotal" style="color: #ffffff;">$0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="color: #a0a0a0;">Shipping</span>
+                            <span id="completed-shipping" style="color: #ffffff;">$0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 20px; font-weight: 700; margin-top: 12px; padding-top: 12px; border-top: 1px solid #2c2c2c;">
+                            <span style="color: #ffffff;">Total</span>
+                            <span id="completed-total" style="color: #059669;">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Shipping Address -->
+                <div style="background: #0f0f0f; border-radius: 12px; padding: 24px;">
+                    <h2 style="font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 20px; border-bottom: 1px solid #2c2c2c; padding-bottom: 12px;">Shipping Address</h2>
+                    <div id="completed-shipping-address" style="color: #a0a0a0; line-height: 1.8;">
+                        <!-- Address will be populated here -->
+                    </div>
+                </div>
+                
+                <!-- Payment Status -->
+                <div style="background: #0f0f0f; border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <h2 style="font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 16px; border-bottom: 1px solid #2c2c2c; padding-bottom: 12px;">Payment Status</h2>
+                    <div id="completed-payment-status" style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 24px;">💳</span>
+                        <span style="color: #a0a0a0;">Card saved - will be charged when order ships</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Shopping View (normal dashboard, hidden when order is completed) -->
+        <div id="shopping-view">
         <!-- Pledge Card -->
         <div class="pledge-card">
             <!-- Hero Image -->
@@ -369,6 +421,7 @@
             <p>View your selected items and proceed to checkout when ready</p>
             <a href="/addons" class="btn-secondary">Go to Cart →</a>
         </div>
+        </div><!-- End shopping-view -->
     </div>
 
 
@@ -1250,9 +1303,110 @@
             }, 250); // Debounce resize events
         });
 
+        // Check for completed order and show locked view if exists
+        async function checkCompletedOrder() {
+            try {
+                console.log('Checking for completed order...');
+                const response = await fetch('/api/user/completed-order');
+                if (!response.ok) {
+                    console.log('No completed order check - continuing with shopping view');
+                    return false;
+                }
+                
+                const data = await response.json();
+                
+                if (data.hasCompletedOrder && data.order) {
+                    console.log('✓ User has completed order:', data.order.id);
+                    showCompletedOrderView(data.order);
+                    return true;
+                }
+                
+                console.log('No completed order found - showing shopping view');
+                return false;
+            } catch (error) {
+                console.error('Error checking completed order:', error);
+                return false;
+            }
+        }
+        
+        // Display the completed order view
+        function showCompletedOrderView(order) {
+            // Hide shopping view
+            document.getElementById('shopping-view').style.display = 'none';
+            
+            // Show completed order view
+            const completedView = document.getElementById('order-completed-view');
+            completedView.style.display = 'block';
+            
+            // Populate order items
+            const itemsContainer = document.getElementById('completed-order-items');
+            if (order.items && order.items.length > 0) {
+                itemsContainer.innerHTML = order.items.map(item => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #1e1e1e;">
+                        <div>
+                            <span style="color: #ffffff; font-weight: 500;">${item.name}</span>
+                            ${item.quantity > 1 ? `<span style="color: #a0a0a0; margin-left: 8px;">x${item.quantity}</span>` : ''}
+                        </div>
+                        <span style="color: #ffffff;">$${parseFloat(item.price || 0).toFixed(2)}</span>
+                    </div>
+                `).join('');
+            } else {
+                itemsContainer.innerHTML = '<p style="color: #a0a0a0;">No items in order</p>';
+            }
+            
+            // Populate totals
+            document.getElementById('completed-subtotal').textContent = '$' + parseFloat(order.addonsSubtotal || 0).toFixed(2);
+            document.getElementById('completed-shipping').textContent = '$' + parseFloat(order.shippingCost || 0).toFixed(2);
+            document.getElementById('completed-total').textContent = '$' + parseFloat(order.total || 0).toFixed(2);
+            
+            // Populate shipping address
+            const addressContainer = document.getElementById('completed-shipping-address');
+            const addr = order.shippingAddress || {};
+            addressContainer.innerHTML = `
+                <div style="font-weight: 600; color: #ffffff; margin-bottom: 8px;">${addr.fullName || 'N/A'}</div>
+                <div>${addr.addressLine1 || ''}</div>
+                ${addr.addressLine2 ? `<div>${addr.addressLine2}</div>` : ''}
+                <div>${addr.city || ''}, ${addr.state || ''} ${addr.postalCode || ''}</div>
+                <div>${addr.country || ''}</div>
+                ${addr.phone ? `<div style="margin-top: 8px;">Phone: ${addr.phone}</div>` : ''}
+                ${addr.email ? `<div>Email: ${addr.email}</div>` : ''}
+            `;
+            
+            // Update payment status display
+            const paymentStatusContainer = document.getElementById('completed-payment-status');
+            if (order.paid) {
+                paymentStatusContainer.innerHTML = `
+                    <span style="font-size: 24px;">✅</span>
+                    <span style="color: #059669; font-weight: 600;">Payment completed</span>
+                `;
+            } else if (order.paymentStatus === 'card_saved') {
+                paymentStatusContainer.innerHTML = `
+                    <span style="font-size: 24px;">💳</span>
+                    <span style="color: #a0a0a0;">Card saved - will be charged when order ships</span>
+                `;
+            } else {
+                paymentStatusContainer.innerHTML = `
+                    <span style="font-size: 24px;">⏳</span>
+                    <span style="color: #f59e0b;">Payment pending</span>
+                `;
+            }
+            
+            console.log('✓ Completed order view displayed');
+        }
+
         // Initialize - loadUserData must complete before loadProducts
         // so that hasValidPledge is set correctly before rendering add-on buttons
         async function init() {
+            // First check if user has a completed order
+            const hasCompletedOrder = await checkCompletedOrder();
+            
+            if (hasCompletedOrder) {
+                // User has completed checkout - show locked view only
+                // No need to load products or user data for shopping
+                return;
+            }
+            
+            // No completed order - show shopping view
             await loadUserData();
             await loadProducts();
             updateCart();
