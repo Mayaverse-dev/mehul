@@ -384,6 +384,18 @@ async function isBackerByUserId(userId) {
     }
 }
 
+// Check if user is a late pledge backer (backed after campaign ended - pays retail prices)
+async function isLatePledgeByUserId(userId) {
+    if (!userId) return false;
+    try {
+        const user = await queryOne('SELECT is_late_pledge FROM users WHERE id = $1', [userId]);
+        return user && user.is_late_pledge === 1;
+    } catch (err) {
+        console.error('Error checking if user is late pledge:', err);
+        return false;
+    }
+}
+
 module.exports = {
     // Constants
     OTP_TTL_MS,

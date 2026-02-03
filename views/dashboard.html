@@ -845,19 +845,40 @@
                     return;
                 }
                 
-                // Filter pledges that are STRICTLY more expensive than current (no downgrades)
-                // Using > (not >=) ensures only upgrades are shown
+                // Tier hierarchy ranking (higher = better tier)
+                // Use this instead of price to determine upgrades, since late pledgers may have paid more
+                const tierRanking = {
+                    'the humble vaanar': 1,
+                    'humble vaanar': 1,
+                    'the industrious manushya': 2,
+                    'industrious manushya': 2,
+                    'the resplendent garuda': 3,
+                    'resplendent garuda': 3,
+                    'the benevolent divya': 4,
+                    'benevolent divya': 4,
+                    'founders of neh': 5
+                };
+                
+                // Get user's current tier rank from their reward title
+                const userTierName = (currentRewardTitle || '').toLowerCase().trim();
+                const userTierRank = tierRanking[userTierName] || 0;
+                console.log(`User tier: "${currentRewardTitle}" (rank: ${userTierRank}), pledge amount: $${currentPledgeAmount}`);
+                
+                // Filter pledges that are HIGHER tier than current (by hierarchy, not price)
+                // This fixes the issue where late pledgers paid more than the next tier costs
                 const upgradePledges = pledgeTiers.filter(p => {
-                    const pledgePrice = parseFloat(p.price) || 0;
-                    const isUpgrade = pledgePrice > currentPledgeAmount;
-                    console.log(`  Checking ${p.name}: $${pledgePrice} vs current $${currentPledgeAmount} -> ${isUpgrade ? 'UPGRADE' : 'skip'}`);
+                    const pledgeName = (p.name || '').toLowerCase().trim();
+                    const pledgeTierRank = tierRanking[pledgeName] || 0;
+                    const isUpgrade = pledgeTierRank > userTierRank;
+                    console.log(`  Checking ${p.name}: tier rank ${pledgeTierRank} vs user rank ${userTierRank} -> ${isUpgrade ? 'UPGRADE' : 'skip'}`);
                     return isUpgrade;
                 }).sort((a, b) => {
-                    // Sort by price ascending (cheapest upgrade first)
-                    return (parseFloat(a.price) || 0) - (parseFloat(b.price) || 0);
+                    // Sort by tier rank ascending (next tier first)
+                    const rankA = tierRanking[(a.name || '').toLowerCase().trim()] || 0;
+                    const rankB = tierRanking[(b.name || '').toLowerCase().trim()] || 0;
+                    return rankA - rankB;
                 });
                 
-                console.log(`Current pledge amount: $${currentPledgeAmount}`);
                 console.log(`Found ${upgradePledges.length} upgrade options:`, upgradePledges.map(p => `${p.name} ($${p.price})`));
                 
                 if (upgradePledges.length > 0) {
