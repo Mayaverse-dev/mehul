@@ -155,6 +155,7 @@ async function initializeDatabase() {
         await addColumnIfMissing('users', 'amount_due REAL');
         await addColumnIfMissing('users', 'amount_paid REAL');
         await addColumnIfMissing('users', 'pledge_over_time INTEGER DEFAULT 0');
+        await addColumnIfMissing('users', 'is_late_pledge INTEGER DEFAULT 0');
 
         // Add-ons table
         await execute(`CREATE TABLE IF NOT EXISTS addons (

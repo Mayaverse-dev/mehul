@@ -367,9 +367,11 @@ app.get('/api/user/data', requireAuth, async (req, res) => {
             // Payment Over Time fields
             amountDue: user.amount_due || 0,
             amountPaid: user.amount_paid || 0,
-            pledgeOverTime: user.pledge_over_time === 1
+            pledgeOverTime: user.pledge_over_time === 1,
+            // Late pledge flag (backed after campaign ended - pays retail prices)
+            isLatePledge: user.is_late_pledge === 1
         };
-        
+
         res.json(userData);
     } catch (err) {
         console.error('Error fetching user data:', err);
@@ -418,9 +420,22 @@ app.get('/api/addons', async (req, res) => {
 app.get('/api/products', async (req, res) => {
     console.log('\n=== API: Get Products ===');
     // Only actual Kickstarter backers get backer pricing (not just logged-in users)
+    // Late pledgers (backed after campaign ended) do NOT get backer prices
     const userId = req.session?.userId || null;
-    const userIsBacker = userId ? await isBackerByUserId(userId) : false;
-    console.log(`User status: ${userIsBacker ? 'Kickstarter backer (backer prices)' : 'Guest/non-backer (retail prices)'}`);
+    let userIsBacker = userId ? await isBackerByUserId(userId) : false;
+    let isLatePledge = false;
+    
+    // Check if user is a late pledger (backed after campaign ended - no backer pricing)
+    if (userIsBacker && userId) {
+        const user = await queryOne('SELECT is_late_pledge FROM users WHERE id = $1', [userId]);
+        if (user && user.is_late_pledge === 1) {
+            isLatePledge = true;
+            userIsBacker = false; // Late pledgers don't get backer prices
+            console.log('User is LATE PLEDGER - using retail prices');
+        }
+    }
+    
+    console.log(`User status: ${userIsBacker ? 'Kickstarter backer (backer prices)' : isLatePledge ? 'Late pledger (retail prices)' : 'Guest/non-backer (retail prices)'}`);
     
     try {
         let pledges = [];
