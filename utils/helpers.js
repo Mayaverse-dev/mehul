@@ -65,11 +65,11 @@ async function updateLastLogin(userId) {
     await execute('UPDATE users SET last_login_at = $1 WHERE id = $2', [now, userId]);
 }
 
-// Get user by email
+// Get user by email (case-insensitive)
 async function getUserByEmail(email) {
     const normalized = (email || '').trim().toLowerCase();
     if (!normalized) return null;
-    return await queryOne('SELECT * FROM users WHERE email = $1', [normalized]);
+    return await queryOne('SELECT * FROM users WHERE LOWER(email) = $1', [normalized]);
 }
 
 // Create shadow user
@@ -81,11 +81,11 @@ async function createShadowUser(email) {
     return await getUserByEmail(normalized);
 }
 
-// Ensure a user exists for the given email; create a shadow user if missing
+// Ensure a user exists for the given email; create a shadow user if missing (case-insensitive check)
 async function ensureUserByEmail(email, name) {
     if (!email) return null;
     const normalized = email.trim().toLowerCase();
-    let user = await queryOne('SELECT * FROM users WHERE email = $1', [normalized]);
+    let user = await queryOne('SELECT * FROM users WHERE LOWER(email) = $1', [normalized]);
     if (user) return user;
 
     const randomPassword = `shadow-${crypto.randomUUID()}`;
@@ -97,34 +97,36 @@ async function ensureUserByEmail(email, name) {
         [normalized, hash, name || null]
     );
 
-    user = await queryOne('SELECT * FROM users WHERE email = $1', [normalized]);
+    user = await queryOne('SELECT * FROM users WHERE LOWER(email) = $1', [normalized]);
     return user;
 }
 
-// Find existing user by email or create a shadow user (no PIN yet)
+// Find existing user by email or create a shadow user (no PIN yet) - case-insensitive check
 async function findOrCreateShadowUser(email, name = '') {
     const { isPostgres } = require('../config/database');
     
     if (!email) throw new Error('Email is required to create shadow user');
 
-    // Check if user exists
-    const existing = await queryOne('SELECT id FROM users WHERE email = $1', [email]);
+    const normalized = email.trim().toLowerCase();
+
+    // Check if user exists (case-insensitive)
+    const existing = await queryOne('SELECT id FROM users WHERE LOWER(email) = $1', [normalized]);
     if (existing && existing.id) return existing.id;
 
     // Create placeholder password
     const password = generateRandomPassword();
     const hash = await bcrypt.hash(password, 10);
 
-    // Insert user
+    // Insert user with normalized (lowercase) email
     if (isPostgres()) {
         const created = await queryOne(
             'INSERT INTO users (email, password, backer_name) VALUES ($1, $2, $3) RETURNING id',
-            [email, hash, name || null]
+            [normalized, hash, name || null]
         );
         return created.id;
     } else {
-        await execute('INSERT INTO users (email, password, backer_name) VALUES (?, ?, ?)', [email, hash, name || null]);
-        const created = await queryOne('SELECT id FROM users WHERE email = $1', [email]);
+        await execute('INSERT INTO users (email, password, backer_name) VALUES (?, ?, ?)', [normalized, hash, name || null]);
+        const created = await queryOne('SELECT id FROM users WHERE LOWER(email) = $1', [normalized]);
         return created?.id;
     }
 }

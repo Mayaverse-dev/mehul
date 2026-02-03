@@ -152,9 +152,10 @@ app.get('/login', (req, res) => {
 // Login handler
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
-    
+    const normalizedEmail = (email || '').trim().toLowerCase();
+
     try {
-        const user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
+        const user = await queryOne('SELECT * FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
         
         if (!user) {
             return res.status(401).json({ error: 'Invalid email or password' });
@@ -222,7 +223,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
         if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
 
         const normalizedEmail = email.trim().toLowerCase();
-        const user = await queryOne('SELECT * FROM users WHERE email = $1', [normalizedEmail]);
+        const user = await queryOne('SELECT * FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
         if (!user) return res.status(404).json({ error: 'User not found' });
 
         if (!user.otp_code || !user.otp_expires_at) {
@@ -260,7 +261,7 @@ app.post('/api/auth/login-pin', async (req, res) => {
         if (!email || !pin) return res.status(400).json({ error: 'Email and PIN are required' });
 
         const normalizedEmail = email.trim().toLowerCase();
-        const user = await queryOne('SELECT * FROM users WHERE email = $1', [normalizedEmail]);
+        const user = await queryOne('SELECT * FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
         if (!user || !user.pin_hash) return res.status(400).json({ error: 'PIN not set. Please verify with code.' });
 
         const match = await bcrypt.compare(pin, user.pin_hash);
@@ -563,7 +564,8 @@ app.post('/api/auth/login-pin', async (req, res) => {
         if (!email || !pin) return res.status(400).json({ error: 'Email and PIN are required' });
         if (!/^[0-9]{4}$/.test(pin)) return res.status(400).json({ error: 'PIN must be 4 digits' });
 
-        const user = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
+        const normalizedEmail = (email || '').trim().toLowerCase();
+        const user = await queryOne('SELECT * FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
         if (!user) return res.status(404).json({ error: 'User not found' });
 
         // If stale, require OTP
