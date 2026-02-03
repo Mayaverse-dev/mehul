@@ -727,6 +727,54 @@ app.get('/api/user/completed-order', requireAuth, async (req, res) => {
     }
 });
 
+// Update shipping address for existing order
+app.put('/api/order/update-shipping-address', requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.userId;
+        const { orderId, shippingAddress } = req.body;
+        
+        console.log(`Updating shipping address for order ${orderId}, user ${userId}`);
+        
+        // Validate required fields
+        if (!orderId || !shippingAddress) {
+            return res.status(400).json({ error: 'Order ID and shipping address are required' });
+        }
+        
+        // Validate shipping address has required fields
+        const requiredFields = ['fullName', 'addressLine1', 'city', 'country', 'postalCode'];
+        for (const field of requiredFields) {
+            if (!shippingAddress[field]) {
+                return res.status(400).json({ error: `Missing required field: ${field}` });
+            }
+        }
+        
+        // Verify the order belongs to this user
+        const order = await queryOne('SELECT * FROM orders WHERE id = $1 AND user_id = $2', [orderId, userId]);
+        
+        if (!order) {
+            console.log(`Order ${orderId} not found for user ${userId}`);
+            return res.status(404).json({ error: 'Order not found' });
+        }
+        
+        // Update the shipping address (keep shipping cost unchanged)
+        await execute(
+            'UPDATE orders SET shipping_address = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+            [JSON.stringify(shippingAddress), orderId]
+        );
+        
+        console.log(`✓ Shipping address updated for order ${orderId}`);
+        
+        res.json({ 
+            success: true, 
+            message: 'Shipping address updated successfully',
+            shippingAddress: shippingAddress
+        });
+    } catch (err) {
+        console.error('Error updating shipping address:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // Save shipping address (accessible to both backers and guests)
 app.post('/api/shipping/save', (req, res) => {
     const shippingAddress = req.body;

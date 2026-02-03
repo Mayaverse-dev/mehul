@@ -339,9 +339,72 @@
                 
                 <!-- Shipping Address -->
                 <div style="background: #0f0f0f; border-radius: 12px; padding: 24px;">
-                    <h2 style="font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 20px; border-bottom: 1px solid #2c2c2c; padding-bottom: 12px;">Shipping Address</h2>
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2c2c2c; padding-bottom: 12px; margin-bottom: 20px;">
+                        <h2 style="font-size: 20px; font-weight: 700; color: #ffffff; margin: 0;">Shipping Address</h2>
+                        <button id="edit-address-btn" onclick="toggleAddressEdit(true)" style="background: transparent; border: 1px solid #3b82f6; color: #3b82f6; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer;">
+                            Edit
+                        </button>
+                    </div>
+                    
+                    <!-- Display Mode -->
                     <div id="completed-shipping-address" style="color: #a0a0a0; line-height: 1.8;">
                         <!-- Address will be populated here -->
+                    </div>
+                    
+                    <!-- Edit Mode (hidden by default) -->
+                    <div id="edit-address-form" style="display: none;">
+                        <div style="display: grid; gap: 16px;">
+                            <div>
+                                <label style="display: block; color: #a0a0a0; font-size: 14px; margin-bottom: 6px;">Full Name *</label>
+                                <input type="text" id="edit-fullName" style="width: 100%; padding: 12px; background: #1e1e1e; border: 1px solid #2c2c2c; border-radius: 8px; color: #ffffff; font-size: 16px;" required>
+                            </div>
+                            <div>
+                                <label style="display: block; color: #a0a0a0; font-size: 14px; margin-bottom: 6px;">Email</label>
+                                <input type="email" id="edit-email" style="width: 100%; padding: 12px; background: #1e1e1e; border: 1px solid #2c2c2c; border-radius: 8px; color: #ffffff; font-size: 16px;">
+                            </div>
+                            <div>
+                                <label style="display: block; color: #a0a0a0; font-size: 14px; margin-bottom: 6px;">Address Line 1 *</label>
+                                <input type="text" id="edit-addressLine1" style="width: 100%; padding: 12px; background: #1e1e1e; border: 1px solid #2c2c2c; border-radius: 8px; color: #ffffff; font-size: 16px;" required>
+                            </div>
+                            <div>
+                                <label style="display: block; color: #a0a0a0; font-size: 14px; margin-bottom: 6px;">Address Line 2</label>
+                                <input type="text" id="edit-addressLine2" style="width: 100%; padding: 12px; background: #1e1e1e; border: 1px solid #2c2c2c; border-radius: 8px; color: #ffffff; font-size: 16px;">
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                                <div>
+                                    <label style="display: block; color: #a0a0a0; font-size: 14px; margin-bottom: 6px;">City *</label>
+                                    <input type="text" id="edit-city" style="width: 100%; padding: 12px; background: #1e1e1e; border: 1px solid #2c2c2c; border-radius: 8px; color: #ffffff; font-size: 16px;" required>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #a0a0a0; font-size: 14px; margin-bottom: 6px;">State/Province</label>
+                                    <input type="text" id="edit-state" style="width: 100%; padding: 12px; background: #1e1e1e; border: 1px solid #2c2c2c; border-radius: 8px; color: #ffffff; font-size: 16px;">
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                                <div>
+                                    <label style="display: block; color: #a0a0a0; font-size: 14px; margin-bottom: 6px;">Postal Code *</label>
+                                    <input type="text" id="edit-postalCode" style="width: 100%; padding: 12px; background: #1e1e1e; border: 1px solid #2c2c2c; border-radius: 8px; color: #ffffff; font-size: 16px;" required>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #a0a0a0; font-size: 14px; margin-bottom: 6px;">Country</label>
+                                    <input type="text" id="edit-country" style="width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid #2c2c2c; border-radius: 8px; color: #6b7280; font-size: 16px; cursor: not-allowed;" readonly>
+                                    <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Country cannot be changed</p>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="display: block; color: #a0a0a0; font-size: 14px; margin-bottom: 6px;">Phone</label>
+                                <input type="tel" id="edit-phone" style="width: 100%; padding: 12px; background: #1e1e1e; border: 1px solid #2c2c2c; border-radius: 8px; color: #ffffff; font-size: 16px;">
+                            </div>
+                        </div>
+                        <div id="edit-address-error" style="display: none; color: #ef4444; margin-top: 16px; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px;"></div>
+                        <div style="display: flex; gap: 12px; margin-top: 24px;">
+                            <button onclick="saveAddressEdit()" id="save-address-btn" style="flex: 1; background: #059669; border: none; color: white; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;">
+                                Save Changes
+                            </button>
+                            <button onclick="toggleAddressEdit(false)" style="flex: 1; background: transparent; border: 1px solid #6b7280; color: #a0a0a0; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: 500; cursor: pointer;">
+                                Cancel
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
@@ -1331,9 +1394,12 @@
         
         // Display the completed order view
         function showCompletedOrderView(order) {
+            // Store order data for edit functionality
+            currentOrderData = order;
+            
             // Hide shopping view
             document.getElementById('shopping-view').style.display = 'none';
-            
+
             // Show completed order view
             const completedView = document.getElementById('order-completed-view');
             completedView.style.display = 'block';
@@ -1392,6 +1458,119 @@
             }
             
             console.log('✓ Completed order view displayed');
+        }
+        
+        // Store current order data for edit functionality
+        let currentOrderData = null;
+        
+        // Toggle address edit mode
+        function toggleAddressEdit(showEdit) {
+            const displayMode = document.getElementById('completed-shipping-address');
+            const editForm = document.getElementById('edit-address-form');
+            const editBtn = document.getElementById('edit-address-btn');
+            const errorDiv = document.getElementById('edit-address-error');
+            
+            if (showEdit) {
+                // Populate form with current values
+                if (currentOrderData && currentOrderData.shippingAddress) {
+                    const addr = currentOrderData.shippingAddress;
+                    document.getElementById('edit-fullName').value = addr.fullName || '';
+                    document.getElementById('edit-email').value = addr.email || '';
+                    document.getElementById('edit-addressLine1').value = addr.addressLine1 || '';
+                    document.getElementById('edit-addressLine2').value = addr.addressLine2 || '';
+                    document.getElementById('edit-city').value = addr.city || '';
+                    document.getElementById('edit-state').value = addr.state || '';
+                    document.getElementById('edit-postalCode').value = addr.postalCode || '';
+                    document.getElementById('edit-country').value = addr.country || '';
+                    document.getElementById('edit-phone').value = addr.phone || '';
+                }
+                
+                displayMode.style.display = 'none';
+                editForm.style.display = 'block';
+                editBtn.style.display = 'none';
+                errorDiv.style.display = 'none';
+            } else {
+                displayMode.style.display = 'block';
+                editForm.style.display = 'none';
+                editBtn.style.display = 'inline-block';
+                errorDiv.style.display = 'none';
+            }
+        }
+        
+        // Save address edit
+        async function saveAddressEdit() {
+            const saveBtn = document.getElementById('save-address-btn');
+            const errorDiv = document.getElementById('edit-address-error');
+            
+            // Gather form data
+            const newAddress = {
+                fullName: document.getElementById('edit-fullName').value.trim(),
+                email: document.getElementById('edit-email').value.trim(),
+                addressLine1: document.getElementById('edit-addressLine1').value.trim(),
+                addressLine2: document.getElementById('edit-addressLine2').value.trim(),
+                city: document.getElementById('edit-city').value.trim(),
+                state: document.getElementById('edit-state').value.trim(),
+                postalCode: document.getElementById('edit-postalCode').value.trim(),
+                country: document.getElementById('edit-country').value.trim(),
+                phone: document.getElementById('edit-phone').value.trim()
+            };
+            
+            // Basic validation
+            if (!newAddress.fullName || !newAddress.addressLine1 || !newAddress.city || !newAddress.country || !newAddress.postalCode) {
+                errorDiv.textContent = 'Please fill in all required fields (marked with *)';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            // Disable button while saving
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+            errorDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/order/update-shipping-address', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderId: currentOrderData.id,
+                        shippingAddress: newAddress
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to update address');
+                }
+                
+                console.log('✓ Address updated successfully');
+                
+                // Update local data
+                currentOrderData.shippingAddress = newAddress;
+                
+                // Update the display
+                const addressContainer = document.getElementById('completed-shipping-address');
+                addressContainer.innerHTML = `
+                    <div style="font-weight: 600; color: #ffffff; margin-bottom: 8px;">${newAddress.fullName}</div>
+                    <div>${newAddress.addressLine1}</div>
+                    ${newAddress.addressLine2 ? `<div>${newAddress.addressLine2}</div>` : ''}
+                    <div>${newAddress.city}, ${newAddress.state || ''} ${newAddress.postalCode}</div>
+                    <div>${newAddress.country}</div>
+                    ${newAddress.phone ? `<div style="margin-top: 8px;">Phone: ${newAddress.phone}</div>` : ''}
+                    ${newAddress.email ? `<div>Email: ${newAddress.email}</div>` : ''}
+                `;
+                
+                // Switch back to display mode
+                toggleAddressEdit(false);
+                
+            } catch (error) {
+                console.error('Error saving address:', error);
+                errorDiv.textContent = error.message || 'Failed to save address. Please try again.';
+                errorDiv.style.display = 'block';
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Changes';
+            }
         }
 
         // Initialize - loadUserData must complete before loadProducts
