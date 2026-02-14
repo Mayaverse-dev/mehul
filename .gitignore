@@ -30,3 +30,6 @@ npm-debug.log*
 .cache/
 .env.railway
 database.sqlite
+
+# Custom utility folder
+utility/

@@ -6,6 +6,16 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
+    "test": "jest --config utility/tests/jest.config.js",
+    "test:watch": "jest --config utility/tests/jest.config.js --watch",
+    "test:coverage": "jest --config utility/tests/jest.config.js --coverage",
+    "test:dashboard": "jest --config utility/tests/jest.config.js dashboard.test.js",
+    "test:products": "jest --config utility/tests/jest.config.js products.test.js",
+    "test:shipping": "jest --config utility/tests/jest.config.js shipping.test.js",
+    "test:checkout": "jest --config utility/tests/jest.config.js checkout.test.js",
+    "test:orders": "jest --config utility/tests/jest.config.js orders.test.js",
+    "test:auth": "jest --config utility/tests/jest.config.js auth.test.js",
+    "test:user": "jest --config utility/tests/jest.config.js validate-real-user.test.js",
     "import-csv": "node scripts/import-csv.js",
     "seed-addons": "node scripts/seed-addons.js",
     "create-test-user": "node scripts/create-test-user.js",
@@ -35,5 +45,9 @@
     "resend": "^3.5.0",
     "sqlite3": "^5.1.6",
     "stripe": "^14.5.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "xlsx": "^0.18.5"
   }
 }
