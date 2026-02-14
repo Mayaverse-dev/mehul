@@ -364,6 +364,12 @@ function isBacker(user) {
     return !!(user.backer_number || user.pledge_amount || user.reward_title);
 }
 
+// Eligible backer = backer AND not dropped (Kickstarter payment failed)
+function isEligibleBacker(user) {
+    if (!isBacker(user)) return false;
+    return String(user?.pledged_status || '').toLowerCase() !== 'dropped';
+}
+
 // Check if user is a backer from session data (fallback, not reliable)
 function isBackerFromSession(session) {
     if (!session || !session.userId) return false;
@@ -380,6 +386,20 @@ async function isBackerByUserId(userId) {
         return !!(user.backer_number || user.pledge_amount || user.reward_title);
     } catch (err) {
         console.error('Error checking if user is backer:', err);
+        return false;
+    }
+}
+
+async function isEligibleBackerByUserId(userId) {
+    if (!userId) return false;
+    try {
+        const user = await queryOne(
+            'SELECT backer_number, pledge_amount, reward_title, pledged_status FROM users WHERE id = $1',
+            [userId]
+        );
+        return isEligibleBacker(user);
+    } catch (err) {
+        console.error('Error checking if user is eligible backer:', err);
         return false;
     }
 }
@@ -419,8 +439,10 @@ module.exports = {
     ensureUserByEmail,
     findOrCreateShadowUser,
     isBacker,
+    isEligibleBacker,
     isBackerFromSession,
     isBackerByUserId,
+    isEligibleBackerByUserId,
     
     // Email helpers
     logEmail,

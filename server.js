@@ -11,19 +11,20 @@ const nodemailer = require('nodemailer');
 const path = require('path');
 const cron = require('node-cron');
 const emailService = require('./services/emailService');
+const ebookService = require('./services/ebookService');
 const { runBackup } = require('./scripts/backup-database');
 
 // Database module
 const { initConnection, query, queryOne, execute, isPostgres, closeConnections } = require('./config/database');
 // Auth middleware
-const { requireAuth, requireBacker, requireAdmin, setUserSession, setSessionFromUser } = require('./middleware/auth');
+const { requireAuth, requireBacker, requireEligibleBacker, requireAdmin, setUserSession, setSessionFromUser } = require('./middleware/auth');
 // Helper utilities
 const {
     OTP_TTL_MS, MAGIC_TTL_MS, LOGIN_STALE_DAYS,
     generateOtpCode, generateOtp, generateMagicToken, generateRandomPassword,
     isLoginStale, needsOtp, updateLastLogin,
     getUserByEmail, createShadowUser, ensureUserByEmail, findOrCreateShadowUser,
-    isBacker, isBackerFromSession, isBackerByUserId,
+    isBacker, isBackerFromSession, isBackerByUserId, isEligibleBackerByUserId,
     logEmail, calculateShipping, validateCartPrices
 } = require('./utils/helpers');
 
@@ -342,6 +343,69 @@ app.get('/dashboard', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'dashboard.html'));
 });
 
+function getCountryFromRequest(req) {
+    // Best-effort; set by some proxies/CDNs.
+    const candidates = [
+        req.headers['cf-ipcountry'],
+        req.headers['x-vercel-ip-country'],
+        req.headers['cloudfront-viewer-country'],
+        req.headers['x-country-code']
+    ].filter(Boolean);
+    if (candidates.length === 0) return null;
+    return String(candidates[0]).trim().toUpperCase().slice(0, 10);
+}
+
+// eBook delivery page (backers only, excluding dropped backers)
+app.get('/ebook', requireAuth, requireEligibleBacker, (req, res) => {
+    // Best-effort metric: user opened the eBook page.
+    // Keep format non-null for compatibility with earlier schema versions.
+    ebookService.logDownloadEvent({
+        userId: req.session.userId,
+        eventType: 'page_view',
+        format: 'page',
+        country: getCountryFromRequest(req),
+        userAgent: req.get('user-agent')
+    }).catch(() => {});
+
+    res.sendFile(path.join(__dirname, 'views', 'ebook.html'));
+});
+
+// Get an expiring download URL (backers only)
+app.get('/api/ebook/download-url', async (req, res) => {
+    try {
+        const userId = req.session?.userId || null;
+        if (!userId) {
+            return res.status(401).json({ error: 'Not authenticated' });
+        }
+
+        const eligible = await isEligibleBackerByUserId(userId);
+        if (!eligible) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+
+        const format = String(req.query.format || '').toLowerCase();
+        if (!['pdf', 'epub'].includes(format)) {
+            return res.status(400).json({ error: 'Invalid format. Use pdf or epub.' });
+        }
+
+        const url = await ebookService.getPresignedDownloadUrl({ format });
+
+        // Best-effort metrics; do not block the download.
+        ebookService.logDownloadEvent({
+            userId,
+            eventType: 'download_url_issued',
+            format,
+            country: getCountryFromRequest(req),
+            userAgent: req.get('user-agent')
+        }).catch(() => {});
+
+        return res.json({ url });
+    } catch (err) {
+        console.error('eBook download-url error:', err.message);
+        return res.status(500).json({ error: 'Failed to generate download link' });
+    }
+});
+
 // Get user data for dashboard
 app.get('/api/user/data', requireAuth, async (req, res) => {
     try {
@@ -541,13 +605,29 @@ app.post('/api/calculate-shipping', (req, res) => {
 });
 
 // Get user session info (accessible to everyone)
-app.get('/api/user/session', (req, res) => {
+app.get('/api/user/session', async (req, res) => {
     if (req.session && req.session.userId) {
         // Check if user is an actual Kickstarter backer
         const isBacker = !!(req.session.backerNumber || req.session.pledgeAmount || req.session.rewardTitle);
+        let pledgedStatus = null;
+        let isEligibleBacker = false;
+
+        if (isBacker) {
+            try {
+                const row = await queryOne('SELECT pledged_status FROM users WHERE id = $1', [req.session.userId]);
+                pledgedStatus = row?.pledged_status || 'collected';
+                isEligibleBacker = String(pledgedStatus).toLowerCase() !== 'dropped';
+            } catch (err) {
+                pledgedStatus = null;
+                isEligibleBacker = false;
+            }
+        }
+
         res.json({
             isLoggedIn: true,
             isBacker: isBacker,
+            isEligibleBacker,
+            pledgedStatus,
             user: {
                 id: req.session.userId,
                 email: req.session.userEmail,
@@ -561,6 +641,8 @@ app.get('/api/user/session', (req, res) => {
         res.json({
             isLoggedIn: false,
             isBacker: false,
+            isEligibleBacker: false,
+            pledgedStatus: null,
             user: null
         });
     }

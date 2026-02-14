@@ -452,7 +452,10 @@
                 if (response.ok) {
                     userData = await response.json();
                     // User is logged in
+                    const isBacker = !!(userData.backerNumber || userData.pledgeAmount || userData.rewardTitle);
+                    const isEligibleBacker = isBacker && String(userData.pledgedStatus || '').toLowerCase() !== 'dropped';
                     document.getElementById('nav-right-content').innerHTML = `
+                        ${isEligibleBacker ? '<a href="/ebook">eBook</a>' : ''}
                         <a href="#" onclick="handleLogout(); return false;">Logout</a>
                     `;
                 } else {
