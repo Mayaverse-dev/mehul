@@ -3,7 +3,7 @@
  */
 
 const { queryOne } = require('../config/database');
-const { isEligibleBacker } = require('../utils/helpers');
+const { isEligibleBacker, isCustomerByUserId } = require('../utils/helpers');
 
 // Auth middleware - require user login
 function requireAuth(req, res, next) {
@@ -50,6 +50,25 @@ async function requireEligibleBacker(req, res, next) {
     }
 }
 
+// Customer middleware - must be eligible backer OR have made a payment
+async function requireCustomer(req, res, next) {
+    try {
+        if (!req.session?.userId) {
+            return res.redirect('/');
+        }
+
+        const isCustomer = await isCustomerByUserId(req.session.userId);
+        if (!isCustomer) {
+            return res.redirect('/');
+        }
+
+        return next();
+    } catch (err) {
+        console.error('requireCustomer error:', err);
+        return res.redirect('/');
+    }
+}
+
 // Admin middleware - require admin login
 function requireAdmin(req, res, next) {
     if (req.session.adminId) {
@@ -78,6 +97,7 @@ module.exports = {
     requireAuth,
     requireBacker,
     requireEligibleBacker,
+    requireCustomer,
     requireAdmin,
     setUserSession,
     setSessionFromUser

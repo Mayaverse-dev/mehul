@@ -404,6 +404,31 @@ async function isEligibleBackerByUserId(userId) {
     }
 }
 
+// Customer = eligible backer OR has made a payment on the platform
+// Sync version - only checks backer status (can't check orders without async DB call)
+function isCustomer(user) {
+    return isEligibleBacker(user);
+}
+
+// Async version - checks both backer status AND paid orders in DB
+async function isCustomerByUserId(userId) {
+    if (!userId) return false;
+    try {
+        // First check: is eligible backer?
+        if (await isEligibleBackerByUserId(userId)) return true;
+        
+        // Second check: has at least one paid order or card saved?
+        const paidOrder = await queryOne(
+            `SELECT id FROM orders WHERE user_id = $1 AND (paid = 1 OR payment_status = 'card_saved') LIMIT 1`,
+            [userId]
+        );
+        return !!paidOrder;
+    } catch (err) {
+        console.error('Error checking if user is customer:', err);
+        return false;
+    }
+}
+
 // Check if user is a late pledge backer (backed after campaign ended - pays retail prices)
 async function isLatePledgeByUserId(userId) {
     if (!userId) return false;
@@ -443,6 +468,8 @@ module.exports = {
     isBackerFromSession,
     isBackerByUserId,
     isEligibleBackerByUserId,
+    isCustomer,
+    isCustomerByUserId,
     
     // Email helpers
     logEmail,

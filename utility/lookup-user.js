@@ -203,12 +203,26 @@ function printUser(data) {
             // Order items
             if (order.new_addons) {
                 try {
-                    const items = JSON.parse(order.new_addons);
-                    if (items.length > 0) {
-                        console.log(`  │ Items:`);
-                        items.forEach(item => {
-                            console.log(`  │   • ${item.name} x${item.quantity || 1} @ $${item.price || 0}`);
-                        });
+                    const parsed = JSON.parse(order.new_addons);
+
+                    // Shape A (current): array of line items
+                    if (Array.isArray(parsed)) {
+                        if (parsed.length > 0) {
+                            console.log(`  │ Items:`);
+                            parsed.forEach(item => {
+                                console.log(`  │   • ${item.name} x${item.quantity || 1} @ $${item.price || 0}`);
+                            });
+                        }
+                    // Shape B (legacy): object map { "Item Name": qty }
+                    } else if (parsed && typeof parsed === 'object') {
+                        const entries = Object.entries(parsed);
+                        if (entries.length > 0) {
+                            console.log(`  │ Items:`);
+                            entries.forEach(([name, qty]) => {
+                                const q = Number.isFinite(Number(qty)) ? Number(qty) : 1;
+                                console.log(`  │   • ${name} x${q}`);
+                            });
+                        }
                     }
                 } catch {
                     console.log(`  │ Items:    ⚠️  Invalid items JSON`);

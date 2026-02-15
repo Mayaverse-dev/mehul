@@ -443,7 +443,7 @@
                 // Show eBook link only for eligible backers (excludes dropped backers)
                 const ebookLink = document.getElementById('ebook-link');
                 if (ebookLink) {
-                    ebookLink.style.display = (data.isLoggedIn && data.isEligibleBacker) ? 'inline' : 'none';
+                    ebookLink.style.display = (data.isLoggedIn && data.isCustomer) ? 'inline' : 'none';
                 }
 
                 // Update profile link based on login/backer status

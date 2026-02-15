@@ -553,7 +553,7 @@
             try {
                 const response = await fetch('/api/user/session');
                 const data = await response.json();
-                if (data && data.isEligibleBacker) {
+                if (data && data.isCustomer) {
                     ebookLink.style.display = 'inline';
                     if (ebookTicker) {
                         ebookTicker.style.display = 'block';

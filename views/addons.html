@@ -452,10 +452,8 @@
                 if (response.ok) {
                     userData = await response.json();
                     // User is logged in
-                    const isBacker = !!(userData.backerNumber || userData.pledgeAmount || userData.rewardTitle);
-                    const isEligibleBacker = isBacker && String(userData.pledgedStatus || '').toLowerCase() !== 'dropped';
                     document.getElementById('nav-right-content').innerHTML = `
-                        ${isEligibleBacker ? '<a href="/ebook" style="background: #dc2626; color: #ffffff; padding: 8px 18px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 14px; letter-spacing: 0.3px; transition: background 0.2s;">Download E-Book</a>' : ''}
+                        ${userData.isCustomer ? '<a href="/ebook" style="background: #dc2626; color: #ffffff; padding: 8px 18px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 14px; letter-spacing: 0.3px; transition: background 0.2s;">Download E-Book</a>' : ''}
                         <a href="#" onclick="handleLogout(); return false;">Logout</a>
                     `;
                 } else {

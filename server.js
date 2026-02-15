@@ -17,14 +17,14 @@ const { runBackup } = require('./scripts/backup-database');
 // Database module
 const { initConnection, query, queryOne, execute, isPostgres, closeConnections } = require('./config/database');
 // Auth middleware
-const { requireAuth, requireBacker, requireEligibleBacker, requireAdmin, setUserSession, setSessionFromUser } = require('./middleware/auth');
+const { requireAuth, requireBacker, requireEligibleBacker, requireCustomer, requireAdmin, setUserSession, setSessionFromUser } = require('./middleware/auth');
 // Helper utilities
 const {
     OTP_TTL_MS, MAGIC_TTL_MS, LOGIN_STALE_DAYS,
     generateOtpCode, generateOtp, generateMagicToken, generateRandomPassword,
     isLoginStale, needsOtp, updateLastLogin,
     getUserByEmail, createShadowUser, ensureUserByEmail, findOrCreateShadowUser,
-    isBacker, isBackerFromSession, isBackerByUserId, isEligibleBackerByUserId,
+    isBacker, isBackerFromSession, isBackerByUserId, isEligibleBackerByUserId, isCustomerByUserId,
     logEmail, calculateShipping, validateCartPrices
 } = require('./utils/helpers');
 
@@ -355,8 +355,8 @@ function getCountryFromRequest(req) {
     return String(candidates[0]).trim().toUpperCase().slice(0, 10);
 }
 
-// eBook delivery page (backers only, excluding dropped backers)
-app.get('/ebook', requireAuth, requireEligibleBacker, (req, res) => {
+// eBook delivery page (customers: eligible backers OR users who made a payment)
+app.get('/ebook', requireAuth, requireCustomer, (req, res) => {
     // Best-effort metric: user opened the eBook page.
     // Keep format non-null for compatibility with earlier schema versions.
     ebookService.logDownloadEvent({
@@ -378,7 +378,7 @@ app.get('/api/ebook/download-url', async (req, res) => {
             return res.status(401).json({ error: 'Not authenticated' });
         }
 
-        const eligible = await isEligibleBackerByUserId(userId);
+        const eligible = await isCustomerByUserId(userId);
         if (!eligible) {
             return res.status(403).json({ error: 'Not authorized' });
         }
@@ -415,6 +415,9 @@ app.get('/api/user/data', requireAuth, async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
         
+        // Check if user is a customer (eligible backer OR has made a payment)
+        const isCustomer = await isCustomerByUserId(req.session.userId);
+        
         // Parse JSON fields
         const userData = {
             email: user.email,
@@ -433,7 +436,9 @@ app.get('/api/user/data', requireAuth, async (req, res) => {
             amountPaid: user.amount_paid || 0,
             pledgeOverTime: user.pledge_over_time === 1,
             // Late pledge flag (backed after campaign ended - pays retail prices)
-            isLatePledge: user.is_late_pledge === 1
+            isLatePledge: user.is_late_pledge === 1,
+            // Customer status (eligible backer OR has paid order)
+            isCustomer
         };
 
         res.json(userData);
@@ -608,25 +613,25 @@ app.post('/api/calculate-shipping', (req, res) => {
 app.get('/api/user/session', async (req, res) => {
     if (req.session && req.session.userId) {
         // Check if user is an actual Kickstarter backer
-        const isBacker = !!(req.session.backerNumber || req.session.pledgeAmount || req.session.rewardTitle);
+        const backerStatus = !!(req.session.backerNumber || req.session.pledgeAmount || req.session.rewardTitle);
         let pledgedStatus = null;
-        let isEligibleBacker = false;
 
-        if (isBacker) {
+        if (backerStatus) {
             try {
                 const row = await queryOne('SELECT pledged_status FROM users WHERE id = $1', [req.session.userId]);
                 pledgedStatus = row?.pledged_status || 'collected';
-                isEligibleBacker = String(pledgedStatus).toLowerCase() !== 'dropped';
             } catch (err) {
                 pledgedStatus = null;
-                isEligibleBacker = false;
             }
         }
 
+        // Check if user is a customer (eligible backer OR has made a payment)
+        const isCustomer = await isCustomerByUserId(req.session.userId);
+
         res.json({
             isLoggedIn: true,
-            isBacker: isBacker,
-            isEligibleBacker,
+            isBacker: backerStatus,
+            isCustomer,
             pledgedStatus,
             user: {
                 id: req.session.userId,
@@ -641,7 +646,7 @@ app.get('/api/user/session', async (req, res) => {
         res.json({
             isLoggedIn: false,
             isBacker: false,
-            isEligibleBacker: false,
+            isCustomer: false,
             pledgedStatus: null,
             user: null
         });
