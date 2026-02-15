@@ -37,7 +37,7 @@
     .page{display:flex;height:calc(100dvh - var(--nav-h));overflow:hidden;margin-top:var(--nav-h)}
     .desktop-frame{display:flex;width:100%;height:100%}
     .col-cover{display:none}
-    .col-content{flex:1;overflow-y:auto;scrollbar-width:none;padding:32px 24px env(safe-area-inset-bottom)}
+    .col-content{flex:1;overflow-y:hidden;scrollbar-width:none;padding:32px 24px env(safe-area-inset-bottom)}
     .col-content::-webkit-scrollbar{display:none}
 
     /* Cover column — desktop */
@@ -69,10 +69,10 @@
     .mobile-cover img{width:200px;height:auto}
 
     /* Header */
-    .hdr{text-align:center;margin-bottom:28px}
-    @media(min-width:769px){.hdr{text-align:left;margin-bottom:32px}}
+    .hdr{text-align:center;margin-bottom:22px}
+    @media(min-width:769px){.hdr{text-align:left;margin-bottom:26px}}
     .eyebrow{font-size:10px;font-weight:500;color:#ef4444;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:8px;opacity:.7}
-    .title{font-size:26px;font-weight:700;line-height:1.15;letter-spacing:-.02em;margin-bottom:6px}
+    .title{font-size:26px;font-weight:700;line-height:1.15;letter-spacing:-.02em;margin-bottom:4px}
     @media(min-width:769px){.title{font-size:36px}}
     @media(min-width:1100px){.title{font-size:40px}}
     .sub{font-size:14px;font-weight:300;color:rgba(255,255,255,.4)}
@@ -95,6 +95,17 @@
     .dl-row:hover .dl-btn{background:#dc2626;transform:scale(1.08)}
     .dl-note{font-size:11px;color:rgba(255,255,255,.18);text-align:center;margin-top:12px}
 
+    /* Dictionary */
+    .dict-dd{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.05)}
+    .dict-dd summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;color:rgba(255,255,255,.45);font-size:14px;font-weight:500;user-select:none}
+    .dict-dd summary:hover{color:rgba(255,255,255,.8)}
+    .dict-dd summary::-webkit-details-marker{display:none}
+    .dict-dd__chev{flex-shrink:0;color:rgba(255,255,255,.92);transition:transform .2s,color .15s}
+    .dict-dd[open] .dict-dd__chev{transform:rotate(180deg);color:rgba(255,255,255,.92)}
+    .dict-dd__body{padding:6px 0 0}
+    .dict-dd__ol{margin-left:18px;font-size:12px;color:rgba(255,255,255,.28);line-height:1.6}
+    .dict-dd__ol li{margin:6px 0}
+
     /* Kindle */
     .kindle{display:flex;align-items:center;gap:14px;padding:16px 20px;margin-bottom:10px;text-decoration:none;color:inherit;transition:all .15s ease}
     .kindle:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1)}
@@ -105,14 +116,14 @@
     .kindle:hover .kindle__arr{background:rgba(239,68,68,.12);color:#ef4444}
 
     /* FAQ */
-    .faq{padding:18px;margin-bottom:10px}
+    .faq{padding:18px 18px 22px;margin-bottom:10px}
     .faq__label{font-size:10px;font-weight:500;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px}
     .faq-q{width:100%;background:0;border:0;font-family:inherit;font-size:14px;color:rgba(255,255,255,.45);text-align:left;padding:10px 0;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.04);transition:color .15s}
     .faq-item:last-child .faq-q{border-bottom:0}
     .faq-q:hover{color:rgba(255,255,255,.8)}
     .faq-item.open .faq-q{color:#fff;border-bottom-color:transparent}
-    .faq-q svg{flex-shrink:0;color:rgba(255,255,255,.12);transition:transform .2s,color .15s}
-    .faq-item.open .faq-q svg{transform:rotate(180deg);color:#ef4444}
+    .faq-q svg{flex-shrink:0;color:rgba(255,255,255,.92);transition:transform .2s,color .15s}
+    .faq-item.open .faq-q svg{transform:rotate(180deg);color:rgba(255,255,255,.92)}
     .faq-a{display:none;font-size:12px;color:rgba(255,255,255,.28);line-height:1.6;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.04)}
     .faq-item.open .faq-a{display:block}
     .faq-a a{color:rgba(255,255,255,.5);text-decoration:underline;text-underline-offset:2px}
@@ -161,7 +172,6 @@
     <div class="hdr">
       <div class="eyebrow">Collector's Edition</div>
       <h1 class="title">MAYA: Seed Takes Root</h1>
-      <p class="sub">Your digital edition is ready</p>
       <div class="badge" id="pledgerBadge"><span id="pledgerId"></span></div>
     </div>
 
@@ -185,17 +195,37 @@
       <div class="kindle__arr"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2.5" stroke-linecap="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
     </a>
 
+    <div class="glass dl" id="dictionaryPanel">
+      <div class="dl__label">Maya Dictionary</div>
+      <a href="#" class="dl-row" id="dlDictionary" data-format="dictionary">
+        <div class="dl-tag">MOBI</div>
+        <div class="dl-body"><div class="dl-name">Maya Dictionary</div><div class="dl-desc">Install as a Kindle dictionary</div></div>
+        <div class="dl-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
+      </a>
+
+      <details class="dict-dd">
+        <summary>
+          <span>Instructions to install</span>
+          <svg class="dict-dd__chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </summary>
+        <div class="dict-dd__body">
+          <ol class="dict-dd__ol">
+            <li>Download the file above</li>
+            <li>Connect your Kindle to your computer via USB</li>
+            <li>Copy the file to: Kindle &rarr; documents &rarr; dictionaries</li>
+          </ol>
+        </div>
+      </details>
+    </div>
+
     <div class="glass faq">
       <div class="faq__label">FAQ</div>
       <div class="faq-item"><button class="faq-q" onclick="F(this)"><span>Which format should I choose?</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">EPUB for Kindle, e-readers &amp; mobile. PDF for desktop &amp; laptop.</div></div>
       <div class="faq-item"><button class="faq-q" onclick="F(this)"><span>Can I download both?</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">Yes. Download both as many times as you need.</div></div>
       <div class="faq-item"><button class="faq-q" onclick="F(this)"><span>How do I read on Kindle?</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">Download the EPUB, then upload at amazon.com/sendtokindle.</div></div>
       <div class="faq-item"><button class="faq-q" onclick="F(this)"><span>Trouble downloading?</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">Check your connection. If stuck, email <a href="mailto:support@entermaya.com">support@entermaya.com</a></div></div>
-    </div>
-
-    <div class="ftr">
-      <a href="mailto:support@entermaya.com">support@entermaya.com</a><br>
-      &copy; 2026 MAYA NARRATIVE UNIVERSE &middot; Department of Lore
     </div>
 
   </div>
@@ -254,6 +284,7 @@ function bindDownload(id, format){
 
 bindDownload('dlPdf','pdf');
 bindDownload('dlEpub','epub');
+bindDownload('dlDictionary','dictionary');
 
 function trackEbookEvent(eventType, format){
   var payload = JSON.stringify({ eventType: eventType, format: format });
@@ -282,6 +313,15 @@ function trackEbookEvent(eventType, format){
   if(!el) return;
   el.addEventListener('click', function(){
     trackEbookEvent('send_to_kindle_click', 'epub');
+  });
+})();
+
+// Track dictionary downloads separately
+(function(){
+  var el=document.getElementById('dlDictionary');
+  if(!el) return;
+  el.addEventListener('click', function(){
+    trackEbookEvent('dictionary_download_click', 'dictionary');
   });
 })();
 

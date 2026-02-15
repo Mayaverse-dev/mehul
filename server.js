@@ -384,16 +384,19 @@ app.get('/api/ebook/download-url', async (req, res) => {
         }
 
         const format = String(req.query.format || '').toLowerCase();
-        if (!['pdf', 'epub'].includes(format)) {
-            return res.status(400).json({ error: 'Invalid format. Use pdf or epub.' });
+        if (!['pdf', 'epub', 'dictionary', 'mobi'].includes(format)) {
+            return res.status(400).json({ error: 'Invalid format. Use pdf, epub, or dictionary.' });
         }
 
         const url = await ebookService.getPresignedDownloadUrl({ format });
 
         // Best-effort metrics; do not block the download.
+        const metricEventType = (format === 'dictionary' || format === 'mobi')
+            ? 'dictionary_download_url_issued'
+            : 'download_url_issued';
         ebookService.logDownloadEvent({
             userId,
-            eventType: 'download_url_issued',
+            eventType: metricEventType,
             format,
             country: getCountryFromRequest(req),
             userAgent: req.get('user-agent')
@@ -419,7 +422,7 @@ app.post('/api/ebook/track', requireAuth, requireCustomer, async (req, res) => {
         }
 
         let format = (req.body && req.body.format) ? String(req.body.format).trim().toLowerCase() : 'epub';
-        if (!['pdf', 'epub', 'kindle', 'page'].includes(format)) format = 'epub';
+        if (!['pdf', 'epub', 'dictionary', 'mobi', 'kindle', 'page'].includes(format)) format = 'epub';
 
         await ebookService.logDownloadEvent({
             userId,

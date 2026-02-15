@@ -35,6 +35,30 @@ function resolveBookKey(format) {
     const fmt = String(format || '').toLowerCase();
     if (fmt === 'pdf') return getEnv('EBOOK_PDF_KEY');
     if (fmt === 'epub') return getEnv('EBOOK_EPUB_KEY');
+    if (fmt === 'dictionary' || fmt === 'mobi') {
+        // Prefer an explicit key, but default to "same path" as the other eBook files.
+        const override = getEnv('EBOOK_DICTIONARY_KEY');
+        if (override) return override;
+
+        const epubKey = getEnv('EBOOK_EPUB_KEY');
+        const pdfKey = getEnv('EBOOK_PDF_KEY');
+        const baseKey = (function dirnameKey(key) {
+            const k = String(key || '').trim();
+            if (!k) return '';
+            const idx = k.lastIndexOf('/');
+            if (idx < 0) return '';
+            return k.slice(0, idx);
+        })(epubKey) || (function dirnameKey(key) {
+            const k = String(key || '').trim();
+            if (!k) return '';
+            const idx = k.lastIndexOf('/');
+            if (idx < 0) return '';
+            return k.slice(0, idx);
+        })(pdfKey);
+
+        // If we can't infer a directory, fall back to bucket root.
+        return baseKey ? `${baseKey}/maya_dictionary.mobi` : 'maya_dictionary.mobi';
+    }
     return '';
 }
 
@@ -42,6 +66,7 @@ function getDefaultFilename(format) {
     const fmt = String(format || '').toLowerCase();
     if (fmt === 'pdf') return 'MAYA-Seed-Takes-Root.pdf';
     if (fmt === 'epub') return 'MAYA-Seed-Takes-Root.epub';
+    if (fmt === 'dictionary' || fmt === 'mobi') return 'MAYA-Dictionary.mobi';
     return 'MAYA-ebook';
 }
 
