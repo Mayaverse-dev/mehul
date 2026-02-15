@@ -315,12 +315,6 @@
         </div>
     </div>
 
-    <!-- E-Book Notification Banner -->
-    <a href="/ebook" id="ebook-banner" class="ebook-banner">
-        <img src="/images/ebook_notification/desktop.png" alt="E-Book Live Now" class="ebook-banner__desktop">
-        <img src="/images/ebook_notification/mobile.png" alt="E-Book Live Now" class="ebook-banner__mobile">
-    </a>
-
     <style>
         .ebook-btn {
             background: #dc2626;
@@ -344,9 +338,8 @@
         .ebook-banner {
             display: none;
             text-decoration: none;
-            margin: 100px auto 0;
+            margin: 0 0 30px;
             padding: 24px;
-            max-width: 940px;
             background: #1e1e1e;
             border: 1px solid rgba(255,255,255,.07);
             border-radius: 16px;
@@ -356,17 +349,23 @@
             height: auto;
             border-radius: 10px;
         }
-        .ebook-banner__desktop { display: block; }
+        .ebook-banner__desktop { display: block; max-width: 900px; margin: 0 auto; }
         .ebook-banner__mobile { display: none; }
         @media (max-width: 768px) {
             .ebook-banner__desktop { display: none; }
             .ebook-banner__mobile { display: block; }
-            .ebook-banner { margin: 80px 16px 0; padding: 16px; border-radius: 12px; }
+            .ebook-banner { margin: 0 0 22px; padding: 16px; border-radius: 12px; }
         }
     </style>
 
     <!-- Main Content -->
     <div class="main-content">
+        <!-- E-Book Notification Banner -->
+        <a href="/ebook" id="ebook-banner" class="ebook-banner">
+            <img src="/images/ebook_notification/desktop.png" alt="E-Book Live Now" class="ebook-banner__desktop">
+            <img src="/images/ebook_notification/mobile.png" alt="E-Book Live Now" class="ebook-banner__mobile">
+        </a>
+
         <!-- Order Completed View (shown when user has already checked out) -->
         <div id="order-completed-view" style="display: none;">
             <div style="background: #1e1e1e; border-radius: 16px; padding: 40px; margin-bottom: 30px;">
