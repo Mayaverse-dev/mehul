@@ -141,6 +141,30 @@ app.get('/test-component', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'test-component.html'));
 });
 
+// Glossary feedback page (public)
+app.get('/glossary-feedback', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'glossary-feedback.html'));
+});
+
+// Record glossary feedback (public)
+app.post('/api/glossary-feedback', async (req, res) => {
+    try {
+        const raw = (req.body && (req.body.content ?? req.body.feedback ?? req.body.entry)) || '';
+        const content = String(raw).trim();
+
+        if (!content) return res.status(400).json({ error: 'Missing content' });
+        if (content.length > 500) return res.status(400).json({ error: 'Content too long (max 500 chars)' });
+
+        const table = isPostgres() ? 'glossary.feedback' : 'glossary_feedback';
+        await execute(`INSERT INTO ${table} (content) VALUES ($1)`, [content]);
+
+        return res.status(201).json({ success: true });
+    } catch (err) {
+        console.error('Glossary feedback error:', err?.message || err);
+        return res.status(500).json({ error: 'Failed to record feedback' });
+    }
+});
+
 // Login page
 app.get('/login', (req, res) => {
     if (req.session.userId && !req.query.setPin) {

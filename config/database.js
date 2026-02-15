@@ -294,6 +294,27 @@ async function initializeDatabase() {
             console.warn('⚠️  eBook metrics table setup skipped:', err.message);
         }
 
+        // Glossary feedback table
+        try {
+            if (isPostgres) {
+                await execute(`CREATE SCHEMA IF NOT EXISTS glossary`);
+                await execute(`CREATE TABLE IF NOT EXISTS glossary.feedback (
+                    id ${idType} PRIMARY KEY ${autoIncrement},
+                    content TEXT NOT NULL,
+                    created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
+                )`);
+            } else {
+                await execute(`CREATE TABLE IF NOT EXISTS glossary_feedback (
+                    id ${idType} PRIMARY KEY ${autoIncrement},
+                    content TEXT NOT NULL,
+                    created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
+                )`);
+            }
+            console.log('✓ Glossary feedback table ready');
+        } catch (err) {
+            console.warn('⚠️  Glossary feedback table setup skipped:', err.message);
+        }
+
         // Create default admin
         await createDefaultAdmin();
         

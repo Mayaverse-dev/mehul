@@ -315,14 +315,12 @@
         </div>
     </div>
 
-    <!-- E-Book Ticker -->
-    <a href="/ebook" id="ebook-ticker" style="display: none; position: fixed; left: 0; right: 0; z-index: 999; background: #000000; text-decoration: none; overflow: hidden; height: 36px;">
-        <div style="display: flex; white-space: nowrap; animation: ticker-scroll 18s linear infinite; align-items: center; height: 100%;">
-            <span style="color: #ffffff; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; padding: 0 60px;">
-                📖 E-Book Out Now — Download Your Copy! &nbsp;&nbsp;★&nbsp;&nbsp; 📖 E-Book Out Now — Download Your Copy! &nbsp;&nbsp;★&nbsp;&nbsp; 📖 E-Book Out Now — Download Your Copy! &nbsp;&nbsp;★&nbsp;&nbsp; 📖 E-Book Out Now — Download Your Copy! &nbsp;&nbsp;★&nbsp;&nbsp; 📖 E-Book Out Now — Download Your Copy! &nbsp;&nbsp;★&nbsp;&nbsp; 📖 E-Book Out Now — Download Your Copy!
-            </span>
-        </div>
+    <!-- E-Book Notification Banner -->
+    <a href="/ebook" id="ebook-banner" class="ebook-banner">
+        <img src="/images/ebook_notification/desktop.png" alt="E-Book Live Now" class="ebook-banner__desktop">
+        <img src="/images/ebook_notification/mobile.png" alt="E-Book Live Now" class="ebook-banner__mobile">
     </a>
+
     <style>
         .ebook-btn {
             background: #dc2626;
@@ -336,24 +334,34 @@
             transition: background 0.2s;
             white-space: nowrap;
         }
-        @keyframes ticker-scroll {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-        }
-        #ebook-ticker:hover div { animation-play-state: paused; }
         @media (max-width: 600px) {
             .ebook-btn {
                 padding: 6px 12px;
                 font-size: 11px !important;
             }
-            #ebook-ticker {
-                height: 30px !important;
-            }
-            #ebook-ticker span {
-                font-size: 11px !important;
-                letter-spacing: 1px !important;
-                padding: 0 20px !important;
-            }
+        }
+        /* E-Book Banner */
+        .ebook-banner {
+            display: none;
+            text-decoration: none;
+            margin: 100px auto 0;
+            padding: 24px;
+            max-width: 940px;
+            background: #1e1e1e;
+            border: 1px solid rgba(255,255,255,.07);
+            border-radius: 16px;
+        }
+        .ebook-banner img {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+        }
+        .ebook-banner__desktop { display: block; }
+        .ebook-banner__mobile { display: none; }
+        @media (max-width: 768px) {
+            .ebook-banner__desktop { display: none; }
+            .ebook-banner__mobile { display: block; }
+            .ebook-banner { margin: 80px 16px 0; padding: 16px; border-radius: 12px; }
         }
     </style>
 
@@ -548,19 +556,15 @@
 
         async function setupEbookNav() {
             const ebookLink = document.getElementById('ebook-link');
-            const ebookTicker = document.getElementById('ebook-ticker');
+            const ebookBanner = document.getElementById('ebook-banner');
             if (!ebookLink) return;
             try {
                 const response = await fetch('/api/user/session');
                 const data = await response.json();
                 if (data && data.isCustomer) {
                     ebookLink.style.display = 'inline';
-                    if (ebookTicker) {
-                        ebookTicker.style.display = 'block';
-                        const navHeight = document.getElementById('navbar').offsetHeight;
-                        ebookTicker.style.top = navHeight + 'px';
-                        const tickerHeight = ebookTicker.offsetHeight;
-                        document.querySelector('.main-content').style.paddingTop = (navHeight + tickerHeight + 20) + 'px';
+                    if (ebookBanner) {
+                        ebookBanner.style.display = 'block';
                     }
                 }
             } catch (e) {

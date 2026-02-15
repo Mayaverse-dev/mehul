@@ -37,7 +37,7 @@
     .page{display:flex;height:calc(100dvh - var(--nav-h));overflow:hidden;margin-top:var(--nav-h)}
     .desktop-frame{display:flex;width:100%;height:100%}
     .col-cover{display:none}
-    .col-content{flex:1;overflow-y:hidden;scrollbar-width:none;padding:32px 24px env(safe-area-inset-bottom)}
+    .col-content{flex:1;overflow-y:auto;scrollbar-width:none;padding:32px 24px env(safe-area-inset-bottom)}
     .col-content::-webkit-scrollbar{display:none}
 
     /* Cover column — desktop */
@@ -55,7 +55,7 @@
       .col-cover::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 60% 45%,rgba(239,68,68,.05) 0%,transparent 65%)}
       .col-cover::after{content:'';position:absolute;right:0;top:10%;bottom:10%;width:1px;background:linear-gradient(to bottom,transparent,rgba(255,255,255,.06) 30%,rgba(255,255,255,.06) 70%,transparent)}
       .col-cover img{width:85%;max-width:340px;height:auto;position:relative;z-index:1}
-      .col-content{width:62%;display:flex;flex-direction:column;justify-content:center;padding:48px 48px 48px 32px}
+      .col-content{width:62%;display:flex;flex-direction:column;justify-content:center;padding:48px 48px 48px 32px;overflow-y:hidden}
       .mobile-cover{display:none!important}
     }
     @media(min-width:1100px){

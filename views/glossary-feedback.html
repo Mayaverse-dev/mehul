@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>MAYA - Glossary Feedback</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:'Outfit',system-ui,sans-serif;
+      background:#0a0a0a;
+      color:#fff;
+      -webkit-font-smoothing:antialiased;
+      min-height:100dvh;
+    }
+
+    :root{--nav-h:50px}
+    #navbar{
+      background:#1a1a1a;
+      padding:10px 60px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      position:fixed;
+      top:0;left:0;right:0;
+      z-index:1000;
+      height:var(--nav-h);
+    }
+    #navbar .logo{height:30px;width:auto;display:block}
+    #navbar .logo img{height:100%;width:auto;object-fit:contain}
+
+    .page{
+      padding:calc(var(--nav-h) + 28px) 18px 32px;
+      display:flex;
+      justify-content:center;
+    }
+
+    .card{
+      width:min(720px,100%);
+      background:rgba(255,255,255,.035);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:16px;
+      padding:22px;
+    }
+
+    .eyebrow{
+      font-size:10px;
+      font-weight:500;
+      color:#ef4444;
+      letter-spacing:2.5px;
+      text-transform:uppercase;
+      opacity:.8;
+    }
+    h1{
+      margin-top:8px;
+      font-size:28px;
+      font-weight:700;
+      letter-spacing:-.02em;
+      line-height:1.12;
+    }
+    .sub{
+      margin-top:8px;
+      color:rgba(255,255,255,.45);
+      font-size:14px;
+      font-weight:300;
+      line-height:1.5;
+    }
+
+    form{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap}
+    .field{
+      flex:1;
+      min-width:220px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.07);
+      border-radius:12px;
+      padding:12px 12px;
+      color:#fff;
+      font-size:14px;
+      outline:none;
+      transition:border-color .15s ease, background .15s ease;
+    }
+    .field:focus{
+      border-color:rgba(239,68,68,.35);
+      background:rgba(239,68,68,.06);
+    }
+    .btn{
+      background:#ef4444;
+      border:0;
+      color:#fff;
+      font-weight:700;
+      font-size:14px;
+      padding:12px 16px;
+      border-radius:12px;
+      cursor:pointer;
+      transition:transform .08s ease, background .15s ease, opacity .15s ease;
+      white-space:nowrap;
+    }
+    .btn:hover{background:#dc2626}
+    .btn:active{transform:translateY(1px)}
+    .btn[disabled]{opacity:.6;cursor:not-allowed}
+
+    .hint{
+      margin-top:12px;
+      font-family:'JetBrains Mono',monospace;
+      font-size:11px;
+      color:rgba(255,255,255,.22);
+      line-height:1.6;
+    }
+
+    .toast{
+      position:fixed;
+      bottom:20px;
+      left:50%;
+      transform:translateX(-50%) translateY(60px);
+      background:rgba(20,20,24,.92);
+      backdrop-filter:blur(16px);
+      -webkit-backdrop-filter:blur(16px);
+      color:#fff;
+      padding:10px 16px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,.07);
+      font-size:13px;
+      font-weight:600;
+      z-index:1001;
+      opacity:0;
+      transition:all .25s cubic-bezier(.4,0,.2,1);
+      pointer-events:none;
+    }
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+    @media (min-width:769px){
+      #navbar{padding:10px 60px}
+      .page{padding:calc(var(--nav-h) + 44px) 24px 40px}
+      h1{font-size:34px}
+    }
+  </style>
+</head>
+<body>
+
+  <div id="navbar">
+    <a class="logo" href="/" title="MAYA">
+      <img src="/images/maya-logo.png" alt="MAYA">
+    </a>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="page">
+    <div class="card">
+      <div class="eyebrow">Glossary Feedback</div>
+      <h1>Suggest an entry</h1>
+      <p class="sub">Share a term, correction, or short note. After you submit, you can add another.</p>
+
+      <form id="form" autocomplete="off">
+        <input id="content" class="field" type="text" maxlength="500" placeholder="Type your feedback..." required>
+        <button id="submit" class="btn" type="submit">Submit</button>
+      </form>
+
+      <div class="hint">Max 500 characters. One entry per submit.</div>
+    </div>
+  </div>
+
+  <script>
+    function toast(msg){
+      var el=document.getElementById('toast');
+      if(!el) return;
+      el.textContent=msg;
+      el.classList.add('show');
+      clearTimeout(toast._t);
+      toast._t=setTimeout(function(){el.classList.remove('show')},2500);
+    }
+
+    (function(){
+      var form=document.getElementById('form');
+      var input=document.getElementById('content');
+      var btn=document.getElementById('submit');
+      if(!form || !input || !btn) return;
+
+      form.addEventListener('submit', async function(e){
+        e.preventDefault();
+        var value=(input.value || '').trim();
+        if(!value){
+          toast('Please enter something.');
+          input.focus();
+          return;
+        }
+
+        btn.disabled=true;
+        btn.textContent='Submitting...';
+
+        try{
+          var res=await fetch('/api/glossary-feedback', {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({ content: value })
+          });
+
+          if(!res.ok){
+            var data=null;
+            try{ data=await res.json(); }catch(_){}
+            throw new Error((data && data.error) ? data.error : 'Submit failed');
+          }
+
+          toast('Recorded. Thank you.');
+          input.value='';
+          input.focus();
+        }catch(err){
+          toast(err && err.message ? err.message : 'Submit failed');
+        }finally{
+          btn.disabled=false;
+          btn.textContent='Submit';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
+
