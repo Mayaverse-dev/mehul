@@ -180,7 +180,7 @@
       <div class="dl-note">DRM-free &middot; No restrictions &middot; Yours forever</div>
     </div>
 
-    <a href="https://www.amazon.com/sendtokindle" target="_blank" rel="noopener" class="glass kindle">
+    <a href="https://www.amazon.com/sendtokindle" target="_blank" rel="noopener" class="glass kindle" id="sendToKindle">
       <div class="kindle__body"><div class="kindle__t">Send to Kindle</div><div class="kindle__d">Download EPUB above, then upload here</div></div>
       <div class="kindle__arr"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2.5" stroke-linecap="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
     </a>
@@ -254,6 +254,36 @@ function bindDownload(id, format){
 
 bindDownload('dlPdf','pdf');
 bindDownload('dlEpub','epub');
+
+function trackEbookEvent(eventType, format){
+  var payload = JSON.stringify({ eventType: eventType, format: format });
+  try{
+    if (navigator && navigator.sendBeacon) {
+      var blob = new Blob([payload], { type: 'application/json' });
+      navigator.sendBeacon('/api/ebook/track', blob);
+      return;
+    }
+  }catch(e){}
+
+  try{
+    fetch('/api/ebook/track', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      keepalive: true
+    }).catch(function(){});
+  }catch(e){}
+}
+
+// Track outbound click to Amazon "Send to Kindle"
+(function(){
+  var el=document.getElementById('sendToKindle');
+  if(!el) return;
+  el.addEventListener('click', function(){
+    trackEbookEvent('send_to_kindle_click', 'epub');
+  });
+})();
 
 function handleLogout(){
   try{ sessionStorage.removeItem('cart'); }catch(e){}

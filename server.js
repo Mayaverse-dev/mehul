@@ -406,6 +406,37 @@ app.get('/api/ebook/download-url', async (req, res) => {
     }
 });
 
+// Track eBook page interactions (best-effort)
+app.post('/api/ebook/track', requireAuth, requireCustomer, async (req, res) => {
+    try {
+        const userId = req.session?.userId || null;
+        if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+
+        const eventTypeRaw = (req.body && req.body.eventType) ? String(req.body.eventType).trim() : '';
+        if (!eventTypeRaw) return res.status(400).json({ error: 'Missing eventType' });
+        if (!/^[a-z0-9_]{1,64}$/i.test(eventTypeRaw)) {
+            return res.status(400).json({ error: 'Invalid eventType' });
+        }
+
+        let format = (req.body && req.body.format) ? String(req.body.format).trim().toLowerCase() : 'epub';
+        if (!['pdf', 'epub', 'kindle', 'page'].includes(format)) format = 'epub';
+
+        await ebookService.logDownloadEvent({
+            userId,
+            eventType: eventTypeRaw,
+            format,
+            country: getCountryFromRequest(req),
+            userAgent: req.get('user-agent')
+        });
+
+        return res.status(204).end();
+    } catch (err) {
+        // Best-effort: never break UX for analytics.
+        console.warn('eBook track error:', err?.message || err);
+        return res.status(204).end();
+    }
+});
+
 // Get user data for dashboard
 app.get('/api/user/data', requireAuth, async (req, res) => {
     try {
