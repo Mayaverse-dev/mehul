@@ -33,6 +33,7 @@ function getS3Client() {
 
 function resolveBookKey(format) {
     const fmt = String(format || '').toLowerCase();
+    if (fmt === 'pdf-compressed') return getEnv('EBOOK_PDF_COMPRESSED_KEY');
     if (fmt === 'pdf') return getEnv('EBOOK_PDF_KEY');
     if (fmt === 'epub') return getEnv('EBOOK_EPUB_KEY');
     if (fmt === 'dictionary' || fmt === 'mobi') {
@@ -62,14 +63,6 @@ function resolveBookKey(format) {
     return '';
 }
 
-function getDefaultFilename(format) {
-    const fmt = String(format || '').toLowerCase();
-    if (fmt === 'pdf') return 'MAYA-Seed-Takes-Root.pdf';
-    if (fmt === 'epub') return 'MAYA-Seed-Takes-Root.epub';
-    if (fmt === 'dictionary' || fmt === 'mobi') return 'MAYA-Dictionary.mobi';
-    return 'MAYA-ebook';
-}
-
 async function getPresignedDownloadUrl({ format }) {
     const bucket = getEnv('BUCKET_NAME');
     if (!bucket) throw new Error('Missing BUCKET_NAME');
@@ -80,11 +73,9 @@ async function getPresignedDownloadUrl({ format }) {
     const ttlRaw = getEnv('EBOOK_URL_TTL_SECONDS');
     const ttlSeconds = Math.max(30, Math.min(60 * 60, parseInt(ttlRaw || '300', 10) || 300));
 
-    const filename = getDefaultFilename(format);
     const command = new GetObjectCommand({
         Bucket: bucket,
-        Key: key,
-        ResponseContentDisposition: `attachment; filename=\"${filename}\"`
+        Key: key
     });
 
     const url = await getSignedUrl(getS3Client(), command, { expiresIn: ttlSeconds });

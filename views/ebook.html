@@ -55,7 +55,7 @@
       .col-cover::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 60% 45%,rgba(239,68,68,.05) 0%,transparent 65%)}
       .col-cover::after{content:'';position:absolute;right:0;top:10%;bottom:10%;width:1px;background:linear-gradient(to bottom,transparent,rgba(255,255,255,.06) 30%,rgba(255,255,255,.06) 70%,transparent)}
       .col-cover img{width:85%;max-width:340px;height:auto;position:relative;z-index:1}
-      .col-content{width:62%;display:flex;flex-direction:column;justify-content:center;padding:48px 48px 48px 32px;overflow-y:hidden}
+      .col-content{width:62%;display:flex;flex-direction:column;justify-content:flex-start;padding:48px 48px 48px 32px;overflow-y:auto}
       .mobile-cover{display:none!important}
     }
     @media(min-width:1100px){
@@ -94,6 +94,16 @@
     .dl-btn{width:38px;height:38px;border-radius:10px;background:#ef4444;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s ease}
     .dl-row:hover .dl-btn{background:#dc2626;transform:scale(1.08)}
     .dl-note{font-size:11px;color:rgba(255,255,255,.18);text-align:center;margin-top:12px}
+
+    /* PDF Dropdown */
+    .dl-row-wrapper{position:relative}
+    .dl-dropdown{position:absolute;top:calc(100% + 6px);right:0;background:rgba(30,30,34,.97);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:6px;min-width:200px;opacity:0;visibility:hidden;transform:translateY(-8px);transition:all .15s ease;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+    .dl-dropdown.show{opacity:1;visibility:visible;transform:translateY(0)}
+    .dl-dropdown-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background .15s ease;color:#fff;font-size:14px;font-weight:500}
+    .dl-dropdown-item:hover{background:rgba(239,68,68,.12)}
+    .dl-dropdown-item svg{width:16px;height:16px;opacity:.6}
+    .dl-dropdown-item span{flex:1}
+    .dl-dropdown-item .dd-size{font-size:11px;color:rgba(255,255,255,.35);font-weight:400}
 
     /* Dictionary */
     .dict-dd{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.05)}
@@ -177,11 +187,25 @@
 
     <div class="glass dl">
       <div class="dl__label">Download</div>
-      <a href="#" class="dl-row" id="dlPdf" data-format="pdf">
-        <div class="dl-tag">PDF</div>
-        <div class="dl-body"><div class="dl-name">PDF Edition</div><div class="dl-desc">Desktop &amp; laptop</div></div>
-        <div class="dl-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
-      </a>
+      <div class="dl-row-wrapper">
+        <div class="dl-row" id="dlPdf" data-format="pdf">
+          <div class="dl-tag">PDF</div>
+          <div class="dl-body"><div class="dl-name">PDF Edition</div><div class="dl-desc">Desktop &amp; laptop</div></div>
+          <div class="dl-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
+        </div>
+        <div class="dl-dropdown" id="pdfDropdown">
+          <div class="dl-dropdown-item" data-format="pdf">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+            <span>Download</span>
+            <span class="dd-size">30 MB</span>
+          </div>
+          <div class="dl-dropdown-item" data-format="pdf-compressed">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+            <span>Download Compressed</span>
+            <span class="dd-size">15 MB</span>
+          </div>
+        </div>
+      </div>
       <a href="#" class="dl-row" id="dlEpub" data-format="epub">
         <div class="dl-tag">EPUB</div>
         <div class="dl-body"><div class="dl-name">EPUB Edition</div><div class="dl-desc">Kindle, e-readers &amp; mobile</div></div>
@@ -212,9 +236,9 @@
         </summary>
         <div class="dict-dd__body">
           <ol class="dict-dd__ol">
-            <li>Download the file above</li>
-            <li>Connect your Kindle to your computer via USB</li>
-            <li>Copy the file to: Kindle &rarr; documents &rarr; dictionaries</li>
+            <li>Download the maya_dictionary.mobi file to your computer.</li>
+            <li>Connect your Kindle device to your computer using a USB cable, following any on-screen instructions on your Kindle.</li>
+            <li>In File Explorer (or Finder on Mac), go to your Kindle's drive &rarr; documents &rarr; dictionaries. Copy the maya_dictionary.mobi file there, then safely eject the Kindle before unplugging.</li>
           </ol>
         </div>
       </details>
@@ -226,6 +250,7 @@
       <div class="faq-item"><button class="faq-q" onclick="F(this)"><span>Can I download both?</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">Yes. Download both as many times as you need.</div></div>
       <div class="faq-item"><button class="faq-q" onclick="F(this)"><span>How do I read on Kindle?</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">Download the EPUB, then upload at amazon.com/sendtokindle.</div></div>
       <div class="faq-item"><button class="faq-q" onclick="F(this)"><span>Trouble downloading?</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">Check your connection. If stuck, email <a href="mailto:support@entermaya.com">support@entermaya.com</a></div></div>
+      <div class="faq-item"><button class="faq-q" onclick="F(this)"><span>I've installed the dictionary file, but word meanings still aren't appearing.</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">After selecting a word, click on the dictionary name in the bottom-left corner of the pop-up window to toggle between available dictionaries.</div></div>
     </div>
 
   </div>
@@ -282,7 +307,46 @@ function bindDownload(id, format){
   });
 }
 
-bindDownload('dlPdf','pdf');
+// PDF dropdown toggle
+(function(){
+  var pdfRow = document.getElementById('dlPdf');
+  var dropdown = document.getElementById('pdfDropdown');
+  if(!pdfRow || !dropdown) return;
+
+  pdfRow.style.cursor = 'pointer';
+  pdfRow.addEventListener('click', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    dropdown.classList.toggle('show');
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e){
+    if(!pdfRow.contains(e.target) && !dropdown.contains(e.target)){
+      dropdown.classList.remove('show');
+    }
+  });
+
+  // Handle dropdown item clicks
+  var items = dropdown.querySelectorAll('.dl-dropdown-item');
+  items.forEach(function(item){
+    item.addEventListener('click', async function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      var format = item.getAttribute('data-format');
+      dropdown.classList.remove('show');
+      try{
+        setBusy(pdfRow, true);
+        await startDownload(format);
+      }catch(err){
+        toast(err && err.message ? err.message : 'Download failed');
+      }finally{
+        setBusy(pdfRow, false);
+      }
+    });
+  });
+})();
+
 bindDownload('dlEpub','epub');
 bindDownload('dlDictionary','dictionary');
 

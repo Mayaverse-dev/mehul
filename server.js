@@ -408,8 +408,8 @@ app.get('/api/ebook/download-url', async (req, res) => {
         }
 
         const format = String(req.query.format || '').toLowerCase();
-        if (!['pdf', 'epub', 'dictionary', 'mobi'].includes(format)) {
-            return res.status(400).json({ error: 'Invalid format. Use pdf, epub, or dictionary.' });
+        if (!['pdf', 'pdf-compressed', 'epub', 'dictionary', 'mobi'].includes(format)) {
+            return res.status(400).json({ error: 'Invalid format. Use pdf, pdf-compressed, epub, or dictionary.' });
         }
 
         const url = await ebookService.getPresignedDownloadUrl({ format });
@@ -446,7 +446,7 @@ app.post('/api/ebook/track', requireAuth, requireCustomer, async (req, res) => {
         }
 
         let format = (req.body && req.body.format) ? String(req.body.format).trim().toLowerCase() : 'epub';
-        if (!['pdf', 'epub', 'dictionary', 'mobi', 'kindle', 'page'].includes(format)) format = 'epub';
+        if (!['pdf', 'pdf-compressed', 'epub', 'dictionary', 'mobi', 'kindle', 'page'].includes(format)) format = 'epub';
 
         await ebookService.logDownloadEvent({
             userId,
