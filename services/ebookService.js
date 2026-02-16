@@ -75,7 +75,8 @@ async function getPresignedDownloadUrl({ format }) {
 
     const command = new GetObjectCommand({
         Bucket: bucket,
-        Key: key
+        Key: key,
+        ResponseContentDisposition: 'attachment'
     });
 
     const url = await getSignedUrl(getS3Client(), command, { expiresIn: ttlSeconds });
