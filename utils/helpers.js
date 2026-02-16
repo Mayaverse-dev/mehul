@@ -364,6 +364,12 @@ function isBacker(user) {
     return !!(user.backer_number || user.pledge_amount || user.reward_title);
 }
 
+// Eligible backer = backer AND not dropped (Kickstarter payment failed)
+function isEligibleBacker(user) {
+    if (!isBacker(user)) return false;
+    return String(user?.pledged_status || '').toLowerCase() !== 'dropped';
+}
+
 // Check if user is a backer from session data (fallback, not reliable)
 function isBackerFromSession(session) {
     if (!session || !session.userId) return false;
@@ -380,6 +386,45 @@ async function isBackerByUserId(userId) {
         return !!(user.backer_number || user.pledge_amount || user.reward_title);
     } catch (err) {
         console.error('Error checking if user is backer:', err);
+        return false;
+    }
+}
+
+async function isEligibleBackerByUserId(userId) {
+    if (!userId) return false;
+    try {
+        const user = await queryOne(
+            'SELECT backer_number, pledge_amount, reward_title, pledged_status FROM users WHERE id = $1',
+            [userId]
+        );
+        return isEligibleBacker(user);
+    } catch (err) {
+        console.error('Error checking if user is eligible backer:', err);
+        return false;
+    }
+}
+
+// Customer = eligible backer OR has made a payment on the platform
+// Sync version - only checks backer status (can't check orders without async DB call)
+function isCustomer(user) {
+    return isEligibleBacker(user);
+}
+
+// Async version - checks both backer status AND paid orders in DB
+async function isCustomerByUserId(userId) {
+    if (!userId) return false;
+    try {
+        // First check: is eligible backer?
+        if (await isEligibleBackerByUserId(userId)) return true;
+        
+        // Second check: has at least one paid order or card saved?
+        const paidOrder = await queryOne(
+            `SELECT id FROM orders WHERE user_id = $1 AND (paid = 1 OR payment_status = 'card_saved') LIMIT 1`,
+            [userId]
+        );
+        return !!paidOrder;
+    } catch (err) {
+        console.error('Error checking if user is customer:', err);
         return false;
     }
 }
@@ -419,8 +464,12 @@ module.exports = {
     ensureUserByEmail,
     findOrCreateShadowUser,
     isBacker,
+    isEligibleBacker,
     isBackerFromSession,
     isBackerByUserId,
+    isEligibleBackerByUserId,
+    isCustomer,
+    isCustomerByUserId,
     
     // Email helpers
     logEmail,

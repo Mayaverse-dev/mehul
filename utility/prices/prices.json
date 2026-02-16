@@ -1,0 +1,128 @@
+{
+  "pledges": [
+    {
+      "name": "The Humble Vaanar",
+      "backerPrice": 18,
+      "retailPrice": 25,
+      "weight": 500
+    },
+    {
+      "name": "The Industrious Manushya",
+      "backerPrice": 35,
+      "retailPrice": 50,
+      "weight": 700
+    },
+    {
+      "name": "The Resplendent Garuda",
+      "backerPrice": 99,
+      "retailPrice": 150,
+      "weight": 2100
+    },
+    {
+      "name": "The Benevolent Divya",
+      "backerPrice": 150,
+      "retailPrice": 190,
+      "weight": 3500
+    },
+    {
+      "name": "Founders of Neh",
+      "backerPrice": 1500,
+      "retailPrice": 2000,
+      "weight": 4500
+    }
+  ],
+  "upgradeMatrix": {
+    "description": "Upgrade cost from one pledge to another (row = from, column = to). Only upgrades to higher value pledges are valid.",
+    "pledgeOrder": ["Vaanar", "Manushya", "Garuda", "Divya", "Founders"],
+    "upgrades": [
+      {
+        "from": "The Humble Vaanar",
+        "to": "The Industrious Manushya",
+        "diff": 17
+      },
+      {
+        "from": "The Humble Vaanar",
+        "to": "The Resplendent Garuda",
+        "diff": 81
+      },
+      {
+        "from": "The Humble Vaanar",
+        "to": "The Benevolent Divya",
+        "diff": 132
+      },
+      {
+        "from": "The Humble Vaanar",
+        "to": "Founders of Neh",
+        "diff": 1482
+      },
+      {
+        "from": "The Industrious Manushya",
+        "to": "The Resplendent Garuda",
+        "diff": 64
+      },
+      {
+        "from": "The Industrious Manushya",
+        "to": "The Benevolent Divya",
+        "diff": 115
+      },
+      {
+        "from": "The Industrious Manushya",
+        "to": "Founders of Neh",
+        "diff": 1465
+      },
+      {
+        "from": "The Resplendent Garuda",
+        "to": "The Benevolent Divya",
+        "diff": 51
+      },
+      {
+        "from": "The Resplendent Garuda",
+        "to": "Founders of Neh",
+        "diff": 1401
+      },
+      {
+        "from": "The Benevolent Divya",
+        "to": "Founders of Neh",
+        "diff": 1350
+      }
+    ]
+  },
+  "addons": [
+    {
+      "name": "MAYA: Seed Takes Root Audiobook",
+      "backerPrice": 20,
+      "retailPrice": 25,
+      "weight": 0
+    },
+    {
+      "name": "MAYA Lorebook",
+      "backerPrice": 25,
+      "retailPrice": 35,
+      "weight": 600
+    },
+    {
+      "name": "Built Environments of MAYA Hardcover",
+      "backerPrice": 25,
+      "retailPrice": 35,
+      "weight": 800
+    },
+    {
+      "name": "Flitt Locust Pendant",
+      "backerPrice": 15,
+      "retailPrice": 20,
+      "weight": 50
+    },
+    {
+      "name": "MAYA: Seed Takes Root (Paperback)",
+      "backerPrice": 18,
+      "retailPrice": 25,
+      "weight": 400
+    },
+    {
+      "name": "MAYA: Seed Takes Root (Hardcover)",
+      "backerPrice": 35,
+      "retailPrice": 50,
+      "weight": 700
+    }
+  ]
+}

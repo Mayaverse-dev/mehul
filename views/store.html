@@ -263,6 +263,7 @@
             <img src="/images/maya-logo.png" alt="MAYA" style="height: 100%; width: auto; object-fit: contain; cursor: pointer;">
         </a>
         <div class="nav-right" style="display: flex; align-items: center; gap: 20px;">
+            <a id="ebook-link" href="/ebook" style="display: none; background: #dc2626; color: #ffffff; padding: 8px 18px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 14px; letter-spacing: 0.3px; transition: background 0.2s;">Download E-Book</a>
             <a id="profile-link" href="/login" style="background: none; border: none; cursor: pointer; position: relative; padding: 5px; text-decoration: none; color: inherit; display: flex; align-items: center;" title="Login">
                 <img src="/images/icons/Profile.svg" alt="Profile" style="height: 24px; width: 24px;">
             </a>
@@ -439,6 +440,12 @@
                 isBacker = data.isBacker === true;
                 console.log('User backer status:', isBacker ? 'Kickstarter backer' : 'Non-backer/Guest');
                 
+                // Show eBook link only for eligible backers (excludes dropped backers)
+                const ebookLink = document.getElementById('ebook-link');
+                if (ebookLink) {
+                    ebookLink.style.display = (data.isLoggedIn && data.isCustomer) ? 'inline' : 'none';
+                }
+
                 // Update profile link based on login/backer status
                 const profileLink = document.getElementById('profile-link');
                 if (profileLink) {

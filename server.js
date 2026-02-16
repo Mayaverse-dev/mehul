@@ -11,19 +11,20 @@ const nodemailer = require('nodemailer');
 const path = require('path');
 const cron = require('node-cron');
 const emailService = require('./services/emailService');
+const ebookService = require('./services/ebookService');
 const { runBackup } = require('./scripts/backup-database');
 
 // Database module
 const { initConnection, query, queryOne, execute, isPostgres, closeConnections } = require('./config/database');
 // Auth middleware
-const { requireAuth, requireBacker, requireAdmin, setUserSession, setSessionFromUser } = require('./middleware/auth');
+const { requireAuth, requireBacker, requireEligibleBacker, requireCustomer, requireAdmin, setUserSession, setSessionFromUser } = require('./middleware/auth');
 // Helper utilities
 const {
     OTP_TTL_MS, MAGIC_TTL_MS, LOGIN_STALE_DAYS,
     generateOtpCode, generateOtp, generateMagicToken, generateRandomPassword,
     isLoginStale, needsOtp, updateLastLogin,
     getUserByEmail, createShadowUser, ensureUserByEmail, findOrCreateShadowUser,
-    isBacker, isBackerFromSession, isBackerByUserId,
+    isBacker, isBackerFromSession, isBackerByUserId, isEligibleBackerByUserId, isCustomerByUserId,
     logEmail, calculateShipping, validateCartPrices
 } = require('./utils/helpers');
 
@@ -138,6 +139,30 @@ app.get('/', (req, res) => {
 // Test component page
 app.get('/test-component', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'test-component.html'));
+});
+
+// Glossary feedback page (public)
+app.get('/glossary-feedback', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'glossary-feedback.html'));
+});
+
+// Record glossary feedback (public)
+app.post('/api/glossary-feedback', async (req, res) => {
+    try {
+        const raw = (req.body && (req.body.content ?? req.body.feedback ?? req.body.entry)) || '';
+        const content = String(raw).trim();
+
+        if (!content) return res.status(400).json({ error: 'Missing content' });
+        if (content.length > 500) return res.status(400).json({ error: 'Content too long (max 500 chars)' });
+
+        const table = isPostgres() ? 'glossary.feedback' : 'glossary_feedback';
+        await execute(`INSERT INTO ${table} (content) VALUES ($1)`, [content]);
+
+        return res.status(201).json({ success: true });
+    } catch (err) {
+        console.error('Glossary feedback error:', err?.message || err);
+        return res.status(500).json({ error: 'Failed to record feedback' });
+    }
 });
 
 // Login page
@@ -342,6 +367,103 @@ app.get('/dashboard', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'dashboard.html'));
 });
 
+function getCountryFromRequest(req) {
+    // Best-effort; set by some proxies/CDNs.
+    const candidates = [
+        req.headers['cf-ipcountry'],
+        req.headers['x-vercel-ip-country'],
+        req.headers['cloudfront-viewer-country'],
+        req.headers['x-country-code']
+    ].filter(Boolean);
+    if (candidates.length === 0) return null;
+    return String(candidates[0]).trim().toUpperCase().slice(0, 10);
+}
+
+// eBook delivery page (customers: eligible backers OR users who made a payment)
+app.get('/ebook', requireAuth, requireCustomer, (req, res) => {
+    // Best-effort metric: user opened the eBook page.
+    // Keep format non-null for compatibility with earlier schema versions.
+    ebookService.logDownloadEvent({
+        userId: req.session.userId,
+        eventType: 'page_view',
+        format: 'page',
+        country: getCountryFromRequest(req),
+        userAgent: req.get('user-agent')
+    }).catch(() => {});
+
+    res.sendFile(path.join(__dirname, 'views', 'ebook.html'));
+});
+
+// Get an expiring download URL (backers only)
+app.get('/api/ebook/download-url', async (req, res) => {
+    try {
+        const userId = req.session?.userId || null;
+        if (!userId) {
+            return res.status(401).json({ error: 'Not authenticated' });
+        }
+
+        const eligible = await isCustomerByUserId(userId);
+        if (!eligible) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+
+        const format = String(req.query.format || '').toLowerCase();
+        if (!['pdf', 'pdf-compressed', 'epub', 'dictionary', 'mobi'].includes(format)) {
+            return res.status(400).json({ error: 'Invalid format. Use pdf, pdf-compressed, epub, or dictionary.' });
+        }
+
+        const url = await ebookService.getPresignedDownloadUrl({ format });
+
+        // Best-effort metrics; do not block the download.
+        const metricEventType = (format === 'dictionary' || format === 'mobi')
+            ? 'dictionary_download_url_issued'
+            : 'download_url_issued';
+        ebookService.logDownloadEvent({
+            userId,
+            eventType: metricEventType,
+            format,
+            country: getCountryFromRequest(req),
+            userAgent: req.get('user-agent')
+        }).catch(() => {});
+
+        return res.json({ url });
+    } catch (err) {
+        console.error('eBook download-url error:', err.message);
+        return res.status(500).json({ error: 'Failed to generate download link' });
+    }
+});
+
+// Track eBook page interactions (best-effort)
+app.post('/api/ebook/track', requireAuth, requireCustomer, async (req, res) => {
+    try {
+        const userId = req.session?.userId || null;
+        if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+
+        const eventTypeRaw = (req.body && req.body.eventType) ? String(req.body.eventType).trim() : '';
+        if (!eventTypeRaw) return res.status(400).json({ error: 'Missing eventType' });
+        if (!/^[a-z0-9_]{1,64}$/i.test(eventTypeRaw)) {
+            return res.status(400).json({ error: 'Invalid eventType' });
+        }
+
+        let format = (req.body && req.body.format) ? String(req.body.format).trim().toLowerCase() : 'epub';
+        if (!['pdf', 'pdf-compressed', 'epub', 'dictionary', 'mobi', 'kindle', 'page'].includes(format)) format = 'epub';
+
+        await ebookService.logDownloadEvent({
+            userId,
+            eventType: eventTypeRaw,
+            format,
+            country: getCountryFromRequest(req),
+            userAgent: req.get('user-agent')
+        });
+
+        return res.status(204).end();
+    } catch (err) {
+        // Best-effort: never break UX for analytics.
+        console.warn('eBook track error:', err?.message || err);
+        return res.status(204).end();
+    }
+});
+
 // Get user data for dashboard
 app.get('/api/user/data', requireAuth, async (req, res) => {
     try {
@@ -350,6 +472,9 @@ app.get('/api/user/data', requireAuth, async (req, res) => {
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
+        
+        // Check if user is a customer (eligible backer OR has made a payment)
+        const isCustomer = await isCustomerByUserId(req.session.userId);
         
         // Parse JSON fields
         const userData = {
@@ -369,7 +494,9 @@ app.get('/api/user/data', requireAuth, async (req, res) => {
             amountPaid: user.amount_paid || 0,
             pledgeOverTime: user.pledge_over_time === 1,
             // Late pledge flag (backed after campaign ended - pays retail prices)
-            isLatePledge: user.is_late_pledge === 1
+            isLatePledge: user.is_late_pledge === 1,
+            // Customer status (eligible backer OR has paid order)
+            isCustomer
         };
 
         res.json(userData);
@@ -541,13 +668,29 @@ app.post('/api/calculate-shipping', (req, res) => {
 });
 
 // Get user session info (accessible to everyone)
-app.get('/api/user/session', (req, res) => {
+app.get('/api/user/session', async (req, res) => {
     if (req.session && req.session.userId) {
         // Check if user is an actual Kickstarter backer
-        const isBacker = !!(req.session.backerNumber || req.session.pledgeAmount || req.session.rewardTitle);
+        const backerStatus = !!(req.session.backerNumber || req.session.pledgeAmount || req.session.rewardTitle);
+        let pledgedStatus = null;
+
+        if (backerStatus) {
+            try {
+                const row = await queryOne('SELECT pledged_status FROM users WHERE id = $1', [req.session.userId]);
+                pledgedStatus = row?.pledged_status || 'collected';
+            } catch (err) {
+                pledgedStatus = null;
+            }
+        }
+
+        // Check if user is a customer (eligible backer OR has made a payment)
+        const isCustomer = await isCustomerByUserId(req.session.userId);
+
         res.json({
             isLoggedIn: true,
-            isBacker: isBacker,
+            isBacker: backerStatus,
+            isCustomer,
+            pledgedStatus,
             user: {
                 id: req.session.userId,
                 email: req.session.userEmail,
@@ -561,6 +704,8 @@ app.get('/api/user/session', (req, res) => {
         res.json({
             isLoggedIn: false,
             isBacker: false,
+            isCustomer: false,
+            pledgedStatus: null,
             user: null
         });
     }

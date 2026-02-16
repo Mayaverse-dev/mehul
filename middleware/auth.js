@@ -2,6 +2,9 @@
  * Authentication Middleware & Session Helpers
  */
 
+const { queryOne } = require('../config/database');
+const { isEligibleBacker, isCustomerByUserId } = require('../utils/helpers');
+
 // Auth middleware - require user login
 function requireAuth(req, res, next) {
     if (req.session.userId) {
@@ -22,6 +25,48 @@ function requireBacker(req, res, next) {
         return res.redirect('/');
     }
     next();
+}
+
+// Eligible backer middleware - must be a KS backer and not a dropped backer
+async function requireEligibleBacker(req, res, next) {
+    try {
+        if (!req.session?.userId) {
+            return res.redirect('/');
+        }
+
+        const user = await queryOne(
+            'SELECT backer_number, pledge_amount, reward_title, pledged_status FROM users WHERE id = $1',
+            [req.session.userId]
+        );
+
+        if (!isEligibleBacker(user)) {
+            return res.redirect('/');
+        }
+
+        return next();
+    } catch (err) {
+        console.error('requireEligibleBacker error:', err);
+        return res.redirect('/');
+    }
+}
+
+// Customer middleware - must be eligible backer OR have made a payment
+async function requireCustomer(req, res, next) {
+    try {
+        if (!req.session?.userId) {
+            return res.redirect('/');
+        }
+
+        const isCustomer = await isCustomerByUserId(req.session.userId);
+        if (!isCustomer) {
+            return res.redirect('/');
+        }
+
+        return next();
+    } catch (err) {
+        console.error('requireCustomer error:', err);
+        return res.redirect('/');
+    }
 }
 
 // Admin middleware - require admin login
@@ -51,6 +96,8 @@ function setSessionFromUser(req, user) {
 module.exports = {
     requireAuth,
     requireBacker,
+    requireEligibleBacker,
+    requireCustomer,
     requireAdmin,
     setUserSession,
     setSessionFromUser

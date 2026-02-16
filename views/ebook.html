@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>MAYA: Seed Takes Root</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <style>
+
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;overflow:hidden}
+    body{font-family:'Outfit',system-ui,sans-serif;background:#0e0e10;color:#fff;-webkit-font-smoothing:antialiased}
+    :root{--nav-h:50px}
+
+    /* App navbar */
+    #navbar{
+      background:#1a1a1a;
+      padding:10px 60px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      position:fixed;
+      top:0;left:0;right:0;
+      z-index:1000;
+      height:var(--nav-h);
+    }
+    #navbar .logo{height:30px;width:auto;display:block}
+    #navbar .logo img{height:100%;width:auto;object-fit:contain;cursor:pointer}
+    #navbar .nav-right{display:flex;align-items:center;gap:20px;font-size:14px}
+    #navbar .nav-right a{color:#fff;text-decoration:none;font-weight:500}
+    #navbar .nav-right a:hover{opacity:.75}
+
+    /* Layout */
+    .page{display:flex;height:calc(100dvh - var(--nav-h));overflow:hidden;margin-top:var(--nav-h)}
+    .desktop-frame{display:flex;width:100%;height:100%}
+    .col-cover{display:none}
+    .col-content{flex:1;overflow-y:auto;scrollbar-width:none;padding:32px 24px env(safe-area-inset-bottom)}
+    .col-content::-webkit-scrollbar{display:none}
+
+    /* Cover column — desktop */
+    @media(min-width:769px){
+      .page{align-items:center;justify-content:center;padding:20px}
+      .desktop-frame{
+        width:min(1240px,100%);
+        height:min(840px,calc(100dvh - 40px));
+        border:1px solid rgba(255,255,255,.07);
+        border-radius:16px;
+        overflow:hidden;
+        background:#0e0e10;
+      }
+      .col-cover{display:flex;align-items:center;justify-content:flex-end;width:38%;background:#0e0e10;position:relative;overflow:hidden;padding-right:32px}
+      .col-cover::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 60% 45%,rgba(239,68,68,.05) 0%,transparent 65%)}
+      .col-cover::after{content:'';position:absolute;right:0;top:10%;bottom:10%;width:1px;background:linear-gradient(to bottom,transparent,rgba(255,255,255,.06) 30%,rgba(255,255,255,.06) 70%,transparent)}
+      .col-cover img{width:85%;max-width:340px;height:auto;position:relative;z-index:1}
+      .col-content{width:62%;display:flex;flex-direction:column;justify-content:flex-start;padding:48px 48px 48px 32px;overflow-y:auto}
+      .mobile-cover{display:none!important}
+    }
+    @media(min-width:1100px){
+      .col-cover{padding-right:40px}
+      .col-cover img{width:80%;max-width:380px}
+      .col-content{padding:48px 64px 48px 40px}
+    }
+
+    /* Mobile cover */
+    .mobile-cover{text-align:center;margin-bottom:24px}
+    .mobile-cover img{width:200px;height:auto}
+
+    /* Header */
+    .hdr{text-align:center;margin-bottom:22px}
+    @media(min-width:769px){.hdr{text-align:left;margin-bottom:26px}}
+    .eyebrow{font-size:10px;font-weight:500;color:#ef4444;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:8px;opacity:.7}
+    .title{font-size:26px;font-weight:700;line-height:1.15;letter-spacing:-.02em;margin-bottom:4px}
+    @media(min-width:769px){.title{font-size:36px}}
+    @media(min-width:1100px){.title{font-size:40px}}
+    .sub{font-size:14px;font-weight:300;color:rgba(255,255,255,.4)}
+    .badge{display:none;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,.2)}
+
+    /* Glass panels */
+    .glass{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06);border-radius:14px}
+
+    /* Download */
+    .dl{padding:20px;margin-bottom:10px}
+    .dl__label{font-size:10px;font-weight:500;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px}
+    .dl-row{display:flex;align-items:center;gap:14px;padding:14px 16px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.05);border-radius:12px;margin-bottom:8px;text-decoration:none;color:inherit;transition:all .15s ease}
+    .dl-row:last-of-type{margin-bottom:0}
+    .dl-row:hover{background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.15)}
+    .dl-tag{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:400;color:rgba(255,255,255,.5);background:rgba(255,255,255,.06);min-width:52px;text-align:center;padding:8px 0;border-radius:8px;line-height:1;letter-spacing:.5px;flex-shrink:0}
+    .dl-body{flex:1;min-width:0}
+    .dl-name{font-size:16px;font-weight:500;color:#fff}
+    .dl-desc{font-size:13px;color:rgba(255,255,255,.35);margin-top:2px}
+    .dl-btn{width:38px;height:38px;border-radius:10px;background:#ef4444;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s ease}
+    .dl-row:hover .dl-btn{background:#dc2626;transform:scale(1.08)}
+    .dl-note{font-size:11px;color:rgba(255,255,255,.18);text-align:center;margin-top:12px}
+
+    /* PDF Dropdown */
+    .dl-row-wrapper{position:relative}
+    .dl-dropdown{position:absolute;top:calc(100% + 6px);right:0;background:rgba(30,30,34,.97);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:6px;min-width:200px;opacity:0;visibility:hidden;transform:translateY(-8px);transition:all .15s ease;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+    .dl-dropdown.show{opacity:1;visibility:visible;transform:translateY(0)}
+    .dl-dropdown-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background .15s ease;color:#fff;font-size:14px;font-weight:500}
+    .dl-dropdown-item:hover{background:rgba(239,68,68,.12)}
+    .dl-dropdown-item svg{width:16px;height:16px;opacity:.6}
+    .dl-dropdown-item span{flex:1}
+    .dl-dropdown-item .dd-size{font-size:11px;color:rgba(255,255,255,.35);font-weight:400}
+
+    /* Dictionary */
+    .dict-dd{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.05)}
+    .dict-dd summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;color:rgba(255,255,255,.45);font-size:14px;font-weight:500;user-select:none}
+    .dict-dd summary:hover{color:rgba(255,255,255,.8)}
+    .dict-dd summary::-webkit-details-marker{display:none}
+    .dict-dd__chev{flex-shrink:0;color:rgba(255,255,255,.92);transition:transform .2s,color .15s}
+    .dict-dd[open] .dict-dd__chev{transform:rotate(180deg);color:rgba(255,255,255,.92)}
+    .dict-dd__body{padding:6px 0 0}
+    .dict-dd__ol{margin-left:18px;font-size:12px;color:rgba(255,255,255,.28);line-height:1.6}
+    .dict-dd__ol li{margin:6px 0}
+
+    /* Kindle */
+    .kindle{display:flex;align-items:center;gap:14px;padding:16px 20px;margin-bottom:10px;text-decoration:none;color:inherit;transition:all .15s ease}
+    .kindle:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1)}
+    .kindle__body{flex:1}
+    .kindle__t{font-size:15px;font-weight:500;color:#fff}
+    .kindle__d{font-size:13px;color:rgba(255,255,255,.7);margin-top:2px}
+    .kindle__arr{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s ease}
+    .kindle:hover .kindle__arr{background:rgba(239,68,68,.12);color:#ef4444}
+
+    /* FAQ */
+    .faq{padding:18px 18px 22px;margin-bottom:10px}
+    .faq__label{font-size:10px;font-weight:500;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px}
+    .faq-q{width:100%;background:0;border:0;font-family:inherit;font-size:14px;color:rgba(255,255,255,.45);text-align:left;padding:10px 0;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.04);transition:color .15s}
+    .faq-item:last-child .faq-q{border-bottom:0}
+    .faq-q:hover{color:rgba(255,255,255,.8)}
+    .faq-item.open .faq-q{color:#fff;border-bottom-color:transparent}
+    .faq-q svg{flex-shrink:0;color:rgba(255,255,255,.92);transition:transform .2s,color .15s}
+    .faq-item.open .faq-q svg{transform:rotate(180deg);color:rgba(255,255,255,.92)}
+    .faq-a{display:none;font-size:12px;color:rgba(255,255,255,.28);line-height:1.6;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.04)}
+    .faq-item.open .faq-a{display:block}
+    .faq-a a{color:rgba(255,255,255,.5);text-decoration:underline;text-underline-offset:2px}
+    .faq-a a:hover{color:#ef4444}
+
+    /* Footer */
+    .ftr{text-align:center;padding:16px 0 8px;font-size:11px;color:rgba(255,255,255,.12);line-height:1.6}
+    @media(min-width:769px){.ftr{text-align:left}}
+    .ftr a{color:rgba(255,255,255,.2);text-decoration:none;transition:color .15s}
+    .ftr a:hover{color:#ef4444}
+
+    /* Toast */
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:rgba(20,20,24,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);color:#fff;padding:10px 18px;border-radius:10px;border:1px solid rgba(255,255,255,.07);font-size:13px;font-weight:500;z-index:100;opacity:0;transition:all .25s cubic-bezier(.4,0,.2,1);pointer-events:none}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  </style>
+</head>
+<body>
+
+<div id="navbar">
+  <a class="logo" href="/dashboard" title="Dashboard">
+    <img src="/images/maya-logo.png" alt="MAYA">
+  </a>
+  <div class="nav-right">
+    <a href="#" onclick="handleLogout(); return false;">Logout</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="page">
+<div class="desktop-frame">
+
+  <!-- Desktop: cover column -->
+  <div class="col-cover">
+    <img src="/maya-primary.png" alt="MAYA: Seed Takes Root" width="520" height="800" loading="eager">
+  </div>
+
+  <!-- Content column -->
+  <div class="col-content">
+
+    <!-- Mobile only cover -->
+    <div class="mobile-cover">
+      <img src="/maya-primary.png" alt="MAYA: Seed Takes Root" width="220" height="339" loading="eager">
+    </div>
+
+    <div class="hdr">
+      <div class="eyebrow">Collector's Edition</div>
+      <h1 class="title">MAYA: Seed Takes Root</h1>
+      <div class="badge" id="pledgerBadge"><span id="pledgerId"></span></div>
+    </div>
+
+    <div class="glass dl">
+      <div class="dl__label">Download</div>
+      <div class="dl-row-wrapper">
+        <div class="dl-row" id="dlPdf" data-format="pdf">
+          <div class="dl-tag">PDF</div>
+          <div class="dl-body"><div class="dl-name">PDF Edition</div><div class="dl-desc">Desktop &amp; laptop</div></div>
+          <div class="dl-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
+        </div>
+        <div class="dl-dropdown" id="pdfDropdown">
+          <div class="dl-dropdown-item" data-format="pdf">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+            <span>Download</span>
+            <span class="dd-size">30 MB</span>
+          </div>
+          <div class="dl-dropdown-item" data-format="pdf-compressed">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+            <span>Download Compressed</span>
+            <span class="dd-size">15 MB</span>
+          </div>
+        </div>
+      </div>
+      <a href="#" class="dl-row" id="dlEpub" data-format="epub">
+        <div class="dl-tag">EPUB</div>
+        <div class="dl-body"><div class="dl-name">EPUB Edition</div><div class="dl-desc">Kindle, e-readers &amp; mobile</div></div>
+        <div class="dl-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
+      </a>
+      <div class="dl-note">DRM-free &middot; No restrictions &middot; Yours forever</div>
+    </div>
+
+    <a href="https://www.amazon.com/sendtokindle" target="_blank" rel="noopener" class="glass kindle" id="sendToKindle">
+      <div class="kindle__body"><div class="kindle__t">Send to Kindle</div><div class="kindle__d">Download EPUB above, then upload here</div></div>
+      <div class="kindle__arr"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2.5" stroke-linecap="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
+    </a>
+
+    <div class="glass dl" id="dictionaryPanel">
+      <div class="dl__label">Maya Dictionary</div>
+      <a href="#" class="dl-row" id="dlDictionary" data-format="dictionary">
+        <div class="dl-tag">MOBI</div>
+        <div class="dl-body"><div class="dl-name">Maya Dictionary</div><div class="dl-desc">Install as a Kindle dictionary</div></div>
+        <div class="dl-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
+      </a>
+
+      <details class="dict-dd">
+        <summary>
+          <span>Instructions to install</span>
+          <svg class="dict-dd__chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </summary>
+        <div class="dict-dd__body">
+          <ol class="dict-dd__ol">
+            <li>Download the maya_dictionary.mobi file to your computer.</li>
+            <li>Connect your Kindle device to your computer using a USB cable, following any on-screen instructions on your Kindle.</li>
+            <li>In File Explorer (or Finder on Mac), go to your Kindle's drive &rarr; documents &rarr; dictionaries. Copy the maya_dictionary.mobi file there, then safely eject the Kindle before unplugging.</li>
+          </ol>
+        </div>
+      </details>
+    </div>
+
+    <div class="glass faq">
+      <div class="faq__label">FAQ</div>
+      <div class="faq-item"><button class="faq-q" onclick="F(this)"><span>Which format should I choose?</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">EPUB for Kindle, e-readers &amp; mobile. PDF for desktop &amp; laptop.</div></div>
+      <div class="faq-item"><button class="faq-q" onclick="F(this)"><span>Can I download both?</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">Yes. Download both as many times as you need.</div></div>
+      <div class="faq-item"><button class="faq-q" onclick="F(this)"><span>How do I read on Kindle?</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">Download the EPUB, then upload at amazon.com/sendtokindle.</div></div>
+      <div class="faq-item"><button class="faq-q" onclick="F(this)"><span>Trouble downloading?</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">Check your connection. If stuck, email <a href="mailto:support@entermaya.com">support@entermaya.com</a></div></div>
+      <div class="faq-item"><button class="faq-q" onclick="F(this)"><span>I've installed the dictionary file, but word meanings still aren't appearing.</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-a">After selecting a word, click on the dictionary name in the bottom-left corner of the pop-up window to toggle between available dictionaries.</div></div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<script>
+function toast(msg){
+  var el=document.getElementById('toast');
+  if(!el) return;
+  el.textContent=msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t=setTimeout(function(){el.classList.remove('show')},2500);
+}
+
+function setBusy(row,busy){
+  if(!row) return;
+  row.style.pointerEvents=busy?'none':'auto';
+  row.style.opacity=busy?'.7':'1';
+}
+
+function F(btn){
+  var item=btn && btn.closest ? btn.closest('.faq-item') : null;
+  if(!item) return;
+  item.classList.toggle('open');
+}
+
+async function startDownload(format){
+  var res=await fetch('/api/ebook/download-url?format='+encodeURIComponent(format), { credentials:'same-origin' });
+  if(!res.ok){
+    var data=null;
+    try{ data=await res.json(); }catch(e){}
+    throw new Error((data && data.error) ? data.error : 'Download failed');
+  }
+  var out=await res.json();
+  if(!out || !out.url) throw new Error('Missing download URL');
+  window.location.assign(out.url);
+}
+
+function bindDownload(id, format){
+  var el=document.getElementById(id);
+  if(!el) return;
+  el.addEventListener('click', async function(e){
+    e.preventDefault();
+    try{
+      setBusy(el,true);
+      await startDownload(format);
+    }catch(err){
+      toast(err && err.message ? err.message : 'Download failed');
+    }finally{
+      setBusy(el,false);
+    }
+  });
+}
+
+// PDF dropdown toggle
+(function(){
+  var pdfRow = document.getElementById('dlPdf');
+  var dropdown = document.getElementById('pdfDropdown');
+  if(!pdfRow || !dropdown) return;
+
+  pdfRow.style.cursor = 'pointer';
+  pdfRow.addEventListener('click', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    dropdown.classList.toggle('show');
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e){
+    if(!pdfRow.contains(e.target) && !dropdown.contains(e.target)){
+      dropdown.classList.remove('show');
+    }
+  });
+
+  // Handle dropdown item clicks
+  var items = dropdown.querySelectorAll('.dl-dropdown-item');
+  items.forEach(function(item){
+    item.addEventListener('click', async function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      var format = item.getAttribute('data-format');
+      dropdown.classList.remove('show');
+      try{
+        setBusy(pdfRow, true);
+        await startDownload(format);
+      }catch(err){
+        toast(err && err.message ? err.message : 'Download failed');
+      }finally{
+        setBusy(pdfRow, false);
+      }
+    });
+  });
+})();
+
+bindDownload('dlEpub','epub');
+bindDownload('dlDictionary','dictionary');
+
+function trackEbookEvent(eventType, format){
+  var payload = JSON.stringify({ eventType: eventType, format: format });
+  try{
+    if (navigator && navigator.sendBeacon) {
+      var blob = new Blob([payload], { type: 'application/json' });
+      navigator.sendBeacon('/api/ebook/track', blob);
+      return;
+    }
+  }catch(e){}
+
+  try{
+    fetch('/api/ebook/track', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      keepalive: true
+    }).catch(function(){});
+  }catch(e){}
+}
+
+// Track outbound click to Amazon "Send to Kindle"
+(function(){
+  var el=document.getElementById('sendToKindle');
+  if(!el) return;
+  el.addEventListener('click', function(){
+    trackEbookEvent('send_to_kindle_click', 'epub');
+  });
+})();
+
+// Track dictionary downloads separately
+(function(){
+  var el=document.getElementById('dlDictionary');
+  if(!el) return;
+  el.addEventListener('click', function(){
+    trackEbookEvent('dictionary_download_click', 'dictionary');
+  });
+})();
+
+function handleLogout(){
+  try{ sessionStorage.removeItem('cart'); }catch(e){}
+  try{ localStorage.removeItem('originalPledgeInfo'); }catch(e){}
+  window.location.href='/logout';
+}
+</script>
+
+</body>
+</html>
+

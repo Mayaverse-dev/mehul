@@ -249,6 +249,72 @@ async function initializeDatabase() {
         )`);
         console.log('✓ Email logs table ready');
 
+        // eBook metrics tables
+        try {
+            if (isPostgres) {
+                await execute(`CREATE SCHEMA IF NOT EXISTS ebook`);
+                await execute(`CREATE TABLE IF NOT EXISTS ebook.download_events (
+                    id ${idType} PRIMARY KEY ${autoIncrement},
+                    user_id INTEGER NOT NULL,
+                    event_type TEXT NOT NULL DEFAULT 'download_url_issued',
+                    format TEXT NOT NULL,
+                    country TEXT,
+                    user_agent TEXT,
+                    created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
+                )`);
+                // Legacy cleanup: we no longer store IP hashes.
+                await execute(`ALTER TABLE ebook.download_events DROP COLUMN IF EXISTS ip_hash`);
+                // Backward/forward compatibility: make sure event_type exists.
+                await execute(`ALTER TABLE ebook.download_events ADD COLUMN IF NOT EXISTS event_type TEXT NOT NULL DEFAULT 'download_url_issued'`);
+                await execute(`CREATE INDEX IF NOT EXISTS ebook_download_events_user_created_idx
+                               ON ebook.download_events (user_id, created_at)`);
+                await execute(`CREATE INDEX IF NOT EXISTS ebook_download_events_type_created_idx
+                               ON ebook.download_events (event_type, created_at)`);
+            } else {
+                await execute(`CREATE TABLE IF NOT EXISTS ebook_download_events (
+                    id ${idType} PRIMARY KEY ${autoIncrement},
+                    user_id INTEGER NOT NULL,
+                    event_type TEXT NOT NULL DEFAULT 'download_url_issued',
+                    format TEXT NOT NULL,
+                    country TEXT,
+                    user_agent TEXT,
+                    created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
+                )`);
+                // Best-effort legacy cleanup; older SQLite may not support DROP COLUMN.
+                try { await execute(`ALTER TABLE ebook_download_events DROP COLUMN ip_hash`); } catch (_) {}
+                // Best-effort: add event_type for older SQLite DBs.
+                try { await execute(`ALTER TABLE ebook_download_events ADD COLUMN event_type TEXT DEFAULT 'download_url_issued'`); } catch (_) {}
+                await execute(`CREATE INDEX IF NOT EXISTS ebook_download_events_user_created_idx
+                               ON ebook_download_events (user_id, created_at)`);
+                await execute(`CREATE INDEX IF NOT EXISTS ebook_download_events_type_created_idx
+                               ON ebook_download_events (event_type, created_at)`);
+            }
+            console.log('✓ eBook download events table ready');
+        } catch (err) {
+            console.warn('⚠️  eBook metrics table setup skipped:', err.message);
+        }
+
+        // Glossary feedback table
+        try {
+            if (isPostgres) {
+                await execute(`CREATE SCHEMA IF NOT EXISTS glossary`);
+                await execute(`CREATE TABLE IF NOT EXISTS glossary.feedback (
+                    id ${idType} PRIMARY KEY ${autoIncrement},
+                    content TEXT NOT NULL,
+                    created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
+                )`);
+            } else {
+                await execute(`CREATE TABLE IF NOT EXISTS glossary_feedback (
+                    id ${idType} PRIMARY KEY ${autoIncrement},
+                    content TEXT NOT NULL,
+                    created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
+                )`);
+            }
+            console.log('✓ Glossary feedback table ready');
+        } catch (err) {
+            console.warn('⚠️  Glossary feedback table setup skipped:', err.message);
+        }
+
         // Create default admin
         await createDefaultAdmin();
         

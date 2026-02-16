@@ -64,6 +64,16 @@
             opacity: 0.7;
         }
 
+        @media (max-width: 600px) {
+            #navbar {
+                padding: 10px 15px;
+            }
+            .nav-right {
+                gap: 10px;
+                font-size: 12px;
+            }
+        }
+
         .cart-button {
             background: none;
             border: none;
@@ -296,6 +306,7 @@
             </a>
             </div>
         <div class="nav-right">
+            <a id="ebook-link" href="/ebook" class="ebook-btn" style="display: none;">Download E-Book</a>
             <button onclick="window.location.href='/addons'" class="cart-button" title="Cart" style="display: flex; align-items: center; position: relative;">
                 <img src="/images/icons/cart-01.svg" alt="Cart" style="height: 24px; width: 24px;">
                 <span id="cart-badge" class="cart-badge" style="display: none;">0</span>
@@ -304,8 +315,57 @@
         </div>
     </div>
 
+    <style>
+        .ebook-btn {
+            background: #dc2626;
+            color: #ffffff !important;
+            padding: 8px 18px;
+            border-radius: 6px;
+            text-decoration: none !important;
+            font-weight: 700 !important;
+            font-size: 14px;
+            letter-spacing: 0.3px;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        @media (max-width: 600px) {
+            .ebook-btn {
+                padding: 6px 12px;
+                font-size: 11px !important;
+            }
+        }
+        /* E-Book Banner */
+        .ebook-banner {
+            display: none;
+            text-decoration: none;
+            margin: 0 0 30px;
+            padding: 24px;
+            background: #1e1e1e;
+            border: 1px solid rgba(255,255,255,.07);
+            border-radius: 16px;
+        }
+        .ebook-banner img {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+        }
+        .ebook-banner__desktop { display: block; max-width: 900px; margin: 0 auto; }
+        .ebook-banner__mobile { display: none; }
+        @media (max-width: 768px) {
+            .ebook-banner__desktop { display: none; }
+            .ebook-banner__mobile { display: block; }
+            .ebook-banner { margin: 0 0 22px; padding: 16px; border-radius: 12px; }
+        }
+    </style>
+
     <!-- Main Content -->
     <div class="main-content">
+        <!-- E-Book Notification Banner -->
+        <a href="/ebook" id="ebook-banner" class="ebook-banner">
+            <img src="/images/ebook_notification/desktop.png" alt="E-Book Live Now" class="ebook-banner__desktop">
+            <img src="/images/ebook_notification/mobile.png" alt="E-Book Live Now" class="ebook-banner__mobile">
+        </a>
+
         <!-- Order Completed View (shown when user has already checked out) -->
         <div id="order-completed-view" style="display: none;">
             <div style="background: #1e1e1e; border-radius: 16px; padding: 40px; margin-bottom: 30px;">
@@ -493,6 +553,24 @@
         let cart = JSON.parse(sessionStorage.getItem('cart')) || [];
         let products = [];
 
+        async function setupEbookNav() {
+            const ebookLink = document.getElementById('ebook-link');
+            const ebookBanner = document.getElementById('ebook-banner');
+            if (!ebookLink) return;
+            try {
+                const response = await fetch('/api/user/session');
+                const data = await response.json();
+                if (data && data.isCustomer) {
+                    ebookLink.style.display = 'inline';
+                    if (ebookBanner) {
+                        ebookBanner.style.display = 'block';
+                    }
+                }
+            } catch (e) {
+                // Non-critical: leave hidden
+            }
+        }
+
 
         // Handle logout with cart clearing
         function handleLogout() {
@@ -567,6 +645,8 @@
         function goToCart() {
             window.location.href = '/addons';
         }
+
+        setupEbookNav();
 
         // Map pledge names to image filenames
         const pledgeImageMap = {
