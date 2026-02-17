@@ -8,6 +8,7 @@
     "dev": "node server.js",
     "import-csv": "node scripts/import-csv.js",
     "seed-addons": "node scripts/seed-addons.js",
+    "seed-changelog": "node scripts/seed-changelog.js",
     "create-test-user": "node scripts/create-test-user.js",
     "update-backer-prices": "node scripts/update-backer-prices.js",
     "cleanup-products": "node scripts/cleanup-products.js",

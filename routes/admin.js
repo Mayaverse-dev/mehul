@@ -603,6 +603,71 @@ router.post('/charge-order/:orderId', requireAdmin, async (req, res) => {
     }
 });
 
+// ============================================
+// CHANGELOG MANAGEMENT
+// ============================================
+
+// List all changelogs (optionally filter by slug)
+router.get('/changelogs', requireAdmin, async (req, res) => {
+    try {
+        const slug = req.query.slug;
+        let entries;
+        if (slug) {
+            entries = await query('SELECT * FROM changelogs WHERE slug = $1 ORDER BY published_at DESC, created_at DESC', [slug]);
+        } else {
+            entries = await query('SELECT * FROM changelogs ORDER BY slug, published_at DESC, created_at DESC');
+        }
+        res.json(entries);
+    } catch (err) {
+        console.error('Error fetching changelogs:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// Create a changelog entry
+router.post('/changelogs', requireAdmin, async (req, res) => {
+    const { slug, title, body, tags, published_at, is_public } = req.body;
+    if (!slug || !title || !body) {
+        return res.status(400).json({ error: 'slug, title, and body are required' });
+    }
+    try {
+        await execute(
+            'INSERT INTO changelogs (slug, title, body, tags, is_public, published_at) VALUES ($1, $2, $3, $4, $5, $6)',
+            [slug, title, body, tags || '', is_public !== false ? 1 : 0, published_at || new Date().toISOString()]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error creating changelog:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// Update a changelog entry
+router.put('/changelogs/:id', requireAdmin, async (req, res) => {
+    const { title, body, tags, published_at, is_public } = req.body;
+    try {
+        await execute(
+            'UPDATE changelogs SET title = $1, body = $2, tags = $3, is_public = $4, published_at = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6',
+            [title, body, tags || '', is_public !== false ? 1 : 0, published_at, req.params.id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error updating changelog:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// Delete a changelog entry
+router.delete('/changelogs/:id', requireAdmin, async (req, res) => {
+    try {
+        await execute('DELETE FROM changelogs WHERE id = $1', [req.params.id]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error deleting changelog:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // Admin logout
 router.get('/logout', (req, res) => {
     req.session.destroy();

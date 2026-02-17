@@ -136,6 +136,35 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'store.html'));
 });
 
+// Changelog pages (public)
+app.get('/changelog/Pledgemanager', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'changelog.html'));
+});
+app.get('/changelog/ebook/MAYA-book-one', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'changelog.html'));
+});
+
+// Changelog API - get entries for a slug (PUBLIC ONLY)
+app.get('/api/changelog/*', async (req, res) => {
+    const slug = req.params[0];
+    try {
+        const { markdownToHtml } = require('./utils/markdown');
+        const entries = await query(
+            'SELECT * FROM changelogs WHERE slug = $1 AND is_public = 1 ORDER BY published_at DESC, created_at DESC',
+            [slug]
+        );
+        // Convert markdown to HTML
+        const entriesWithHtml = entries.map(e => ({
+            ...e,
+            body: markdownToHtml(e.body)
+        }));
+        res.json(entriesWithHtml);
+    } catch (err) {
+        console.error('Error fetching changelog:', err);
+        res.json([]);
+    }
+});
+
 // Test component page
 app.get('/test-component', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'test-component.html'));

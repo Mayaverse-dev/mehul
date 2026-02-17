@@ -294,6 +294,25 @@ async function initializeDatabase() {
             console.warn('⚠️  eBook metrics table setup skipped:', err.message);
         }
 
+        // Changelogs table
+        try {
+            await execute(`CREATE TABLE IF NOT EXISTS changelogs (
+                id ${idType} PRIMARY KEY ${autoIncrement},
+                slug TEXT NOT NULL,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                tags TEXT,
+                is_public INTEGER DEFAULT 1,
+                published_at ${timestampType},
+                created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP,
+                updated_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
+            )`);
+            console.log('✓ Changelogs table ready');
+            await addColumnIfMissing('changelogs', 'is_public INTEGER DEFAULT 1');
+        } catch (err) {
+            console.warn('⚠️  Changelogs table setup skipped:', err.message);
+        }
+
         // Glossary feedback table
         try {
             if (isPostgres) {
