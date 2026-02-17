@@ -24,7 +24,7 @@ const {
     generateOtpCode, generateOtp, generateMagicToken, generateRandomPassword,
     isLoginStale, needsOtp, updateLastLogin,
     getUserByEmail, createShadowUser, ensureUserByEmail, findOrCreateShadowUser,
-    isBacker, isBackerFromSession, isBackerByUserId, isEligibleBackerByUserId, isCustomerByUserId,
+    isBacker, isBackerFromSession, isBackerByUserId, isEligibleBackerByUserId, isDroppedBackerByUserId, isCustomerByUserId,
     logEmail, calculateShipping, validateCartPrices
 } = require('./utils/helpers');
 
@@ -685,11 +685,15 @@ app.get('/api/user/session', async (req, res) => {
 
         // Check if user is a customer (eligible backer OR has made a payment)
         const isCustomer = await isCustomerByUserId(req.session.userId);
+        
+        // Check if user is a dropped backer
+        const isDroppedBacker = await isDroppedBackerByUserId(req.session.userId);
 
         res.json({
             isLoggedIn: true,
             isBacker: backerStatus,
             isCustomer,
+            isDroppedBacker,
             pledgedStatus,
             user: {
                 id: req.session.userId,
@@ -705,6 +709,7 @@ app.get('/api/user/session', async (req, res) => {
             isLoggedIn: false,
             isBacker: false,
             isCustomer: false,
+            isDroppedBacker: false,
             pledgedStatus: null,
             user: null
         });
