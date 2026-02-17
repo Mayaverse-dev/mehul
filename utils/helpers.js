@@ -370,6 +370,27 @@ function isEligibleBacker(user) {
     return String(user?.pledged_status || '').toLowerCase() !== 'dropped';
 }
 
+// Dropped backer = backer AND dropped (Kickstarter payment failed)
+function isDroppedBacker(user) {
+    if (!isBacker(user)) return false;
+    return String(user?.pledged_status || '').toLowerCase() === 'dropped';
+}
+
+// Check if user is a dropped backer by querying the database
+async function isDroppedBackerByUserId(userId) {
+    if (!userId) return false;
+    try {
+        const user = await queryOne(
+            'SELECT backer_number, pledge_amount, reward_title, pledged_status FROM users WHERE id = $1',
+            [userId]
+        );
+        return isDroppedBacker(user);
+    } catch (err) {
+        console.error('Error checking if user is dropped backer:', err);
+        return false;
+    }
+}
+
 // Check if user is a backer from session data (fallback, not reliable)
 function isBackerFromSession(session) {
     if (!session || !session.userId) return false;
@@ -465,6 +486,8 @@ module.exports = {
     findOrCreateShadowUser,
     isBacker,
     isEligibleBacker,
+    isDroppedBacker,
+    isDroppedBackerByUserId,
     isBackerFromSession,
     isBackerByUserId,
     isEligibleBackerByUserId,

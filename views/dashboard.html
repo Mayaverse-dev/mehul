@@ -360,11 +360,16 @@
 
     <!-- Main Content -->
     <div class="main-content">
-        <!-- E-Book Notification Banner -->
+        <!-- E-Book Notification Banner (for eligible customers) -->
         <a href="/ebook" id="ebook-banner" class="ebook-banner">
             <img src="/images/ebook_notification/desktop.png" alt="E-Book Live Now" class="ebook-banner__desktop">
             <img src="/images/ebook_notification/mobile.png" alt="E-Book Live Now" class="ebook-banner__mobile">
         </a>
+        <!-- E-Book Notification Banner (for dropped backers - not clickable) -->
+        <div id="ebook-banner-dropped" class="ebook-banner">
+            <img src="/images/ebook_notification/dropped_backer.webp" alt="E-Book Live Now" class="ebook-banner__desktop">
+            <img src="/images/ebook_notification/dropped_backer.webp" alt="E-Book Live Now" class="ebook-banner__mobile">
+        </div>
 
         <!-- Order Completed View (shown when user has already checked out) -->
         <div id="order-completed-view" style="display: none;">
@@ -556,14 +561,22 @@
         async function setupEbookNav() {
             const ebookLink = document.getElementById('ebook-link');
             const ebookBanner = document.getElementById('ebook-banner');
+            const ebookBannerDropped = document.getElementById('ebook-banner-dropped');
             if (!ebookLink) return;
             try {
                 const response = await fetch('/api/user/session');
                 const data = await response.json();
                 if (data && data.isCustomer) {
+                    // Eligible customer - show regular banner
                     ebookLink.style.display = 'inline';
                     if (ebookBanner) {
                         ebookBanner.style.display = 'block';
+                    }
+                } else if (data && data.isDroppedBacker) {
+                    // Dropped backer - show dropped backer banner
+                    ebookLink.style.display = 'none';
+                    if (ebookBannerDropped) {
+                        ebookBannerDropped.style.display = 'block';
                     }
                 }
             } catch (e) {
