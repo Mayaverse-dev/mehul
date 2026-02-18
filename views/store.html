@@ -254,6 +254,27 @@
                 gap: 24px !important;
             }
         }
+
+        /* E-Book Banner */
+        .ebook-banner-store {
+            display: none;
+            text-decoration: none;
+            max-width: 1400px;
+            margin: 30px auto 30px;
+            padding: 0 80px;
+        }
+        .ebook-banner-store img {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+        }
+        .ebook-banner-store__desktop { display: block; max-width: 900px; margin: 0 auto; }
+        .ebook-banner-store__mobile { display: none; }
+        @media (max-width: 768px) {
+            .ebook-banner-store__desktop { display: none; }
+            .ebook-banner-store__mobile { display: block; }
+            .ebook-banner-store { padding: 0 20px; margin-bottom: 20px; }
+        }
     </style>
 </head>
 <body style="background: #0a0a0a !important; color: #ffffff !important;">
@@ -276,6 +297,12 @@
     
     <!-- Spacer for fixed navbar -->
     <div style="height: 50px;"></div>
+
+    <!-- E-Book Notification Banner (for non-customers) -->
+    <div id="ebook-banner-store" class="ebook-banner-store">
+        <img src="/images/ebook_notification/dropped_backer.webp" alt="E-Book Live Now" class="ebook-banner-store__desktop">
+        <img src="/images/ebook_notification/dropped_backer.webp" alt="E-Book Live Now" class="ebook-banner-store__mobile">
+    </div>
 
     <div class="container" style="max-width: 1400px; margin: 0 auto; padding: 60px 80px;">
         <!-- Hero Section -->
@@ -444,6 +471,12 @@
                 const ebookLink = document.getElementById('ebook-link');
                 if (ebookLink) {
                     ebookLink.style.display = (data.isLoggedIn && data.isCustomer) ? 'inline' : 'none';
+                }
+
+                // Show ebook banner for non-customers (logged out, dropped backers, or non-backers)
+                const ebookBannerStore = document.getElementById('ebook-banner-store');
+                if (ebookBannerStore) {
+                    ebookBannerStore.style.display = (data.isLoggedIn && data.isCustomer) ? 'none' : 'block';
                 }
 
                 // Update profile link based on login/backer status
