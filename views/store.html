@@ -466,6 +466,22 @@
                 // Use the server's isBacker flag which checks backer_number, pledge_amount, or reward_title
                 isBacker = data.isBacker === true;
                 console.log('User backer status:', isBacker ? 'Kickstarter backer' : 'Non-backer/Guest');
+
+                if (data.isLoggedIn) {
+                    try {
+                        const orderResp = await fetch('/api/user/completed-order');
+                        if (orderResp.ok) {
+                            const orderData = await orderResp.json();
+                            if (orderData.hasCompletedOrder) {
+                                sessionStorage.removeItem('cart');
+                                sessionStorage.removeItem('shippingAddress');
+                                sessionStorage.removeItem('shippingCost');
+                                window.location.href = '/dashboard';
+                                return;
+                            }
+                        }
+                    } catch (e) { /* continue */ }
+                }
                 
                 // Show eBook link only for eligible backers (excludes dropped backers)
                 const ebookLink = document.getElementById('ebook-link');

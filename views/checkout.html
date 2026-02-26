@@ -1043,10 +1043,29 @@
             lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
         }, false);
 
+        async function checkExistingOrder() {
+            try {
+                const resp = await fetch('/api/user/completed-order');
+                if (!resp.ok) return false;
+                const data = await resp.json();
+                if (data.hasCompletedOrder) {
+                    sessionStorage.removeItem('cart');
+                    sessionStorage.removeItem('shippingAddress');
+                    sessionStorage.removeItem('shippingCost');
+                    window.location.href = '/dashboard';
+                    return true;
+                }
+            } catch (e) { /* not logged in or network error — continue */ }
+            return false;
+        }
+
         // Initialize
-        checkUserStatus();
-        loadCheckoutData();
-        initializeStripe();
+        (async () => {
+            if (await checkExistingOrder()) return;
+            checkUserStatus();
+            loadCheckoutData();
+            initializeStripe();
+        })();
     </script>
 </body>
 </html>

@@ -1,0 +1,42 @@
+---
+description: Backend conventions for Node/Express server, routes, services, and utilities
+globs: server.js,routes/**/*.js,services/**/*.js,utils/**/*.js,config/**/*.js,middleware/**/*.js,scripts/**/*.js,utility/**/*.js
+alwaysApply: false
+---
+
+# Backend Conventions
+
+## Stack
+- Node.js + Express, PostgreSQL (production) / SQLite (local dev)
+- Stripe for payments, Resend for transactional emails
+- Session-based auth (express-session) with bcrypt PIN hashing
+
+## Database
+- Query wrappers: `query()`, `queryOne()`, `execute()` from `config/database.js`
+- Use `$1, $2` parameterized placeholders (PostgreSQL style); the wrapper auto-converts for SQLite
+- `initConnection()` must be called before queries (handled by server startup; standalone scripts use `pg.Pool` directly)
+- Tables: `users`, `orders`, `addons`, `products`, `admins`, `email_logs`, `ebook.download_events`
+
+## Auth
+- User auth: email + OTP or PIN (4-digit bcrypt hash in `users.pin_hash`)
+- Admin auth: `requireAdmin` middleware checks `req.session.adminId`
+- User auth: `requireAuth` middleware checks `req.session.userId`
+
+## Orders
+- `orders.new_addons` and `orders.shipping_address` are JSON strings
+- `payment_status` values: `pending`, `card_saved`, `succeeded`, `charged`, `charge_failed`
+- `paid` column: `0` (unpaid) or `1` (paid)
+- Shipping calculated via `calculateShipping(country, cartItems)` using zone-based rates from `config/shipping-rates.js`
+- Prices validated server-side via `validateCartPrices(cartItems, isBacker)`
+
+## Backer Types
+- `pledged_status`: `pledged`, `collected`, `dropped`
+- Dropped backers are charged immediately (PaymentIntent); regular backers save card (SetupIntent)
+- Indian users always charged immediately (RBI regulations)
+- `is_late_pledge` flag: user pays retail instead of backer prices
+
+## Conventions
+- Helper functions go in `utils/helpers.js` and are exported via `module.exports`
+- Email sending via `services/emailService.js` (Resend API)
+- Admin routes in `routes/admin.js`, prefixed with `/api/admin/`
+- Standalone scripts in `utility/` connect to DB directly via `pg.Pool`
