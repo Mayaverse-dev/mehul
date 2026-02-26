@@ -329,6 +329,28 @@ const fixtures = {
             paid: 0
         }),
 
+        pendingOrder: (userId) => ({
+            user_id: userId,
+            new_addons: JSON.stringify([
+                { name: 'Test Humble Vaanar', price: 35, quantity: 1 }
+            ]),
+            shipping_address: JSON.stringify({
+                fullName: 'Pending User',
+                email: 'pending@test.com',
+                addressLine1: '789 Pending St',
+                city: 'Pending City',
+                country: 'United States'
+            }),
+            shipping_cost: 12,
+            addons_subtotal: 35,
+            total: 47,
+            stripe_customer_id: 'cus_pending123',
+            stripe_payment_intent_id: 'seti_pending123',
+            stripe_payment_method_id: null,
+            payment_status: 'pending',
+            paid: 0
+        }),
+
         paidOrder: (userId) => ({
             user_id: userId,
             new_addons: JSON.stringify([

@@ -1061,6 +1061,25 @@ app.post('/api/create-payment-intent', async (req, res) => {
             }
         }
         
+        // Check for existing order to prevent duplicates
+        let existingOrder = null;
+        if (userId) {
+            existingOrder = await queryOne(
+                'SELECT id, payment_status, paid, stripe_payment_intent_id FROM orders WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+                [userId]
+            );
+            if (existingOrder && ['card_saved', 'succeeded', 'charged', 'charge_failed'].includes(existingOrder.payment_status)) {
+                console.log(`❌ User ${userId} already has a completed order (${existingOrder.id}, status: ${existingOrder.payment_status})`);
+                return res.status(409).json({ 
+                    error: 'Order already exists',
+                    details: 'You have already completed checkout. Visit your dashboard to view your order.'
+                });
+            }
+            if (existingOrder) {
+                console.log(`⟳ User ${userId} has existing pending order ${existingOrder.id} - will update instead of creating new`);
+            }
+        }
+        
         // SERVER-SIDE PRICE VALIDATION (Security Critical!)
         // Only Kickstarter backers get backer pricing (not just logged-in users)
         const userIsBacker = userId ? await isBackerByUserId(userId) : false;
@@ -1229,46 +1248,69 @@ app.post('/api/create-payment-intent', async (req, res) => {
         }
         
         console.log('Saving order to database...');
-        // Create order in database
         // SetupIntent (KS backers): mark as pending (will be charged later)
         // PaymentIntent (immediate): mark as succeeded
         const paymentStatus = chargeImmediately ? 'succeeded' : 'pending';
         const paidStatus = chargeImmediately ? 1 : 0;
         
         try {
-            await execute(`INSERT INTO orders (
-                user_id, new_addons, shipping_address, 
-                shipping_cost, addons_subtotal, total, 
-                stripe_customer_id, stripe_payment_intent_id,
-                payment_status, paid
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, 
-            [
-                userId || 0,
-                JSON.stringify(cartItems),
-                JSON.stringify(shippingAddress),
-                shippingCost,
-                addonsSubtotal,
-                amount,
-                customer.id,
-                stripeIntentId, // Can be SetupIntent ID (seti_) or PaymentIntent ID (pi_)
-                paymentStatus,
-                paidStatus
-            ]);
-            console.log('✓ Order saved to database');
+            if (existingOrder) {
+                await execute(`UPDATE orders SET 
+                    new_addons = $1, shipping_address = $2, 
+                    shipping_cost = $3, addons_subtotal = $4, total = $5, 
+                    stripe_customer_id = $6, stripe_payment_intent_id = $7,
+                    payment_status = $8, paid = $9
+                    WHERE id = $10`, 
+                [
+                    JSON.stringify(cartItems),
+                    JSON.stringify(shippingAddress),
+                    shippingCost,
+                    addonsSubtotal,
+                    amount,
+                    customer.id,
+                    stripeIntentId,
+                    paymentStatus,
+                    paidStatus,
+                    existingOrder.id
+                ]);
+                console.log('✓ Existing order updated (prevented duplicate)');
+                console.log('  - Order ID:', existingOrder.id);
+                req.session.lastOrderId = existingOrder.id;
+                req.session.save();
+            } else {
+                await execute(`INSERT INTO orders (
+                    user_id, new_addons, shipping_address, 
+                    shipping_cost, addons_subtotal, total, 
+                    stripe_customer_id, stripe_payment_intent_id,
+                    payment_status, paid
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, 
+                [
+                    userId || 0,
+                    JSON.stringify(cartItems),
+                    JSON.stringify(shippingAddress),
+                    shippingCost,
+                    addonsSubtotal,
+                    amount,
+                    customer.id,
+                    stripeIntentId,
+                    paymentStatus,
+                    paidStatus
+                ]);
+                console.log('✓ New order created');
+
+                const savedOrder = await queryOne('SELECT id FROM orders WHERE stripe_payment_intent_id = $1', [stripeIntentId]);
+                if (savedOrder) {
+                    req.session.lastOrderId = savedOrder.id;
+                    req.session.save();
+                }
+            }
             console.log('  - Order total: $' + amount);
             console.log('  - Stripe Intent ID:', stripeIntentId);
             console.log('  - Intent Type:', useSetupIntent ? 'SetupIntent' : 'PaymentIntent');
             console.log('  - Payment Status:', paymentStatus);
             console.log('  - Paid:', paidStatus === 1 ? 'Yes' : 'No (will charge later)');
-
-            // Store order ID in session for summary page
-            const savedOrder = await queryOne('SELECT id FROM orders WHERE stripe_payment_intent_id = $1', [stripeIntentId]);
-            if (savedOrder) {
-                req.session.lastOrderId = savedOrder.id;
-                req.session.save(); // Ensure session is saved
-            }
         } catch (dbError) {
-            console.error('✗ Database insert failed:', dbError.message);
+            console.error('✗ Database save failed:', dbError.message);
             return res.status(500).json({ error: 'Failed to save order', details: dbError.message });
         }
         
@@ -1521,6 +1563,25 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
         const shadowUser = await ensureUserByEmail(emailForOrder, shippingAddress?.name || shippingAddress?.fullName);
         const shadowUserId = shadowUser ? shadowUser.id : null;
 
+        // Check for existing order to prevent duplicates
+        let existingGuestOrder = null;
+        if (shadowUserId) {
+            existingGuestOrder = await queryOne(
+                'SELECT id, payment_status, paid, stripe_payment_intent_id FROM orders WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+                [shadowUserId]
+            );
+            if (existingGuestOrder && ['card_saved', 'succeeded', 'charged', 'charge_failed'].includes(existingGuestOrder.payment_status)) {
+                console.log(`❌ Guest user ${shadowUserId} already has a completed order (${existingGuestOrder.id}, status: ${existingGuestOrder.payment_status})`);
+                return res.status(409).json({ 
+                    error: 'Order already exists',
+                    details: 'An order has already been placed with this email. Please contact support if you need assistance.'
+                });
+            }
+            if (existingGuestOrder) {
+                console.log(`⟳ Guest user ${shadowUserId} has existing pending order ${existingGuestOrder.id} - will update instead of creating new`);
+            }
+        }
+
         // Ensure shipping address carries the email
         const shippingWithEmail = { ...(shippingAddress || {}), email: emailForOrder };
         
@@ -1608,33 +1669,57 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
         });
         console.log('✓ Guest Payment Intent created (immediate charge):', paymentIntent.id);
         
-        // Create guest order in database
+        // Save guest order to database
         const addonsSubtotal = amount - shippingCost;
-        await execute(`INSERT INTO orders (
-            user_id, new_addons, shipping_address, 
-            shipping_cost, addons_subtotal, total, 
-            stripe_customer_id, stripe_payment_intent_id,
-            payment_status, paid
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, 
-        [
-            shadowUserId || 0,
-            JSON.stringify(cartItems),
-            JSON.stringify(shippingWithEmail),
-            shippingCost,
-            addonsSubtotal,
-            amount,
-            customer.id,
-            paymentIntent.id,
-            'pending', // Will be updated to 'succeeded' after successful payment
-            0 // Will be updated to 1 after successful payment
-        ]);
-        console.log('✓ Guest order saved to database (awaiting payment confirmation)');
-        
-        // Store order ID in session for summary page
-        const savedOrder = await queryOne('SELECT id FROM orders WHERE stripe_payment_intent_id = $1', [paymentIntent.id]);
-        if (savedOrder) {
-            req.session.lastOrderId = savedOrder.id;
-            req.session.save(); // Ensure session is saved
+        if (existingGuestOrder) {
+            await execute(`UPDATE orders SET 
+                new_addons = $1, shipping_address = $2, 
+                shipping_cost = $3, addons_subtotal = $4, total = $5, 
+                stripe_customer_id = $6, stripe_payment_intent_id = $7,
+                payment_status = $8, paid = $9
+                WHERE id = $10`, 
+            [
+                JSON.stringify(cartItems),
+                JSON.stringify(shippingWithEmail),
+                shippingCost,
+                addonsSubtotal,
+                amount,
+                customer.id,
+                paymentIntent.id,
+                'pending',
+                0,
+                existingGuestOrder.id
+            ]);
+            console.log('✓ Existing guest order updated (prevented duplicate)');
+            console.log('  - Order ID:', existingGuestOrder.id);
+            req.session.lastOrderId = existingGuestOrder.id;
+            req.session.save();
+        } else {
+            await execute(`INSERT INTO orders (
+                user_id, new_addons, shipping_address, 
+                shipping_cost, addons_subtotal, total, 
+                stripe_customer_id, stripe_payment_intent_id,
+                payment_status, paid
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, 
+            [
+                shadowUserId || 0,
+                JSON.stringify(cartItems),
+                JSON.stringify(shippingWithEmail),
+                shippingCost,
+                addonsSubtotal,
+                amount,
+                customer.id,
+                paymentIntent.id,
+                'pending',
+                0
+            ]);
+            console.log('✓ Guest order created (awaiting payment confirmation)');
+
+            const savedOrder = await queryOne('SELECT id FROM orders WHERE stripe_payment_intent_id = $1', [paymentIntent.id]);
+            if (savedOrder) {
+                req.session.lastOrderId = savedOrder.id;
+                req.session.save();
+            }
         }
         
         console.log('✓ Guest PaymentIntent ready - will charge immediately');

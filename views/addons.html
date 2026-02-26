@@ -961,8 +961,27 @@
             window.location.href = '/logout';
         }
 
+        async function checkExistingOrder() {
+            try {
+                const resp = await fetch('/api/user/completed-order');
+                if (!resp.ok) return false;
+                const data = await resp.json();
+                if (data.hasCompletedOrder) {
+                    sessionStorage.removeItem('cart');
+                    sessionStorage.removeItem('shippingAddress');
+                    sessionStorage.removeItem('shippingCost');
+                    window.location.href = '/dashboard';
+                    return true;
+                }
+            } catch (e) { /* not logged in or network error — continue */ }
+            return false;
+        }
+
         // Initialize
-        loadUserData();
+        (async () => {
+            if (await checkExistingOrder()) return;
+            loadUserData();
+        })();
     </script>
 </body>
 </html>
