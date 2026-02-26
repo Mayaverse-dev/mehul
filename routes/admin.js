@@ -11,7 +11,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const { query, queryOne, execute, isPostgres } = require('../config/database');
 const { requireAdmin } = require('../middleware/auth');
-const { logEmail } = require('../utils/helpers');
+const { logEmail, calculateShipping, validateCartPrices, isBackerByUserId } = require('../utils/helpers');
 const emailService = require('../services/emailService');
 
 // Admin login page
@@ -600,6 +600,206 @@ router.post('/charge-order/:orderId', requireAdmin, async (req, res) => {
     } catch (error) {
         console.error('Error charging order:', error);
         res.status(500).json({ error: 'Failed to process charge' });
+    }
+});
+
+// Admin: create or update an order on behalf of a user
+// Uses the same shipping calc and price validation as the normal checkout flow
+router.post('/create-order', requireAdmin, async (req, res) => {
+    const { backerNumber, userId: rawUserId, cartItems, shippingAddress, paymentStatus, sendEmail } = req.body;
+
+    console.log('\n=== ADMIN CREATE ORDER ===');
+    console.log('Admin ID:', req.session.adminId);
+    console.log('Backer Number:', backerNumber || 'N/A');
+    console.log('User ID:', rawUserId || 'N/A');
+
+    try {
+        if (!cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
+            return res.status(400).json({ error: 'cartItems array is required' });
+        }
+        if (!shippingAddress || !shippingAddress.fullName || !shippingAddress.country) {
+            return res.status(400).json({ error: 'shippingAddress with fullName and country is required' });
+        }
+        if (!backerNumber && !rawUserId) {
+            return res.status(400).json({ error: 'Either backerNumber or userId is required' });
+        }
+
+        // Resolve user
+        let user;
+        if (backerNumber) {
+            user = await queryOne('SELECT * FROM users WHERE backer_number = $1', [backerNumber]);
+            if (!user) return res.status(404).json({ error: `Backer #${backerNumber} not found` });
+        } else {
+            user = await queryOne('SELECT * FROM users WHERE id = $1', [rawUserId]);
+            if (!user) return res.status(404).json({ error: `User ID ${rawUserId} not found` });
+        }
+
+        console.log('User:', user.id, user.backer_name, user.email);
+
+        // Inject email into shipping address if missing
+        if (!shippingAddress.email) {
+            shippingAddress.email = user.email;
+        }
+
+        // Ensure addressLine2 exists for consistency with UI orders
+        if (shippingAddress.addressLine2 === undefined) {
+            shippingAddress.addressLine2 = '';
+        }
+
+        // Determine backer pricing eligibility (same logic as checkout)
+        const userIsBacker = await isBackerByUserId(user.id);
+
+        // Build the cart items in the same format the UI produces
+        const processedItems = [];
+        for (const item of cartItems) {
+            if (item.isPaidKickstarterPledge) {
+                processedItems.push({
+                    name: item.name || user.reward_title,
+                    price: 0,
+                    quantity: 1,
+                    isPaidKickstarterPledge: true
+                });
+            } else if (item.isPledgeUpgrade) {
+                processedItems.push({
+                    id: item.id,
+                    name: item.name,
+                    price: parseFloat(item.price) || 0,
+                    originalPrice: item.originalPrice,
+                    currentPledgeAmount: item.currentPledgeAmount,
+                    isPledgeUpgrade: true,
+                    quantity: 1
+                });
+            } else if (item.isDroppedBackerPledge || item.isOriginalPledge) {
+                processedItems.push({
+                    name: item.name || user.reward_title,
+                    price: parseFloat(item.price) || 0,
+                    quantity: parseInt(item.quantity) || 1,
+                    isDroppedBackerPledge: !!item.isDroppedBackerPledge,
+                    isOriginalPledge: !!item.isOriginalPledge
+                });
+            } else if (item.isOriginalAddon) {
+                processedItems.push({
+                    id: item.id,
+                    name: item.name,
+                    price: parseFloat(item.price) || 0,
+                    quantity: parseInt(item.quantity) || 1,
+                    isOriginalAddon: true
+                });
+            } else {
+                processedItems.push({
+                    id: item.id,
+                    name: item.name,
+                    price: parseFloat(item.price),
+                    weight: item.weight !== undefined ? item.weight : 0,
+                    quantity: parseInt(item.quantity) || 1
+                });
+            }
+        }
+
+        // Server-side price validation (same function used by checkout)
+        const { serverTotal } = await validateCartPrices(processedItems, userIsBacker);
+
+        // Shipping calc (same function used by checkout / dashboard)
+        const shippingCost = calculateShipping(shippingAddress.country, processedItems);
+
+        const total = serverTotal + shippingCost;
+        const finalPaymentStatus = paymentStatus || 'card_saved';
+        const paidStatus = (finalPaymentStatus === 'succeeded' || finalPaymentStatus === 'charged') ? 1 : 0;
+
+        console.log('Price validation passed');
+        console.log(`  Addons subtotal: $${serverTotal.toFixed(2)}`);
+        console.log(`  Shipping (${shippingAddress.country}): $${shippingCost.toFixed(2)}`);
+        console.log(`  Total: $${total.toFixed(2)}`);
+        console.log(`  Payment status: ${finalPaymentStatus}`);
+
+        // Check for existing order for this user
+        const existingOrder = await queryOne(
+            'SELECT id FROM orders WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+            [user.id]
+        );
+
+        let orderId;
+        if (existingOrder) {
+            // Update existing order
+            await execute(`UPDATE orders SET
+                new_addons = $1, shipping_address = $2,
+                shipping_cost = $3, addons_subtotal = $4, total = $5,
+                payment_status = $6, paid = $7,
+                updated_by_admin_id = $8, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $9`,
+            [
+                JSON.stringify(processedItems),
+                JSON.stringify(shippingAddress),
+                shippingCost, serverTotal, total,
+                finalPaymentStatus, paidStatus,
+                req.session.adminId, existingOrder.id
+            ]);
+            orderId = existingOrder.id;
+            console.log(`✓ Updated existing order #${orderId}`);
+        } else {
+            // Create new order (same INSERT shape as checkout)
+            await execute(`INSERT INTO orders (
+                user_id, new_addons, shipping_address,
+                shipping_cost, addons_subtotal, total,
+                payment_status, paid
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [
+                user.id,
+                JSON.stringify(processedItems),
+                JSON.stringify(shippingAddress),
+                shippingCost, serverTotal, total,
+                finalPaymentStatus, paidStatus
+            ]);
+            const newOrder = await queryOne(
+                'SELECT id FROM orders WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+                [user.id]
+            );
+            orderId = newOrder.id;
+            console.log(`✓ Created new order #${orderId}`);
+        }
+
+        // Optionally send confirmation email
+        if (sendEmail) {
+            try {
+                const fullOrder = await queryOne('SELECT * FROM orders WHERE id = $1', [orderId]);
+                let emailResult;
+                if (paidStatus === 1) {
+                    emailResult = await emailService.sendPaymentSuccessful(fullOrder, fullOrder.stripe_payment_intent_id);
+                } else {
+                    emailResult = await emailService.sendCardSavedConfirmation(fullOrder);
+                }
+                await logEmail({
+                    orderId,
+                    userId: user.id,
+                    recipientEmail: shippingAddress.email,
+                    emailType: paidStatus === 1 ? 'payment_success' : 'card_saved',
+                    subject: `Order #${orderId} - Order Confirmation`,
+                    status: emailResult.success ? 'sent' : 'failed',
+                    resendMessageId: emailResult.messageId || null,
+                    errorMessage: emailResult.error || null
+                });
+                console.log(`✓ Confirmation email sent to ${shippingAddress.email}`);
+            } catch (emailError) {
+                console.error('⚠️  Failed to send confirmation email:', emailError.message);
+            }
+        }
+
+        const savedOrder = await queryOne(`SELECT o.*, u.backer_number, u.backer_name, u.email
+            FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE o.id = $1`, [orderId]);
+        try {
+            savedOrder.new_addons = JSON.parse(savedOrder.new_addons);
+            savedOrder.shipping_address = JSON.parse(savedOrder.shipping_address);
+        } catch (_) {}
+
+        res.json({
+            success: true,
+            message: existingOrder ? `Updated order #${orderId}` : `Created order #${orderId}`,
+            order: savedOrder
+        });
+    } catch (error) {
+        console.error('✗ Admin create order error:', error.message);
+        console.error('  Stack:', error.stack);
+        res.status(500).json({ error: 'Failed to create order', details: error.message });
     }
 });
 
