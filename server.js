@@ -674,10 +674,12 @@ app.get('/api/user/session', async (req, res) => {
         const backerStatus = !!(req.session.backerNumber || req.session.pledgeAmount || req.session.rewardTitle);
         let pledgedStatus = null;
 
+        let kickstarterAddons = {};
         if (backerStatus) {
             try {
-                const row = await queryOne('SELECT pledged_status FROM users WHERE id = $1', [req.session.userId]);
+                const row = await queryOne('SELECT pledged_status, kickstarter_addons FROM users WHERE id = $1', [req.session.userId]);
                 pledgedStatus = row?.pledged_status || 'collected';
+                kickstarterAddons = row?.kickstarter_addons ? JSON.parse(row.kickstarter_addons) : {};
             } catch (err) {
                 pledgedStatus = null;
             }
@@ -701,7 +703,8 @@ app.get('/api/user/session', async (req, res) => {
                 backer_number: req.session.backerNumber,
                 backer_name: req.session.backerName,
                 pledge_amount: req.session.pledgeAmount,
-                reward_title: req.session.rewardTitle
+                reward_title: req.session.rewardTitle,
+                kickstarter_addons: kickstarterAddons
             }
         });
     } else {
@@ -1058,6 +1061,38 @@ app.post('/api/create-payment-intent', async (req, res) => {
                 }
             } catch (err) {
                 console.warn('Could not check dropped backer status:', err.message);
+            }
+        }
+        
+        // Inject Kickstarter add-ons as $0 items for paid (non-dropped) backers
+        if (userId && isPaidKickstarterBacker && !isDroppedBacker) {
+            try {
+                const ksUser = await queryOne('SELECT kickstarter_addons FROM users WHERE id = $1', [userId]);
+                if (ksUser && ksUser.kickstarter_addons) {
+                    const ksAddons = JSON.parse(ksUser.kickstarter_addons);
+                    const addonNameMap = {
+                        'pendant': 'Flitt Locust Pendant',
+                        'audiobook_addon': 'MAYA: Seed Takes Root Audiobook',
+                        'built_env_addon': 'Built Environments of MAYA Hardcover',
+                        'lorebook_addon': 'MAYA Lorebook'
+                    };
+                    for (const [key, value] of Object.entries(ksAddons)) {
+                        const name = addonNameMap[key] || key;
+                        const qty = (typeof value === 'object' ? value.quantity : value) || 1;
+                        if (qty > 0) {
+                            cartItems.push({
+                                name,
+                                price: 0,
+                                quantity: qty,
+                                isOriginalAddon: true,
+                                isKickstarterAddon: true
+                            });
+                            console.log(`✓ Injected KS addon: ${name} x${qty} @ $0`);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('Could not inject KS addons:', err.message);
             }
         }
         

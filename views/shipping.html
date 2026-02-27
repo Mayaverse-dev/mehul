@@ -637,12 +637,12 @@
                     subtotal += item.price * item.quantity;
                 });
 
-                // For now, shipping will be calculated based on country selection
-                const shipping = 0;
-                const total = subtotal + shipping;
+                // Restore shipping from sessionStorage if available (e.g. back navigation)
+                const savedShipping = parseFloat(sessionStorage.getItem('shippingCost')) || 0;
+                const total = subtotal + savedShipping;
 
                 document.getElementById('subtotal').textContent = '$' + subtotal.toFixed(2);
-                document.getElementById('shipping').textContent = '$' + shipping.toFixed(2);
+                document.getElementById('shipping').textContent = '$' + savedShipping.toFixed(2);
                 document.getElementById('total').textContent = '$' + total.toFixed(2);
             } catch (error) {
                 console.error('Error loading cart summary:', error);
@@ -677,6 +677,25 @@
                             name: userData.reward_title,
                             quantity: 1
                         });
+                    }
+
+                    // Include KS add-ons for shipping calculation (physical items affect shipping)
+                    const ksAddons = userData.kickstarter_addons || {};
+                    const ksAddonNameMap = {
+                        'pendant': 'Flitt Locust Pendant',
+                        'audiobook_addon': 'MAYA: Seed Takes Root Audiobook',
+                        'audiobook': 'MAYA: Seed Takes Root Audiobook',
+                        'built_env_addon': 'Built Environments of MAYA Hardcover',
+                        'built_env': 'Built Environments of MAYA Hardcover',
+                        'lorebook_addon': 'MAYA Lorebook',
+                        'lorebook': 'MAYA Lorebook'
+                    };
+                    for (const [key, value] of Object.entries(ksAddons)) {
+                        const name = ksAddonNameMap[key] || key;
+                        const qty = (typeof value === 'object' ? value.quantity : value) || 0;
+                        if (qty > 0) {
+                            cart.push({ name, quantity: qty });
+                        }
                     }
                 }
                 
@@ -806,11 +825,26 @@
             return false;
         }
 
+        // Recalculate shipping if country is already selected (back navigation / page restore)
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                const country = document.getElementById('country');
+                if (country && country.value) {
+                    updateShippingCost();
+                }
+            }
+        });
+
         // Initialize - ensure user status is checked before loading cart
         async function init() {
             if (await checkExistingOrder()) return;
             await checkUserStatus();
             loadCartSummary();
+            // If country already selected (back navigation), recalculate shipping
+            const country = document.getElementById('country');
+            if (country && country.value) {
+                updateShippingCost();
+            }
         }
         init();
     </script>

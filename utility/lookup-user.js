@@ -159,6 +159,31 @@ function printUser(data) {
         console.log('  None');
     }
     
+    // ===== PLATFORM ADD-ONS (from orders) =====
+    printSection('🛍️  PLATFORM ADD-ONS');
+    const platformAddons = [];
+    orders.forEach(order => {
+        if (!order.new_addons) return;
+        try {
+            const parsed = JSON.parse(order.new_addons);
+            if (!Array.isArray(parsed)) return;
+            parsed.forEach(item => {
+                if (item.isPaidKickstarterPledge || item.isOriginalPledge || 
+                    item.isDroppedBackerPledge || item.isPledgeUpgrade) return;
+                if (item.id && String(item.id).startsWith('addon-')) {
+                    platformAddons.push({ name: item.name, qty: item.quantity || 1, price: item.price || 0, orderId: order.id });
+                }
+            });
+        } catch {}
+    });
+    if (platformAddons.length > 0) {
+        platformAddons.forEach(a => {
+            console.log(`  • ${a.name} x${a.qty} @ $${a.price} (order #${a.orderId})`);
+        });
+    } else {
+        console.log('  None');
+    }
+
     // ===== AUTHENTICATION =====
     printSection('🔐 AUTHENTICATION');
     console.log(`  Has PIN:       ${user.pin_hash ? '✅ Yes' : 'No'}`);
