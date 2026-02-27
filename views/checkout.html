@@ -1059,6 +1059,13 @@
             return false;
         }
 
+        // Redirect away if restored from bfcache after payment
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                checkExistingOrder();
+            }
+        });
+
         // Initialize
         (async () => {
             if (await checkExistingOrder()) return;
