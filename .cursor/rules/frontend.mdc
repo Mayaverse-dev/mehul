@@ -19,10 +19,28 @@ alwaysApply: false
 
 ## Patterns
 - API calls use `fetch()` with `credentials: 'include'` for session cookies
-- Cart state managed client-side in JS variables within the page script
+- Cart state managed client-side in `sessionStorage` (keys: `cart`, `shippingAddress`, `shippingCost`)
 - Shipping address forms post JSON to `/api/save-shipping-address`
 - Checkout flow: store → addons → shipping → checkout → thankyou
 - Backer flow starts at login (PIN or email OTP) → dashboard
+
+## Cart & sessionStorage
+- `sessionStorage.cart` only contains items the user actively added (platform add-ons, pledge upgrades)
+- Paid backers' KS pledge and KS add-ons are NOT in sessionStorage — they are display-only
+- Dropped backers' pledge + KS addons ARE in sessionStorage (added by dashboard.html at backer prices)
+- `shipping.html` injects pledge + KS addons into a local cart copy before calling `/api/calculate-shipping`
+- Server-side `/api/create-payment-intent` also injects pledge + KS addons into the order record
+
+## Duplicate Order Prevention
+- checkout, shipping, addons, store pages all check `/api/user/completed-order` on load
+- If completed order exists: clear sessionStorage cart and redirect to `/dashboard`
+- checkout.html also handles browser back-button via `pageshow` event (bfcache restore)
+- Backend rejects checkout if order already has `card_saved`/`succeeded`/`charged`/`charge_failed` status
+
+## KS Items Display
+- `addons.html` shows KS pledge and KS addons with "Paid" badge — purely visual, NOT in cart
+- `dashboard.html` shows KS items in the completed order view or as informational display
+- KS addon key mapping: `pendant` → "Flitt Locust Pendant", `audiobook_addon` → "MAYA: Seed Takes Root Audiobook", `built_env_addon` → "Built Environments of MAYA Hardcover", `lorebook_addon` → "MAYA Lorebook"
 
 ## UI/UX
 - Modern, clean design with consistent color palette
@@ -35,5 +53,8 @@ alwaysApply: false
 - `dashboard.html` — backer hub showing pledge, addons, order status, shipping
 - `checkout.html` — Stripe Elements card form, order summary, price breakdown
 - `store.html` — product catalog with add-to-cart
+- `shipping.html` — address form, shipping calculation (injects KS items locally before API call)
+- `addons.html` — cart review page showing KS items (display-only) + platform cart items
 - `login.html` — PIN entry or email OTP for backer auth
+- `thankyou.html` — order confirmation with "Go to Dashboard" CTA
 - `admin/` — admin panel for managing orders, users, and analytics

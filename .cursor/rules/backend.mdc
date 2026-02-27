@@ -23,11 +23,30 @@ alwaysApply: false
 - User auth: `requireAuth` middleware checks `req.session.userId`
 
 ## Orders
-- `orders.new_addons` and `orders.shipping_address` are JSON strings
+- `orders.new_addons` and `orders.shipping_address` are JSON strings stored in TEXT columns
 - `payment_status` values: `pending`, `card_saved`, `succeeded`, `charged`, `charge_failed`
 - `paid` column: `0` (unpaid) or `1` (paid)
 - Shipping calculated via `calculateShipping(country, cartItems)` using zone-based rates from `config/shipping-rates.js`
 - Prices validated server-side via `validateCartPrices(cartItems, isBacker)`
+- Each user should have at most ONE order. `/api/create-payment-intent` uses upsert logic: updates existing pending orders, rejects if completed, inserts only if no order exists
+- `email_logs` has a FK to `orders.id` — delete email_logs before deleting an order
+
+## Order Item Flags in `new_addons` JSON
+- `isPaidKickstarterPledge: true` — pledge tier at $0 (paid backer, injected server-side)
+- `isOriginalAddon: true` — KS addon or dropped backer addon (skips DB price validation)
+- `isKickstarterAddon: true` — specifically a KS addon at $0 (paid backer, injected server-side)
+- `isPledgeUpgrade: true` — backer upgrading to a higher tier (pays difference)
+- `isDroppedBackerPledge: true` — dropped backer completing their pledge (pays full backer price)
+- `isOriginalPledge: true` — dropped backer's original pledge in cart
+
+## Kickstarter Data on Users
+- `users.kickstarter_items` — JSON of items included with pledge tier (e.g. `{"ebook":1,"hardcover":1}`)
+- `users.kickstarter_addons` — JSON of add-ons from KS campaign (e.g. `{"pendant":1,"audiobook_addon":1}`)
+- These are NOT in sessionStorage cart for paid backers; they are display-only on frontend
+- Server-side: KS addons are injected into `cartItems` at $0 in `/api/create-payment-intent` for paid backers
+- Frontend: KS addons are injected into local cart in `shipping.html` for shipping calculation
+- For dropped backers: dashboard.html adds KS addons to sessionStorage cart at backer prices
+- KS addon key formats vary: `pendant`, `audiobook_addon`, `audiobook`, `built_env`, `"MAYA Lorebook"`, `{"quantity":1}`
 
 ## Backer Types
 - `pledged_status`: `pledged`, `collected`, `dropped`
@@ -35,8 +54,16 @@ alwaysApply: false
 - Indian users always charged immediately (RBI regulations)
 - `is_late_pledge` flag: user pays retail instead of backer prices
 
+## Shipping
+- Shipping rates in `config/shipping-rates.js` by zone (USA, UK, EU-1/2/3, India, Australia, etc.)
+- Physical addons with shipping: Built Environments, Lorebook, Paperback, Hardcover ($4-$10/zone)
+- Digital/no-ship addons: Audiobook, Pendant (pendant has no shipping rate defined)
+- Frontend calculates shipping in `shipping.html` via `/api/calculate-shipping`
+- For paid backers, pledge + KS addons are injected into local cart before shipping API call (not in sessionStorage)
+
 ## Conventions
 - Helper functions go in `utils/helpers.js` and are exported via `module.exports`
 - Email sending via `services/emailService.js` (Resend API)
 - Admin routes in `routes/admin.js`, prefixed with `/api/admin/`
 - Standalone scripts in `utility/` connect to DB directly via `pg.Pool`
+- Git push uses SSH key: `GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519_entermaya -o IdentitiesOnly=yes"`
