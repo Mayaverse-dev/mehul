@@ -919,13 +919,23 @@
             try {
                 console.log('loadUpgradePledges called with', pledgeTiers?.length || 0, 'pledge tiers');
                 
-                // Ensure we have the current pledge amount
+                // Use the actual tier price (not the total KS pledge which may include addons)
+                // Look up current tier in the products list for the correct price
+                if (currentRewardTitle && pledgeTiers && pledgeTiers.length > 0) {
+                    const currentTierProduct = pledgeTiers.find(p =>
+                        (p.name || '').toLowerCase().trim() === (currentRewardTitle || '').toLowerCase().trim()
+                    );
+                    if (currentTierProduct) {
+                        currentPledgeAmount = parseFloat(currentTierProduct.price) || 0;
+                        console.log(`Resolved current tier price from products: "${currentTierProduct.name}" = $${currentPledgeAmount}`);
+                    }
+                }
                 if (currentPledgeAmount === 0) {
                     try {
                         const response = await fetch('/api/user/data');
                         const userData = await response.json();
                         currentPledgeAmount = parseFloat(userData.pledgeAmount) || 0;
-                        console.log('Fetched current pledge amount from API:', currentPledgeAmount);
+                        console.log('Fallback: using pledge amount from API:', currentPledgeAmount);
                     } catch (err) {
                         console.warn('Could not fetch user data, using 0 as default:', err);
                         currentPledgeAmount = 0;
