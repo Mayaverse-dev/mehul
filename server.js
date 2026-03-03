@@ -1073,8 +1073,15 @@ app.post('/api/create-payment-intent', async (req, res) => {
                     const addonNameMap = {
                         'pendant': 'Flitt Locust Pendant',
                         'audiobook_addon': 'MAYA: Seed Takes Root Audiobook',
+                        'audiobook': 'MAYA: Seed Takes Root Audiobook',
                         'built_env_addon': 'Built Environments of MAYA Hardcover',
-                        'lorebook_addon': 'MAYA Lorebook'
+                        'built_env': 'Built Environments of MAYA Hardcover',
+                        'lorebook_addon': 'MAYA Lorebook',
+                        'lorebook': 'MAYA Lorebook',
+                        'Flitt Locust Pendant': 'Flitt Locust Pendant',
+                        'MAYA: Seed Takes Root Audiobook': 'MAYA: Seed Takes Root Audiobook',
+                        'Built Environments of MAYA Hardcover': 'Built Environments of MAYA Hardcover',
+                        'MAYA Lorebook': 'MAYA Lorebook'
                     };
                     for (const [key, value] of Object.entries(ksAddons)) {
                         const name = addonNameMap[key] || key;
@@ -1283,10 +1290,10 @@ app.post('/api/create-payment-intent', async (req, res) => {
         }
         
         console.log('Saving order to database...');
-        // SetupIntent (KS backers): mark as pending (will be charged later)
-        // PaymentIntent (immediate): mark as succeeded
-        const paymentStatus = chargeImmediately ? 'succeeded' : 'pending';
-        const paidStatus = chargeImmediately ? 1 : 0;
+        // All orders start as pending — save-payment-method finalizes status
+        // after Stripe confirms the card/charge actually succeeded
+        const paymentStatus = 'pending';
+        const paidStatus = 0;
         
         try {
             if (existingOrder) {
@@ -1771,63 +1778,92 @@ app.post('/api/guest/create-payment-intent', async (req, res) => {
     }
 });
 
-// Save payment method ID to order
+// Save payment method ID to order (guest)
 app.post('/api/guest/save-payment-method', async (req, res) => {
-    const { paymentMethodId, customerEmail } = req.body;
+    const { paymentMethodId, customerEmail, intentId } = req.body;
+    
+    console.log('\n=== Guest: Saving Payment Method ===');
+    console.log('Intent ID:', intentId);
+    console.log('Payment Method ID:', paymentMethodId);
+    console.log('Customer Email:', customerEmail);
     
     try {
-        // Find the most recent order for this email
+        // Find order by intent ID (preferred) or fall back to email lookup
         let order;
-        if (isPostgres()) {
-            order = await queryOne(`SELECT id FROM orders 
-                WHERE shipping_address::json->>'email' = $1 
-                AND stripe_payment_method_id IS NULL
-                ORDER BY id DESC LIMIT 1`, 
-                [customerEmail]);
-        } else {
-            order = await queryOne(`SELECT id FROM orders 
-                WHERE json_extract(shipping_address, '$.email') = $1 
-                AND stripe_payment_method_id IS NULL
-                ORDER BY id DESC LIMIT 1`, 
-                [customerEmail]);
+        if (intentId) {
+            order = await queryOne('SELECT id FROM orders WHERE stripe_payment_intent_id = $1', [intentId]);
+        }
+        if (!order && customerEmail) {
+            if (isPostgres()) {
+                order = await queryOne(`SELECT id FROM orders 
+                    WHERE shipping_address::json->>'email' = $1 
+                    AND stripe_payment_method_id IS NULL
+                    ORDER BY id DESC LIMIT 1`, 
+                    [customerEmail]);
+            } else {
+                order = await queryOne(`SELECT id FROM orders 
+                    WHERE json_extract(shipping_address, '$.email') = $1 
+                    AND stripe_payment_method_id IS NULL
+                    ORDER BY id DESC LIMIT 1`, 
+                    [customerEmail]);
+            }
         }
         
         if (!order) {
-            console.error('No order found for email:', customerEmail);
+            console.error('No order found for intent:', intentId, 'email:', customerEmail);
             return res.status(404).json({ error: 'Order not found' });
         }
         
-        // Update the order with payment method
+        // Check actual Stripe payment status (guests use PaymentIntent — charge immediately)
+        let paymentStatus = 'card_saved';
+        let paidStatus = 0;
+        if (intentId) {
+            try {
+                const paymentIntent = await stripe.paymentIntents.retrieve(intentId);
+                console.log('✓ PaymentIntent status:', paymentIntent.status);
+                if (paymentIntent.status === 'succeeded') {
+                    paymentStatus = 'succeeded';
+                    paidStatus = 1;
+                }
+            } catch (stripeErr) {
+                console.warn('Could not retrieve PaymentIntent:', stripeErr.message);
+            }
+        }
+        
         await execute(`UPDATE orders 
-            SET stripe_payment_method_id = $1, payment_status = 'card_saved' 
-            WHERE id = $2`, 
-            [paymentMethodId, order.id]);
+            SET stripe_payment_method_id = $1, payment_status = $2, paid = $3 
+            WHERE id = $4`, 
+            [paymentMethodId, paymentStatus, paidStatus, order.id]);
         
-        console.log('✓ Payment method saved for order:', order.id);
+        console.log('✓ Guest payment method saved for order:', order.id);
+        console.log('  - Status:', paymentStatus, '| Paid:', paidStatus);
         
-        // Send card saved confirmation email
+        // Send appropriate confirmation email
         try {
             const fullOrder = await queryOne('SELECT * FROM orders WHERE id = $1', [order.id]);
             if (fullOrder) {
-                const emailResult = await emailService.sendCardSavedConfirmation(fullOrder);
-                // Log email to database
+                let emailResult;
+                if (paymentStatus === 'succeeded') {
+                    emailResult = await emailService.sendPaymentSuccessful(fullOrder, intentId);
+                } else {
+                    emailResult = await emailService.sendCardSavedConfirmation(fullOrder);
+                }
                 await logEmail({
                     orderId: fullOrder.id,
                     userId: fullOrder.user_id,
                     recipientEmail: customerEmail,
-                    emailType: 'card_saved',
-                    subject: `Order #${fullOrder.id} - Order Confirmation`,
+                    emailType: paymentStatus === 'succeeded' ? 'payment_success' : 'card_saved',
+                    subject: `Order #${fullOrder.id} - ${paymentStatus === 'succeeded' ? 'Payment Confirmation' : 'Order Confirmation'}`,
                     status: emailResult.success ? 'sent' : 'failed',
                     resendMessageId: emailResult.messageId || null,
                     errorMessage: emailResult.error || null
                 });
             }
         } catch (emailError) {
-            console.error('⚠️  Failed to send card saved confirmation email:', emailError.message);
-            // Don't fail the request if email fails
+            console.error('⚠️  Failed to send confirmation email:', emailError.message);
         }
         
-        res.json({ success: true });
+        res.json({ success: true, paymentStatus });
     } catch (err) {
         console.error('Error saving payment method:', err);
         res.status(500).json({ error: 'Failed to save payment method', details: err.message });
