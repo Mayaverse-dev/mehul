@@ -1,0 +1,265 @@
+---
+description: Expected application behavior for all user types and flows. The single source of truth for how the app should work.
+alwaysApply: true
+---
+
+# Application Behavior Spec
+
+## User Types
+
+Five user types, determined by DB fields on the `users` table:
+
+| Type | Condition | Pricing | Payment Method |
+|------|-----------|---------|----------------|
+| Paid backer | `pledge_amount > 0`, `reward_title` set, `pledged_status` = collected/pledged | Backer prices | SetupIntent (save card, charge later) |
+| Dropped backer | `pledged_status` = dropped | Backer prices | PaymentIntent (charge immediately) |
+| Late pledger | `is_late_pledge = 1` | Retail prices | SetupIntent (save card, charge later) |
+| Guest | No `backer_number`, no `reward_title` | Retail prices | PaymentIntent (charge immediately) |
+| Indian backer | Any backer shipping to India | Backer prices | PaymentIntent (charge immediately, RBI) |
+
+A user can be both a backer type AND Indian (Indian takes precedence for payment method).
+
+## Authentication
+
+### Login Flow
+1. User enters email -> `POST /api/auth/initiate`
+2. If user has `pin_hash` -> prompt for PIN
+3. If no `pin_hash` or `forceOtp` -> send 4-digit OTP via email (15 min expiry)
+4. OTP verified -> if no `pin_hash`, prompt to set PIN; otherwise redirect to `/dashboard`
+5. PIN verified -> redirect to `/dashboard`
+
+### Session Data Set on Login
+`userId`, `userEmail`, `backerNumber`, `backerName`, `pledgeAmount`, `rewardTitle`
+
+### Navigation Rules
+- Logged-in user visits `/login` (without `?setPin`) -> redirect to `/dashboard`
+- Unauthenticated user visits protected page -> redirect to `/`
+- Login clears `sessionStorage.cart` and `localStorage.originalPledgeInfo`
+
+### Magic Links
+- `GET /auth/magic?token=...` -> verify token + expiry -> login
+- If no `pin_hash` -> redirect to `/login?setPin=1`
+- If has PIN -> redirect to `/dashboard`
+
+### Logout
+- `GET /logout` -> destroy session -> redirect to `/`
+
+## Dashboard
+
+### Completed Order State
+- On load, check `/api/user/completed-order`
+- Completed = order with shipping address AND (payment_method_id OR payment_status in card_saved/succeeded)
+- If completed -> hide shopping view, show locked order view
+- Locked view: order summary, shipping address (editable except country), payment status
+- No further purchases possible
+
+### Shopping State (No Order Yet)
+
+**Paid backer:**
+- Green "PAID" badge with pledge amount
+- KS items and KS addons shown as informational display (NOT in sessionStorage)
+- Upgrade options: tiers with higher rank than current (by hierarchy, not price)
+- Add-ons grid: enabled, backer prices
+- "Proceed to Checkout" -> `/addons`
+
+**Dropped backer:**
+- Red "PAYMENT FAILED" badge
+- Auto-inject into sessionStorage: pledge at `amount_due` (or full amount), KS addons at backer prices
+- Items marked `isOriginalPledge` / `isOriginalAddon` (unremovable)
+- Can upgrade pledge (charged full amount of new tier)
+- Add-ons grid: enabled, backer prices
+
+**Late pledger:**
+- Same as paid backer visually
+- `/api/products` returns retail prices (not backer prices)
+- Upgrade pricing uses retail tier prices
+
+### Upgrade Pricing
+- Difference = new tier PRODUCT PRICE - current tier PRODUCT PRICE (from products table)
+- NEVER use `pledgeAmount` for difference (it includes KS addon costs)
+- Dropped backers pay full new tier price (not difference)
+- Cart item: `isPledgeUpgrade: true` with `price` = difference, `originalPrice` = new tier price, `currentPledgeAmount` = current tier price
+
+## Checkout Flow
+
+### Page Sequence
+`store` -> `addons` -> `shipping` -> `checkout` -> `thankyou`
+
+Backer shortcut: `login` -> `dashboard` -> `addons` -> `shipping` -> `checkout` -> `thankyou`
+
+### Store (`store.html`)
+- Public catalog, anyone can browse
+- Pledge required before add-ons can be added
+- Only one pledge allowed in cart
+- Logged-in user with completed order -> redirect to `/dashboard`
+- Cart stored in `sessionStorage`
+
+### Addons (`addons.html`)
+- Cart review page
+- KS pledge + KS addons shown as "Paid" display section (from user data, NOT from sessionStorage)
+- Dropped backer items shown as separate section (from sessionStorage, unremovable)
+- Platform add-ons shown with quantity controls and remove buttons
+- "Proceed to Shipping" requires a pledge (in cart or as paid backer)
+- Completed order -> redirect to `/dashboard`
+
+### Shipping (`shipping.html`)
+- Address form with country dropdown
+- On country change: calculate shipping via `POST /api/calculate-shipping`
+- Before shipping API call, inject into LOCAL cart copy (not sessionStorage):
+  - Paid backer's pledge (from `userData.reward_title`)
+  - Paid backer's KS addons (from `userData.kickstarter_addons`)
+- Save to sessionStorage on proceed: `shippingAddress`, `shippingCost`
+- On back navigation: restore `shippingCost` from sessionStorage (not $0)
+- On page load with country pre-selected: recalculate shipping
+- `pageshow` handler: recalculate if restored from bfcache
+- Completed order -> redirect to `/dashboard`
+
+### Checkout (`checkout.html`)
+- Load cart, shippingAddress, shippingCost from sessionStorage
+- If no shippingAddress -> redirect to `/shipping`
+- Display order summary with totals
+- Stripe Elements card form
+- Payment type determined by user type:
+  - SetupIntent: paid backers (non-India) -> save card, charge later
+  - PaymentIntent: dropped backers, Indian backers, guests -> charge immediately
+- On submit: `POST /api/create-payment-intent` with amount, cartItems, shippingAddress, shippingCost
+- After Stripe confirmation: `POST /api/save-payment-method`
+- Success -> redirect to `/thankyou`
+- Completed order -> redirect to `/dashboard`
+- `pageshow` handler: redirect if restored from bfcache after payment
+
+### Thank You (`thankyou.html`)
+- Clear sessionStorage cart on load
+- Load order summary from `/api/order/summary`
+- "Go to Dashboard" button (backers) or "Go to Store" (guests)
+- Guest PIN creation flow (email -> OTP -> set PIN)
+
+## Order Creation (Server-Side)
+
+### Single Order Per User
+- Before INSERT, check for existing order for user
+- If existing with `card_saved`/`succeeded`/`charged`/`charge_failed` -> reject (409)
+- If existing with `pending` -> UPDATE (upsert)
+- If none -> INSERT
+
+### Server-Side Injections in `/api/create-payment-intent`
+For paid (non-dropped) backers:
+1. If cart has no pledge, inject KS pledge at $0 (`isPaidKickstarterPledge: true`)
+2. Inject all KS addons at $0 (`isOriginalAddon: true`, `isKickstarterAddon: true`)
+3. Server-side price validation via `validateCartPrices()`
+4. Frontend's `shippingCost` is trusted (not recalculated server-side)
+
+### Order Fields
+- `new_addons`: JSON array of all items (pledge + addons + KS items)
+- `shipping_address`: JSON object
+- `shipping_cost`, `addons_subtotal`, `total`: numeric
+- `payment_status`: pending -> card_saved/succeeded (after Stripe confirmation)
+- `paid`: 0 (unpaid) or 1 (paid)
+
+## Item Flags in `new_addons` JSON
+
+| Flag | Meaning | Price |
+|------|---------|-------|
+| `isPaidKickstarterPledge` | Paid backer's pledge | $0 |
+| `isKickstarterAddon` + `isOriginalAddon` | Paid backer's KS addon | $0 |
+| `isOriginalPledge` | Dropped backer's pledge | amount_due or full |
+| `isOriginalAddon` (without `isKickstarterAddon`) | Dropped backer's KS addon | backer price |
+| `isPledgeUpgrade` | Upgrade to higher tier | difference |
+| `isDroppedBackerPledge` | Dropped backer completing pledge | full backer price |
+| (no flag, has `id`) | Regular platform add-on | backer or retail price |
+
+## Pricing
+
+### Price Sources
+- Backer price: `backer_price` column in `products`/`addons` tables
+- Retail price: `price` column
+- `/api/products` returns backer prices if user is backer AND `is_late_pledge != 1`
+- `validateCartPrices()` re-fetches from DB; items with `isOriginalAddon`/`isOriginalPledge`/`isPaidKickstarterPledge`/`isPledgeUpgrade` skip DB lookup
+
+### KS Addon Key Formats (in `users.kickstarter_addons`)
+Short keys: `pendant`, `audiobook_addon`, `audiobook`, `built_env_addon`, `built_env`, `lorebook_addon`, `lorebook`
+Full names: `"Flitt Locust Pendant"`, `"MAYA Lorebook"`, `"MAYA: Seed Takes Root Audiobook"`
+Values: integer (`1`, `2`) or object (`{"quantity": 1}`)
+
+### KS Addon Name Mapping
+- `pendant` / `Flitt Locust Pendant` -> "Flitt Locust Pendant"
+- `audiobook_addon` / `audiobook` -> "MAYA: Seed Takes Root Audiobook"
+- `built_env_addon` / `built_env` -> "Built Environments of MAYA Hardcover"
+- `lorebook_addon` / `lorebook` -> "MAYA Lorebook"
+
+## Shipping
+
+### Calculation
+- `calculateShipping(country, cartItems)` in `utils/helpers.js`
+- Zone resolved from country via `resolveZone()` in `config/shipping-rates.js`
+- Pledge tier: matched by name, rate per zone
+- Addons matched by name substring: "built environments", "lorebook", "paperback", "hardcover"
+- Audiobook: no shipping (digital)
+- Pendant: no shipping rate defined
+
+### Where Shipping Is Calculated
+- Frontend: `shipping.html` calls `/api/calculate-shipping` with local cart (including injected KS items)
+- Backend: `/api/calculate-shipping` uses `calculateShipping()` on submitted cart
+- Backend: server trusts frontend's `shippingCost` in `/api/create-payment-intent` (not re-validated)
+
+### Shipping State Persistence
+- Stored in `sessionStorage.shippingCost` after calculation
+- Must be restored on back navigation (not reset to $0)
+- Must be recalculated if country is already selected on page load
+
+## Navigation Guards
+
+### Completed Order Check
+All checkout flow pages check `/api/user/completed-order` on load:
+- `store.html`: inside `checkIfBacker()` for logged-in users
+- `addons.html`: `checkExistingOrder()` before `loadUserData()`
+- `shipping.html`: `checkExistingOrder()` before `checkUserStatus()`
+- `checkout.html`: `checkExistingOrder()` before Stripe init
+
+On completed order: clear sessionStorage (`cart`, `shippingAddress`, `shippingCost`), redirect to `/dashboard`.
+
+### Back Button Handling
+- `checkout.html`: `pageshow` event -> `checkExistingOrder()` on bfcache restore
+- `shipping.html`: `pageshow` event -> recalculate shipping if country selected
+
+## Admin Panel
+
+### Authentication
+- `POST /admin/login` with email + password (bcrypt)
+- Session: `adminId`, `adminEmail`
+- `requireAdmin` middleware on all admin routes
+
+### Order Management
+- View all orders with user info
+- View single order details (parsed JSON fields)
+- Charge single saved card: creates PaymentIntent with `off_session: true, confirm: true`
+- Bulk charge: all `card_saved` orders with Stripe IDs
+- Both send success/failure emails and log to `email_logs`
+
+### Admin Create Order (`POST /api/admin/create-order`)
+- Resolve user by `backerNumber` or `userId`
+- Process cart items with correct flags
+- Validate prices via `validateCartPrices()`
+- Calculate shipping via `calculateShipping()`
+- Upsert: update existing or insert new
+- Optional: send confirmation email
+
+### Comped Items
+- Free items added to orders via `PUT /api/admin/orders/:id/comped-items`
+- All comped items: `price: 0`, `weight: 0`, `excludeFromShipping: true`
+
+### Export
+- CSV download of orders with all fields
+
+## Ebook Delivery
+
+### Access Control
+- `requireAuth` + `requireCustomer`
+- Customer = eligible backer (not dropped) OR has order with `paid=1` or `payment_status='card_saved'`
+- Dropped backers: no access until checkout complete
+
+### Downloads
+- Formats: PDF, PDF (compressed), EPUB, Dictionary (MOBI)
+- Presigned S3 URLs via `ebookService.getPresignedDownloadUrl()`
+- TTL: 30-3600 seconds (default 300)
+- Download events logged to `ebook.download_events`
