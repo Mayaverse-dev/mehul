@@ -12,6 +12,7 @@ const path = require('path');
 const cron = require('node-cron');
 const emailService = require('./services/emailService');
 const ebookService = require('./services/ebookService');
+const { syncUserAudiences } = require('./services/audienceService');
 const { runBackup } = require('./scripts/backup-database');
 
 // Database module
@@ -1518,6 +1519,7 @@ app.post('/api/save-payment-method', async (req, res) => {
                     resendMessageId: emailResult.messageId || null,
                     errorMessage: emailResult.error || null
                 });
+                syncUserAudiences(order.user_id).catch(() => {});
             }
         } catch (emailError) {
             console.error('⚠️  Failed to send confirmation email:', emailError.message);
@@ -1858,6 +1860,7 @@ app.post('/api/guest/save-payment-method', async (req, res) => {
                     resendMessageId: emailResult.messageId || null,
                     errorMessage: emailResult.error || null
                 });
+                syncUserAudiences(fullOrder.user_id).catch(() => {});
             }
         } catch (emailError) {
             console.error('⚠️  Failed to send confirmation email:', emailError.message);

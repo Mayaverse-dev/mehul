@@ -251,6 +251,37 @@ On completed order: clear sessionStorage (`cart`, `shippingAddress`, `shippingCo
 ### Export
 - CSV download of orders with all fields
 
+## Email Segments (Mail Service)
+
+Eight segments managed via the proprietary mail service, kept live via `syncUserAudiences(userId)` in `services/audienceService.js`. Classification logic in `utils/classifyUser.js`. Categories are NOT mutually exclusive.
+
+| Segment | Condition |
+|---------|-----------|
+| Dropped | `pledged_status = 'dropped'` AND no completed order |
+| Dropped-to-Paid | `pledged_status = 'dropped'` AND has completed order (mutually exclusive with Dropped) |
+| Regular | Backer with `pledged_status != 'dropped'` and `is_late_pledge != 1` |
+| Late Backer | `is_late_pledge = 1` |
+| Shipping Paid | Order with `paid = 1` OR `payment_status IN ('card_saved','charged','succeeded')` — i.e. anyone who completed checkout |
+| Unpaid Shipping | Backer/late-pledger without a shipping-paid order |
+| Add-ons Bought | Has KS addons (`users.kickstarter_addons` non-empty) OR platform add-ons in `orders.new_addons` |
+| Upgraded | Has item with `isPledgeUpgrade: true` in `orders.new_addons` |
+
+### Sync Trigger Points
+- `POST /api/save-payment-method` (server.js) — after backer/Indian checkout
+- `POST /api/guest/save-payment-method` (server.js) — after guest checkout
+- `POST /api/admin/bulk-charge-orders` (routes/admin.js) — after each successful charge
+- `POST /api/admin/charge-order/:orderId` (routes/admin.js) — after single charge
+- `POST /api/admin/create-order` (routes/admin.js) — after admin creates/updates order
+
+### Configuration
+Segment IDs are hardcoded in `services/audienceService.js`. Requires `MAIL_SERVICE_URL` env var (e.g. `http://localhost:8000` for local, production URL for prod). If absent, `syncUserAudiences()` is a no-op. Diff-based: only adds/removes segments that actually changed. No rate limit — all operations fire in parallel.
+
+### Authentication (Prod)
+In production, the mail service requires JWT auth via `Authorization: Bearer <token>` signed with `SHARED_JWT_SECRET` (HS256). Not required for local testing.
+
+### CSV Export
+`node utility/export-email-segments.js` — exports all 8 segments as CSVs to `utility/exports/`.
+
 ## Ebook Delivery
 
 ### Access Control
