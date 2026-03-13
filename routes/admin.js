@@ -13,6 +13,7 @@ const { query, queryOne, execute, isPostgres } = require('../config/database');
 const { requireAdmin } = require('../middleware/auth');
 const { logEmail, calculateShipping, validateCartPrices, isBackerByUserId } = require('../utils/helpers');
 const emailService = require('../services/emailService');
+const { syncUserAudiences } = require('../services/audienceService');
 
 // Admin login page
 router.get('/login', (req, res) => {
@@ -383,6 +384,7 @@ router.post('/bulk-charge-orders', requireAdmin, async (req, res) => {
                 });
 
                 console.log(`  ✓ Order #${order.id} charged successfully`);
+                syncUserAudiences(order.user_id).catch(() => {});
 
                 // Send payment successful email
                 try {
@@ -539,6 +541,8 @@ router.post('/charge-order/:orderId', requireAdmin, async (req, res) => {
                 WHERE id = $2`, 
                 [paymentIntent.id, orderId]);
             
+            syncUserAudiences(order.user_id).catch(() => {});
+
             // Send payment successful email
             try {
                 const shippingAddress = typeof order.shipping_address === 'string' 
@@ -757,6 +761,8 @@ router.post('/create-order', requireAdmin, async (req, res) => {
             orderId = newOrder.id;
             console.log(`✓ Created new order #${orderId}`);
         }
+
+        syncUserAudiences(user.id).catch(() => {});
 
         // Optionally send confirmation email
         if (sendEmail) {

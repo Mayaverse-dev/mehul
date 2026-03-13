@@ -1358,12 +1358,20 @@
                     const addonNameMap = {
                         'pendant': { name: 'Flitt Locust Pendant', price: 15 },
                         'audiobook_addon': { name: 'MAYA: Seed Takes Root Audiobook', price: 20 },
+                        'audiobook': { name: 'MAYA: Seed Takes Root Audiobook', price: 20 },
                         'built_env_addon': { name: 'Built Environments of MAYA Hardcover', price: 25 },
-                        'lorebook_addon': { name: 'MAYA Lorebook', price: 25 }
+                        'built_env': { name: 'Built Environments of MAYA Hardcover', price: 25 },
+                        'lorebook_addon': { name: 'MAYA Lorebook', price: 25 },
+                        'lorebook': { name: 'MAYA Lorebook', price: 25 },
+                        'Flitt Locust Pendant': { name: 'Flitt Locust Pendant', price: 15 },
+                        'MAYA: Seed Takes Root Audiobook': { name: 'MAYA: Seed Takes Root Audiobook', price: 20 },
+                        'Built Environments of MAYA Hardcover': { name: 'Built Environments of MAYA Hardcover', price: 25 },
+                        'MAYA Lorebook': { name: 'MAYA Lorebook', price: 25 }
                     };
                     
                     for (const [key, addonInfo] of Object.entries(addonNameMap)) {
-                        const quantity = addons[key] || 0;
+                        const rawQty = addons[key];
+                        const quantity = (typeof rawQty === 'object' ? (rawQty?.quantity || 0) : rawQty) || 0;
                         if (quantity > 0) {
                             const addonId = 'original-addon-' + userData.backerNumber + '-' + key;
                             const addonInCart = cart.find(item => item.id === addonId);
