@@ -434,6 +434,7 @@
         </div>
     </div>
 
+    <script src="/js/tier-items.js"></script>
     <script>
         let cart = JSON.parse(sessionStorage.getItem('cart')) || [];
         let userData = null;
@@ -485,20 +486,7 @@
             cartItemsContainer.innerHTML = '';
             
             let total = 0;
-            const itemNames = {
-                ebook: 'MAYA : Seed Takes Root e-book (Edition Zero)',
-                paperback: 'MAYA : Seed Takes Root Paperback (Edition Zero)',
-                audiobook: 'MAYA : Seed Takes Root Audiobook (Narrated by Hugo Weaving)',
-                hardcover: 'MAYA : Seed Takes Root Hardcover (Edition Zero)',
-                book2_hardcover: 'MAYA : Whispers In The Soil | Book 2 Hardcover',
-                book3_hardcover: 'MAYA : It Becomes The Forest | Book 3 Hardcover',
-                book2_live: 'MAYA : Whispers In The Soil | Book 2 Live Access',
-                book3_live: 'MAYA : It Becomes The Forest | Book 3 Live Access',
-                lorebook: 'MAYA Lore : It\'s Species And Their Cultures (Edition Zero)',
-                built_env: 'Built Environments of MAYA Hardcover (Phase 1 & 2)',
-                pendant: 'Flitt Locust Pendant',
-                art_book: 'Limited Edition MAYA Art Book'
-            };
+            const itemNames = window.TierItems.ITEM_NAMES;
 
             // Check if user is a Kickstarter backer (only if logged in)
             const isKickstarterBacker = userData && userData.backerNumber != null;
@@ -556,12 +544,7 @@
                 const kickstarterAddonItems = [];
                 let kickstarterAddonsTotal = 0;
                 
-                for (const [key, name] of Object.entries({
-                    pendant: 'Flitt Locust Pendant',
-                    audiobook_addon: 'MAYA: Seed Takes Root Audiobook',
-                    built_env_addon: 'Built Environments of MAYA Hardcover',
-                    lorebook_addon: 'MAYA Lorebook'
-                })) {
+                for (const [key, name] of Object.entries(window.TierItems.ADDON_NAMES_SHORT)) {
                     const quantity = addons[key] || 0;
                     if (quantity > 0) {
                         kickstarterAddonItems.push(`${quantity} x ${name}`);

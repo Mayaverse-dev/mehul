@@ -68,28 +68,7 @@ console.log('📂 Reading CSV file:', csvFilePath);
 // Static placeholder for legacy password column (not used - we use PIN/OTP auth)
 const PLACEHOLDER_PASSWORD = 'not_used_pin_auth_only';
 
-// Item name mappings (adjust these based on your actual Kickstarter CSV column names)
-const itemColumns = {
-    'MAYA : Seed Takes Root ebook (Edition Zero)': 'ebook',
-    'MAYA : Seed Takes Root Paperback (Edition Zero)': 'paperback',
-    'MAYA : Seed Takes Root Audiobook (Narrated by Hugo Weaving)': 'audiobook',
-    'MAYA : Seed Takes Root Hardcover (Edition Zero)': 'hardcover',
-    'MAYA : Whispers In The Soil | Book 2 Hardcover': 'book2_hardcover',
-    'MAYA : It Becomes The Forest | Book 3 Hardcover': 'book3_hardcover',
-    'MAYA Lore : It\'s Species And Their Cultures (Edition Zero)': 'lorebook',
-    'Built Environments of MAYA Hardcover (Phase 1 & 2)': 'built_env',
-    'Flitt Locust Pendant': 'pendant',
-    'Limited Edition MAYA Art Book': 'art_book',
-    'MAYA : Whispers In The Soil | Book 2 Live Access': 'book2_live',
-    'MAYA : It Becomes The Forest | Book 3 Live Access': 'book3_live'
-};
-
-const addonColumns = {
-    '[Addon: 10750435] Flitt Locust Pendant': 'pendant',
-    '[Addon: 10750413] MAYA: Seed Takes Root Audiobook': 'audiobook_addon',
-    '[Addon: 10753939] Built Environments of MAYA Hardcover': 'built_env_addon',
-    '[Addon: 10753941] MAYA Lorebook': 'lorebook_addon'
-};
+const { CSV_ITEM_COLUMNS: itemColumns, CSV_ADDON_COLUMNS: addonColumns } = require('../config/tier-items');
 
 // Parse CSV and import data
 let importedCount = 0;

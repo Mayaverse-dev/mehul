@@ -12,28 +12,13 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL || 'postgresql://postgres:hSLlXKyfXiMsDHcGqCmcSXJXdrxJqnIJ@caboose.proxy.rlwy.net:49852/railway'
 });
 
-// Column mappings from CSV to our internal keys
-const ADDON_COLUMNS = {
-    '[Addon: 10750435] Flitt Locust Pendant': 'pendant',
-    '[Addon: 10750413] MAYA: Seed Takes Root Audiobook': 'audiobook',
-    '[Addon: 10753939] Built Environments of MAYA Hardcover': 'built_env',
-    '[Addon: 10753941] MAYA Lorebook': 'lorebook'
-};
+const { CSV_ITEM_COLUMNS: ITEM_COLUMNS, CSV_ADDON_COLUMNS } = require('../config/tier-items');
 
-const ITEM_COLUMNS = {
-    'MAYA : Seed Takes Root ebook (Edition Zero)': 'ebook',
-    'MAYA : Seed Takes Root Paperback (Edition Zero)': 'paperback',
-    'MAYA : Seed Takes Root Audiobook (Narrated by Hugo Weaving)': 'audiobook',
-    'MAYA : Seed Takes Root Hardcover (Edition Zero)': 'hardcover',
-    'MAYA : Whispers In The Soil | Book 2 Live Access': 'book2_live',
-    'MAYA : It Becomes The Forest | Book 3 Live Access': 'book3_live',
-    'MAYA : Whispers In The Soil | Book 2 Hardcover': 'book2_hardcover',
-    'MAYA : It Becomes The Forest | Book 3 Hardcover': 'book3_hardcover',
-    'MAYA Lore : It\'s Species And Their Cultures (Edition Zero)': 'lorebook',
-    'Built Environments of MAYA Hardcover (Phase 1 & 2)': 'built_env',
-    'Flitt Locust Pendant': 'pendant',
-    'Limited Edition MAYA Art Book': 'art_book'
-};
+// Late backers CSV uses slightly different addon key format (no _addon suffix)
+const ADDON_COLUMNS = {};
+for (const [csvCol, key] of Object.entries(CSV_ADDON_COLUMNS)) {
+    ADDON_COLUMNS[csvCol] = key.replace(/_addon$/, '');
+}
 
 async function updateLateBackers() {
     const csvPath = path.join(__dirname, '..', 'late-backers.csv');

@@ -315,11 +315,113 @@ async function initializeDatabase() {
             console.warn('⚠️  Glossary feedback table setup skipped:', err.message);
         }
 
+        // Reference lookup tables (tier items + country zones)
+        await execute(`CREATE TABLE IF NOT EXISTS tier_items (
+            tier_name TEXT NOT NULL,
+            item_key  TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            PRIMARY KEY (tier_name, item_key)
+        )`);
+
+        await execute(`CREATE TABLE IF NOT EXISTS country_zones (
+            country_variant TEXT PRIMARY KEY,
+            zone            TEXT NOT NULL
+        )`);
+
+        await seedReferenceTables();
+        console.log('✓ Reference lookup tables ready');
+
         // Create default admin
         await createDefaultAdmin();
         
     } catch (err) {
         console.error('Error initializing database:', err);
+    }
+}
+
+// Seed tier_items and country_zones from application config
+async function seedReferenceTables() {
+    const { TIER_ITEMS, ITEM_NAMES } = require('./tier-items');
+    const { resolveZone } = require('./shipping-rates');
+
+    // -- tier_items: upsert every tier→item row --
+    for (const [tierName, itemKeys] of Object.entries(TIER_ITEMS)) {
+        for (const key of itemKeys) {
+            const displayName = ITEM_NAMES[key] || key;
+            if (isPostgres) {
+                await execute(
+                    `INSERT INTO tier_items (tier_name, item_key, item_name)
+                     VALUES ($1, $2, $3)
+                     ON CONFLICT (tier_name, item_key) DO UPDATE SET item_name = $3`,
+                    [tierName, key, displayName]
+                );
+            } else {
+                await execute(
+                    `INSERT OR REPLACE INTO tier_items (tier_name, item_key, item_name)
+                     VALUES ($1, $2, $3)`,
+                    [tierName, key, displayName]
+                );
+            }
+        }
+    }
+
+    // -- country_zones: build full variant→zone map and upsert --
+    // Collect all country variants that shipping-rates.js knows about
+    const variants = new Map();
+
+    // Direct country names
+    const directMappings = [
+        ['United States', 'USA'], ['US', 'USA'], ['USA', 'USA'],
+        ['Canada', 'CANADA'], ['Mexico', 'MEXICO'],
+        ['United Kingdom', 'UK'], ['UK', 'UK'], ['Great Britain', 'UK'], ['GB', 'UK'], ['England', 'UK'],
+        ['Australia', 'AUSTRALIA'], ['Austraila', 'AUSTRALIA'],
+        ['New Zealand', 'NEW ZEALAND'],
+        ['China', 'CHINA / HONG KONG'], ['Hong Kong', 'CHINA / HONG KONG'], ['China/ Hong Kong', 'CHINA / HONG KONG'],
+        ['India', 'INDIA'], ['IN', 'INDIA'],
+        ['UAE', 'ASIA'], ['Korea', 'ASIA'], ['South Korea', 'ASIA'], ['Republic of Korea', 'ASIA']
+    ];
+    for (const [name, zone] of directMappings) {
+        variants.set(name, zone);
+    }
+
+    // EU zones
+    const euZones = {
+        'EU-1': ['Austria','Belgium','Czech Republic','Denmark','France','Germany','Hungary','Ireland','Luxembourg','Netherlands','Poland','Portugal','Slovakia','Spain'],
+        'EU-2': ['Bulgaria','Croatia','Estonia','Finland','Greece','Italy','Latvia','Lithuania','Romania','Slovenia','Sweden'],
+        'EU-3': ['Malta','Monaco','Norway','San Marino','Switzerland','Andorra','Cyprus','Serbia','Turkey','Gibraltar']
+    };
+    for (const [zone, countries] of Object.entries(euZones)) {
+        for (const c of countries) variants.set(c, zone);
+    }
+
+    // Asia countries
+    const asiaCountries = [
+        'United Arab Emirates','Afghanistan','Armenia','Azerbaijan','Bangladesh',
+        'Bahrain','Brunei','Bhutan','Georgia','Indonesia','Israel','Iraq',
+        'Iran','Jordan','Japan','Kyrgyzstan','Cambodia','North Korea',
+        'South Korea','Kuwait','Kazakhstan','Laos','Lebanon','Sri Lanka',
+        'Myanmar','Mongolia','Maldives','Malaysia','Nepal','Oman',
+        'Philippines','Pakistan','Palestine','Qatar','Saudi Arabia',
+        'Singapore','Syria','Thailand','Tajikistan','Timor-Leste',
+        'Turkmenistan','Uzbekistan','Vietnam','Yemen'
+    ];
+    for (const c of asiaCountries) variants.set(c, 'ASIA');
+
+    for (const [country, zone] of variants) {
+        if (isPostgres) {
+            await execute(
+                `INSERT INTO country_zones (country_variant, zone)
+                 VALUES ($1, $2)
+                 ON CONFLICT (country_variant) DO UPDATE SET zone = $2`,
+                [country, zone]
+            );
+        } else {
+            await execute(
+                `INSERT OR REPLACE INTO country_zones (country_variant, zone)
+                 VALUES ($1, $2)`,
+                [country, zone]
+            );
+        }
     }
 }
 

@@ -28,6 +28,7 @@ const {
     isBacker, isBackerFromSession, isBackerByUserId, isEligibleBackerByUserId, isDroppedBackerByUserId, isCustomerByUserId,
     logEmail, calculateShipping, validateCartPrices
 } = require('./utils/helpers');
+const { ADDON_NAME_MAP } = require('./config/tier-items');
 
 // Routes
 const adminRoutes = require('./routes/admin');
@@ -1071,21 +1072,8 @@ app.post('/api/create-payment-intent', async (req, res) => {
                 const ksUser = await queryOne('SELECT kickstarter_addons FROM users WHERE id = $1', [userId]);
                 if (ksUser && ksUser.kickstarter_addons) {
                     const ksAddons = JSON.parse(ksUser.kickstarter_addons);
-                    const addonNameMap = {
-                        'pendant': 'Flitt Locust Pendant',
-                        'audiobook_addon': 'MAYA: Seed Takes Root Audiobook',
-                        'audiobook': 'MAYA: Seed Takes Root Audiobook',
-                        'built_env_addon': 'Built Environments of MAYA Hardcover',
-                        'built_env': 'Built Environments of MAYA Hardcover',
-                        'lorebook_addon': 'MAYA Lorebook',
-                        'lorebook': 'MAYA Lorebook',
-                        'Flitt Locust Pendant': 'Flitt Locust Pendant',
-                        'MAYA: Seed Takes Root Audiobook': 'MAYA: Seed Takes Root Audiobook',
-                        'Built Environments of MAYA Hardcover': 'Built Environments of MAYA Hardcover',
-                        'MAYA Lorebook': 'MAYA Lorebook'
-                    };
                     for (const [key, value] of Object.entries(ksAddons)) {
-                        const name = addonNameMap[key] || key;
+                        const name = ADDON_NAME_MAP[key] || key;
                         const qty = (typeof value === 'object' ? value.quantity : value) || 1;
                         if (qty > 0) {
                             cartItems.push({
