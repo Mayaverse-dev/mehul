@@ -579,6 +579,7 @@
         <a href="/addons" class="back-link">< Back to shopping cart</a>
     </div>
 
+    <script src="/js/tier-items.js"></script>
     <script>
         let isBacker = false;
         let userData = null; // Store user data for shipping calculation
@@ -681,15 +682,7 @@
 
                     // Include KS add-ons for shipping calculation (physical items affect shipping)
                     const ksAddons = userData.kickstarter_addons || {};
-                    const ksAddonNameMap = {
-                        'pendant': 'Flitt Locust Pendant',
-                        'audiobook_addon': 'MAYA: Seed Takes Root Audiobook',
-                        'audiobook': 'MAYA: Seed Takes Root Audiobook',
-                        'built_env_addon': 'Built Environments of MAYA Hardcover',
-                        'built_env': 'Built Environments of MAYA Hardcover',
-                        'lorebook_addon': 'MAYA Lorebook',
-                        'lorebook': 'MAYA Lorebook'
-                    };
+                    const ksAddonNameMap = window.TierItems.ADDON_NAME_MAP;
                     for (const [key, value] of Object.entries(ksAddons)) {
                         const name = ksAddonNameMap[key] || key;
                         const qty = (typeof value === 'object' ? value.quantity : value) || 0;
