@@ -536,6 +536,7 @@
                 elements = stripe.elements();
                 
                 cardElement = elements.create('card', {
+                    hidePostalCode: true,
                     style: {
                         base: {
                             fontSize: '16px',
